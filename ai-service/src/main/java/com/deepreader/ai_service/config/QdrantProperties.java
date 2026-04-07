@@ -2,6 +2,7 @@ package com.deepreader.ai_service.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
+
 @Configuration
 @ConfigurationProperties(prefix = "deepreader.qdrant")
 public class QdrantProperties {
@@ -12,6 +13,7 @@ public class QdrantProperties {
 	private boolean useTls = true;
 	private String collection = "document_chunks";
 	private long timeoutSeconds = 5;
+	private long vectorSize = 128;
 
 	public String getHost() {
 		return host;
@@ -59,5 +61,13 @@ public class QdrantProperties {
 
 	public void setTimeoutSeconds(long timeoutSeconds) {
 		this.timeoutSeconds = timeoutSeconds;
+	}
+
+	public long getVectorSize() {
+		return vectorSize;
+	}
+
+	public void setVectorSize(long vectorSize) {
+		this.vectorSize = vectorSize;
 	}
 }

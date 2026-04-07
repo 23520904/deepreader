@@ -1,0 +1,12 @@
+package com.deepreader.ai_service.model;
+
+import java.util.List;
+
+public record IngestionResult(
+		String documentId,
+		String fileName,
+		int chunkCount,
+		List<String> chunkIds,
+		String collectionName
+) {
+}
