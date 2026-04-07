@@ -36,7 +36,7 @@ public class DocumentIngestionController {
 	}
 
 	@PostMapping(value = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public SearchResponse searchDocuments(@RequestBody SearchRequest request) {
+	public Mono<SearchResponse> searchDocuments(@RequestBody SearchRequest request) {
 		return retrievalService.search(request.query(), request.limit());
 	}
 

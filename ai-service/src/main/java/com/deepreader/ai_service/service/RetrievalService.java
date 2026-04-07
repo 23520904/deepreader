@@ -4,6 +4,8 @@ import com.deepreader.ai_service.model.RetrievedChunk;
 import com.deepreader.ai_service.model.SearchResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 
@@ -21,16 +23,18 @@ public class RetrievalService {
 		this.qdrantVectorStoreService = qdrantVectorStoreService;
 	}
 
-	public SearchResponse search(String query, Integer requestedLimit) {
-		if (!StringUtils.hasText(query)) {
-			throw new IllegalArgumentException("Query must not be blank");
-		}
+	public Mono<SearchResponse> search(String query, Integer requestedLimit) {
+		return Mono.fromCallable(() -> {
+			if (!StringUtils.hasText(query)) {
+				throw new IllegalArgumentException("Query must not be blank");
+			}
 
-		int limit = normalizeLimit(requestedLimit);
-		List<Float> queryVector = embeddingService.embed(query);
-		List<RetrievedChunk> matches = qdrantVectorStoreService.search(queryVector, limit);
+			int limit = normalizeLimit(requestedLimit);
+			List<Float> queryVector = embeddingService.embed(query);
+			List<RetrievedChunk> matches = qdrantVectorStoreService.search(queryVector, limit);
 
-		return new SearchResponse(query, limit, matches);
+			return new SearchResponse(query, limit, matches);
+		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
 	private int normalizeLimit(Integer requestedLimit) {
