@@ -14,12 +14,15 @@ import org.springframework.stereotype.Service;
 
 import com.deepreader.ai_service.config.QdrantProperties;
 import com.deepreader.ai_service.model.DocumentChunk;
+import com.deepreader.ai_service.model.RetrievedChunk;
 
 import io.qdrant.client.PointIdFactory;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.ValueFactory;
 import io.qdrant.client.VectorsFactory;
+import io.qdrant.client.WithPayloadSelectorFactory;
 import io.qdrant.client.grpc.Collections;
+import io.qdrant.client.grpc.JsonWithInt;
 import io.qdrant.client.grpc.Points;
 
 @Service
@@ -71,6 +74,19 @@ public class QdrantVectorStoreService {
 						Duration.ofSeconds(qdrantProperties.getTimeoutSeconds())
 				).get();
 				log.info("Created Qdrant collection '{}'", collectionName);
+			} else {
+				Collections.CollectionInfo collectionInfo = qdrantClient.getCollectionInfoAsync(
+						collectionName,
+						Duration.ofSeconds(qdrantProperties.getTimeoutSeconds())
+				).get();
+				long existingVectorSize = collectionInfo.getConfig().getParams().getVectorsConfig().getParams().getSize();
+				if (existingVectorSize != qdrantProperties.getVectorSize()) {
+					throw new IllegalStateException(
+							"Qdrant collection '" + collectionName + "' has vector size " + existingVectorSize
+								+ " but current embedding configuration uses " + qdrantProperties.getVectorSize()
+								+ ". Delete and recreate the collection, or set QDRANT_VECTOR_SIZE to match the existing collection."
+					);
+				}
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
@@ -81,11 +97,15 @@ public class QdrantVectorStoreService {
 	}
 
 	@SuppressWarnings("null")
-	public void upsertChunks(List<DocumentChunk> chunks, EmbeddingService embeddingService) {
+	public void upsertChunks(List<DocumentChunk> chunks, List<List<Float>> embeddings) {
 		String collectionName = requireCollectionName();
-		List<Points.PointStruct> points = chunks.stream()
-				.map(chunk -> toPoint(chunk, embeddingService.embed(chunk.content())))
-				.toList();
+		if (chunks.size() != embeddings.size()) {
+			throw new IllegalArgumentException("Chunks count must match embeddings count");
+		}
+		List<Points.PointStruct> points = new java.util.ArrayList<>(chunks.size());
+		for (int i = 0; i < chunks.size(); i++) {
+			points.add(toPoint(chunks.get(i), embeddings.get(i)));
+		}
 
 		try {
 			qdrantClient.upsertAsync(
@@ -99,6 +119,31 @@ public class QdrantVectorStoreService {
 			throw new IllegalStateException("Qdrant upsert was interrupted", e);
 		} catch (ExecutionException e) {
 			throw new IllegalStateException("Failed to upsert chunk vectors to Qdrant", e.getCause());
+		}
+	}
+
+	@SuppressWarnings("null")
+	public List<RetrievedChunk> search(List<Float> queryVector, int limit) {
+		String collectionName = requireCollectionName();
+		try {
+			Points.SearchPoints request = Points.SearchPoints.newBuilder()
+					.setCollectionName(collectionName)
+					.addAllVector(Objects.requireNonNull(queryVector, "queryVector must not be null"))
+					.setLimit(limit)
+					.setWithPayload(WithPayloadSelectorFactory.enable(true))
+					.build();
+
+			List<Points.ScoredPoint> points = qdrantClient.searchAsync(
+					request,
+					Duration.ofSeconds(qdrantProperties.getTimeoutSeconds())
+			).get();
+
+			return points.stream().map(this::toRetrievedChunk).toList();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new IllegalStateException("Qdrant search was interrupted", e);
+		} catch (ExecutionException e) {
+			throw new IllegalStateException("Failed to search chunk vectors in Qdrant", e.getCause());
 		}
 	}
 
@@ -117,6 +162,40 @@ public class QdrantVectorStoreService {
 				.putAllPayload(payload)
 				.setVectors(VectorsFactory.vectors(Objects.requireNonNull(vector, "vector must not be null")))
 				.build();
+	}
+
+	private RetrievedChunk toRetrievedChunk(Points.ScoredPoint scoredPoint) {
+		Map<String, JsonWithInt.Value> payload = scoredPoint.getPayloadMap();
+		return new RetrievedChunk(
+				readString(payload, "documentId"),
+				readString(payload, "chunkId"),
+				readString(payload, "fileName"),
+				readInteger(payload, "chunkIndex"),
+				readString(payload, "content"),
+				scoredPoint.getScore()
+		);
+	}
+
+	private String readString(Map<String, JsonWithInt.Value> payload, String key) {
+		JsonWithInt.Value value = payload.get(key);
+		if (value == null || !value.hasStringValue()) {
+			return null;
+		}
+		return value.getStringValue();
+	}
+
+	private Integer readInteger(Map<String, JsonWithInt.Value> payload, String key) {
+		JsonWithInt.Value value = payload.get(key);
+		if (value == null) {
+			return null;
+		}
+		if (value.hasIntegerValue()) {
+			return Math.toIntExact(value.getIntegerValue());
+		}
+		if (value.hasDoubleValue()) {
+			return (int) value.getDoubleValue();
+		}
+		return null;
 	}
 
 	private String requireCollectionName() {

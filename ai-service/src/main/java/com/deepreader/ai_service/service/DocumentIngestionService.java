@@ -65,8 +65,9 @@ public class DocumentIngestionService {
 			throw new IllegalStateException("No chunks were produced for PDF: " + fileName);
 		}
 
+		List<List<Float>> embeddings = embeddingService.embedAll(chunks.stream().map(DocumentChunk::content).toList());
 		qdrantVectorStoreService.createCollectionIfNotExists();
-		qdrantVectorStoreService.upsertChunks(chunks, embeddingService);
+		qdrantVectorStoreService.upsertChunks(chunks, embeddings);
 
 		return new IngestionResult(
 				documentId,
