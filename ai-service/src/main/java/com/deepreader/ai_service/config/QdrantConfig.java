@@ -22,7 +22,8 @@ public class QdrantConfig {
 		QdrantGrpcClient.Builder builder = QdrantGrpcClient.newBuilder(
 			host,
 			properties.getGrpcPort(),
-			properties.isUseTls()
+			properties.isUseTls(),
+			false
 		);
 
 		if (StringUtils.hasText(properties.getApiKey())) {

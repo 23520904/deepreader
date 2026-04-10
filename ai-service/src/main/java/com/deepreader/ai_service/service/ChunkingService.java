@@ -1,6 +1,7 @@
 package com.deepreader.ai_service.service;
 
 import com.deepreader.ai_service.model.DocumentChunk;
+import com.deepreader.ai_service.model.DocumentSection;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -13,33 +14,35 @@ public class ChunkingService {
 	private static final int DEFAULT_CHUNK_SIZE = 1000;
 	private static final int DEFAULT_OVERLAP = 150;
 
-	public List<DocumentChunk> chunkDocument(String documentId, String fileName, String text) {
-		String normalized = normalize(text);
-		if (normalized.isBlank()) {
-			return List.of();
-		}
-
+	public List<DocumentChunk> chunkDocument(String documentId, String fileName, List<DocumentSection> sections) {
 		List<DocumentChunk> chunks = new ArrayList<>();
-		int start = 0;
 		int index = 0;
 
-		while (start < normalized.length()) {
-			int end = Math.min(start + DEFAULT_CHUNK_SIZE, normalized.length());
-			String chunk = normalized.substring(start, end).trim();
-			if (!chunk.isEmpty()) {
-				chunks.add(new DocumentChunk(
-					UUID.randomUUID().toString(),
-					documentId,
-					fileName,
-					index++,
-					chunk
-				));
+		for (DocumentSection section : sections) {
+			String normalized = normalize(section.content());
+			if (normalized.isBlank()) {
+				continue;
 			}
-
-			if (end >= normalized.length()) {
-				break;
+			int start = 0;
+			while (start < normalized.length()) {
+				int end = Math.min(start + DEFAULT_CHUNK_SIZE, normalized.length());
+				String chunk = normalized.substring(start, end).trim();
+				if (!chunk.isEmpty()) {
+					chunks.add(new DocumentChunk(
+						UUID.randomUUID().toString(),
+						documentId,
+						fileName,
+						section.sectionId(),
+						section.title(),
+						index++,
+						chunk
+					));
+				}
+				if (end >= normalized.length()) {
+					break;
+				}
+				start = Math.max(0, end - DEFAULT_OVERLAP);
 			}
-			start = Math.max(0, end - DEFAULT_OVERLAP);
 		}
 
 		return chunks;

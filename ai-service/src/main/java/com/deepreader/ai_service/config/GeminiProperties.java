@@ -9,6 +9,7 @@ public class GeminiProperties {
 	private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
 	private String embeddingModel = "gemini-embedding-001";
 	private Integer embeddingDimensions = 768;
+	private String generationModel = "gemini-2.0-flash";
 
 	public String getApiKey() {
 		return apiKey;
@@ -40,5 +41,13 @@ public class GeminiProperties {
 
 	public void setEmbeddingDimensions(Integer embeddingDimensions) {
 		this.embeddingDimensions = embeddingDimensions;
+	}
+
+	public String getGenerationModel() {
+		return generationModel;
+	}
+
+	public void setGenerationModel(String generationModel) {
+		this.generationModel = generationModel;
 	}
 }

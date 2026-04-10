@@ -9,9 +9,8 @@ public class QdrantProperties {
 	private int grpcPort = 6334;
 	private String apiKey;
 	private boolean useTls = true;
-	private String collection = "document_chunks";
+	private String collectionPrefix = "document_chunks";
 	private long timeoutSeconds = 5;
-	private long vectorSize = 128;
 
 	public String getHost() {
 		return host;
@@ -45,12 +44,12 @@ public class QdrantProperties {
 		this.useTls = useTls;
 	}
 
-	public String getCollection() {
-		return collection;
+	public String getCollectionPrefix() {
+		return collectionPrefix;
 	}
 
-	public void setCollection(String collection) {
-		this.collection = collection;
+	public void setCollectionPrefix(String collectionPrefix) {
+		this.collectionPrefix = collectionPrefix;
 	}
 
 	public long getTimeoutSeconds() {
@@ -61,11 +60,4 @@ public class QdrantProperties {
 		this.timeoutSeconds = timeoutSeconds;
 	}
 
-	public long getVectorSize() {
-		return vectorSize;
-	}
-
-	public void setVectorSize(long vectorSize) {
-		this.vectorSize = vectorSize;
-	}
 }

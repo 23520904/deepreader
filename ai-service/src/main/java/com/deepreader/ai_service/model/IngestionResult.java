@@ -7,6 +7,6 @@ public record IngestionResult(
 		String fileName,
 		int chunkCount,
 		List<String> chunkIds,
-		String collectionName
+		List<String> indexedProviders
 ) {
 }

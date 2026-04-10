@@ -1,0 +1,104 @@
+name: k6-performance
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      vus:
+        description: "Virtual users"
+        required: false
+        default: "20"
+      duration:
+        description: "Test duration"
+        required: false
+        default: "60s"
+      provider:
+        description: "LLM provider for test payloads"
+        required: false
+        default: "gemini"
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - "ai-service/**"
+      - "performance/**"
+      - "docker-compose.yml"
+      - ".github/workflows/k6-performance.yml"
+
+jobs:
+  k6:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-k6')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      DATABASE_URL: jdbc:postgresql://postgres:5432/deepreader
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      QDRANT_HOST: qdrant
+      QDRANT_GRPC_PORT: 6334
+      QDRANT_USE_TLS: "false"
+      QDRANT_COLLECTION_PREFIX: document_chunks
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STORAGE_ENABLED: "true"
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_REGION: us-east-1
+      STORAGE_ACCESS_KEY: minioadmin
+      STORAGE_SECRET_KEY: minioadmin
+      STORAGE_BUCKET: deepreader-documents
+      STORAGE_PATH_STYLE: "true"
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      INGESTION_MAX_FILE_SIZE_BYTES: 26214400
+      INGESTION_MAX_RETRIES: 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Compose stack
+        run: docker compose up -d --build postgres qdrant redis minio ai-service
+
+      - name: Wait for API readiness
+        run: |
+          for i in {1..40}; do
+            if curl -fsS "http://localhost:8080/actuator/health/readiness" > /dev/null; then
+              echo "API readiness OK"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "API readiness check failed"
+          docker compose logs ai-service
+          exit 1
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 performance test
+        env:
+          BASE_URL: http://localhost:8080
+          VUS: ${{ github.event.inputs.vus || '20' }}
+          DURATION: ${{ github.event.inputs.duration || '60s' }}
+          PROVIDER: ${{ github.event.inputs.provider || 'gemini' }}
+          TEST_EMAIL: k6-ci@example.com
+          TEST_PASSWORD: password123
+        run: |
+          mkdir -p performance/results
+          k6 run --summary-export performance/results/summary.json performance/k6-basic.js
+
+      - name: Upload k6 summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-summary
+          path: performance/results/summary.json
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose logs ai-service postgres qdrant redis minio
+
+      - name: Teardown stack
+        if: always()
+        run: docker compose down -v

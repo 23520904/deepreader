@@ -11,6 +11,7 @@ import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import com.deepreader.ai_service.config.QdrantProperties;
 import com.deepreader.ai_service.model.DocumentChunk;
@@ -54,8 +55,8 @@ public class QdrantVectorStoreService {
 	}
 
 	@SuppressWarnings("null")
-	public void createCollectionIfNotExists() {
-		String collectionName = requireCollectionName();
+	public void createCollectionIfNotExists(String provider, int vectorSize) {
+		String collectionName = collectionName(provider);
 		try {
 			boolean exists = qdrantClient.collectionExistsAsync(
 					collectionName,
@@ -64,7 +65,7 @@ public class QdrantVectorStoreService {
 
 			if (!exists) {
 				Collections.VectorParams vectorParams = Collections.VectorParams.newBuilder()
-						.setSize(qdrantProperties.getVectorSize())
+						.setSize(vectorSize)
 						.setDistance(Collections.Distance.Cosine)
 						.build();
 
@@ -80,10 +81,10 @@ public class QdrantVectorStoreService {
 						Duration.ofSeconds(qdrantProperties.getTimeoutSeconds())
 				).get();
 				long existingVectorSize = collectionInfo.getConfig().getParams().getVectorsConfig().getParams().getSize();
-				if (existingVectorSize != qdrantProperties.getVectorSize()) {
+				if (existingVectorSize != vectorSize) {
 					throw new IllegalStateException(
 							"Qdrant collection '" + collectionName + "' has vector size " + existingVectorSize
-								+ " but current embedding configuration uses " + qdrantProperties.getVectorSize()
+								+ " but current embedding configuration uses " + vectorSize
 								+ ". Delete and recreate the collection, or set QDRANT_VECTOR_SIZE to match the existing collection."
 					);
 				}
@@ -97,8 +98,9 @@ public class QdrantVectorStoreService {
 	}
 
 	@SuppressWarnings("null")
-	public void upsertChunks(List<DocumentChunk> chunks, List<List<Float>> embeddings) {
-		String collectionName = requireCollectionName();
+	public void upsertChunks(String provider, List<DocumentChunk> chunks, List<List<Float>> embeddings, int vectorSize) {
+		createCollectionIfNotExists(provider, vectorSize);
+		String collectionName = collectionName(provider);
 		if (chunks.size() != embeddings.size()) {
 			throw new IllegalArgumentException("Chunks count must match embeddings count");
 		}
@@ -123,8 +125,8 @@ public class QdrantVectorStoreService {
 	}
 
 	@SuppressWarnings("null")
-	public List<RetrievedChunk> search(List<Float> queryVector, int limit) {
-		String collectionName = requireCollectionName();
+	public List<RetrievedChunk> search(String provider, List<Float> queryVector, int limit) {
+		String collectionName = collectionName(provider);
 		try {
 			Points.SearchPoints request = Points.SearchPoints.newBuilder()
 					.setCollectionName(collectionName)
@@ -152,6 +154,8 @@ public class QdrantVectorStoreService {
 		payload.put("documentId", ValueFactory.value(Objects.requireNonNull(chunk.documentId(), "documentId must not be null")));
 		payload.put("chunkId", ValueFactory.value(Objects.requireNonNull(chunk.chunkId(), "chunkId must not be null")));
 		payload.put("fileName", ValueFactory.value(Objects.requireNonNull(chunk.fileName(), "fileName must not be null")));
+		payload.put("sectionId", ValueFactory.value(Objects.requireNonNull(chunk.sectionId(), "sectionId must not be null")));
+		payload.put("title", ValueFactory.value(Objects.requireNonNull(chunk.sectionTitle(), "sectionTitle must not be null")));
 		payload.put("chunkIndex", ValueFactory.value(chunk.chunkIndex()));
 		payload.put("content", ValueFactory.value(Objects.requireNonNull(chunk.content(), "content must not be null")));
 
@@ -170,6 +174,8 @@ public class QdrantVectorStoreService {
 				readString(payload, "documentId"),
 				readString(payload, "chunkId"),
 				readString(payload, "fileName"),
+				readString(payload, "sectionId"),
+				readString(payload, "title"),
 				readInteger(payload, "chunkIndex"),
 				readString(payload, "content"),
 				scoredPoint.getScore()
@@ -198,7 +204,8 @@ public class QdrantVectorStoreService {
 		return null;
 	}
 
-	private String requireCollectionName() {
-		return Objects.requireNonNull(qdrantProperties.getCollection(), "qdrant collection must not be null");
+	private String collectionName(String provider) {
+		String prefix = StringUtils.hasText(qdrantProperties.getCollectionPrefix()) ? qdrantProperties.getCollectionPrefix() : "document_chunks";
+		return prefix + "_" + provider;
 	}
 }
