@@ -18,7 +18,7 @@ public class AiServiceClient {
 		this.webClient = builder.baseUrl(baseUrl).build();
 	}
 
-	public Mono<AiUploadResponse> uploadDocument(String fileName, byte[] content) {
+	public Mono<AiUploadResponse> uploadDocument(String userId, String fileName, byte[] content) {
 		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
 		bodyBuilder.part("file", new ByteArrayResource(content) {
 			@Override
@@ -28,43 +28,48 @@ public class AiServiceClient {
 		}).contentType(MediaType.APPLICATION_OCTET_STREAM);
 
 		return webClient.post()
-				.uri("/api/documents/upload")
+				.uri("/internal/ai/v1/documents/upload")
+				.header("X-User-Id", userId)
 				.contentType(MediaType.MULTIPART_FORM_DATA)
 				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))
 				.retrieve()
 				.bodyToMono(AiUploadResponse.class);
 	}
 
-	public Mono<AiSearchResponse> search(String query, Integer limit, String provider) {
+	public Mono<AiSearchResponse> search(String userId, String query, Integer limit, String provider) {
 		return webClient.post()
-				.uri("/api/documents/search")
+				.uri("/internal/ai/v1/documents/search")
+				.header("X-User-Id", userId)
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue(new AiSearchRequest(query, limit, provider))
 				.retrieve()
 				.bodyToMono(AiSearchResponse.class);
 	}
 
-	public Mono<AiChatResponse> chat(String query, Integer limit, String provider) {
+	public Mono<AiChatResponse> chat(String userId, String query, Integer limit, String provider) {
 		return webClient.post()
-				.uri("/api/documents/chat/ask")
+				.uri("/internal/ai/v1/documents/chat/ask")
+				.header("X-User-Id", userId)
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue(new AiChatRequest(query, limit, provider))
 				.retrieve()
 				.bodyToMono(AiChatResponse.class);
 	}
 
-	public Mono<AiSummaryResponse> summarize(String documentId, String provider) {
+	public Mono<AiSummaryResponse> summarize(String userId, String documentId, String provider) {
 		return webClient.post()
-				.uri("/api/documents/summary")
+				.uri("/internal/ai/v1/documents/summary")
+				.header("X-User-Id", userId)
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue(new AiSummaryRequest(documentId, provider))
 				.retrieve()
 				.bodyToMono(AiSummaryResponse.class);
 	}
 
-	public Mono<AiFlashcardResponse> flashcards(String documentId, String provider, Integer count) {
+	public Mono<AiFlashcardResponse> flashcards(String userId, String documentId, String provider, Integer count) {
 		return webClient.post()
-				.uri("/api/documents/flashcards")
+				.uri("/internal/ai/v1/documents/flashcards")
+				.header("X-User-Id", userId)
 				.contentType(MediaType.APPLICATION_JSON)
 				.bodyValue(new AiFlashcardRequest(documentId, provider, count))
 				.retrieve()

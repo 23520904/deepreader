@@ -36,7 +36,7 @@ public class BusinessServiceClient {
 			}
 		}).contentType(MediaType.APPLICATION_OCTET_STREAM);
 		return webClient.post()
-				.uri(uriBuilder -> uriBuilder.path("/api/business/books/upload").queryParam("userId", userId).queryParamIfPresent("provider", java.util.Optional.ofNullable(provider)).build())
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/upload").queryParam("userId", userId).queryParamIfPresent("provider", java.util.Optional.ofNullable(provider)).build())
 				.contentType(MediaType.MULTIPART_FORM_DATA)
 				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))
 				.retrieve()
@@ -44,26 +44,26 @@ public class BusinessServiceClient {
 	}
 
 	public Flux<Book> listBooks(String userId) {
-		return webClient.get().uri(uriBuilder -> uriBuilder.path("/api/business/books").queryParamIfPresent("userId", java.util.Optional.ofNullable(userId)).build()).retrieve().bodyToFlux(Book.class);
+		return webClient.get().uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books").queryParamIfPresent("userId", java.util.Optional.ofNullable(userId)).build()).retrieve().bodyToFlux(Book.class);
 	}
 
 	public Mono<String> search(String bookId, BookQueryRequest request) {
-		return webClient.post().uri("/api/business/books/{bookId}/search", bookId).bodyValue(request).retrieve().bodyToMono(String.class);
+		return webClient.post().uri("/internal/business/v1/books/{bookId}/search", bookId).bodyValue(request).retrieve().bodyToMono(String.class);
 	}
 
 	public Mono<String> chat(String bookId, BookQueryRequest request) {
-		return webClient.post().uri("/api/business/books/{bookId}/chat", bookId).bodyValue(request).retrieve().bodyToMono(String.class);
+		return webClient.post().uri("/internal/business/v1/books/{bookId}/chat", bookId).bodyValue(request).retrieve().bodyToMono(String.class);
 	}
 
 	public Mono<String> summary(String bookId, BookSummaryCommand command) {
-		return webClient.post().uri("/api/business/books/{bookId}/summary", bookId).bodyValue(command).retrieve().bodyToMono(String.class);
+		return webClient.post().uri("/internal/business/v1/books/{bookId}/summary", bookId).bodyValue(command).retrieve().bodyToMono(String.class);
 	}
 
 	public Mono<String> flashcards(String bookId, BookFlashcardCommand command) {
-		return webClient.post().uri("/api/business/books/{bookId}/flashcards", bookId).bodyValue(command).retrieve().bodyToMono(String.class);
+		return webClient.post().uri("/internal/business/v1/books/{bookId}/flashcards", bookId).bodyValue(command).retrieve().bodyToMono(String.class);
 	}
 
-	public Flux<ChapterSummary> listSummaries(String bookId) { return webClient.get().uri("/api/business/books/{bookId}/summaries", bookId).retrieve().bodyToFlux(ChapterSummary.class); }
-	public Flux<Flashcard> listFlashcards(String bookId) { return webClient.get().uri("/api/business/books/{bookId}/flashcards", bookId).retrieve().bodyToFlux(Flashcard.class); }
-	public Flux<ChatHistory> listChats(String bookId) { return webClient.get().uri("/api/business/books/{bookId}/chats", bookId).retrieve().bodyToFlux(ChatHistory.class); }
+	public Flux<ChapterSummary> listSummaries(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/summaries", bookId).retrieve().bodyToFlux(ChapterSummary.class); }
+	public Flux<Flashcard> listFlashcards(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/flashcards", bookId).retrieve().bodyToFlux(Flashcard.class); }
+	public Flux<ChatHistory> listChats(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/chats", bookId).retrieve().bodyToFlux(ChatHistory.class); }
 }

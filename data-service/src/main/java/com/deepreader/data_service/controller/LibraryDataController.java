@@ -20,7 +20,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RestController
-@RequestMapping(path = "/api/data", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(path = "/internal/data/v1", produces = MediaType.APPLICATION_JSON_VALUE)
 public class LibraryDataController {
 
 	private final LibraryDataService libraryDataService;

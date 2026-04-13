@@ -3,7 +3,7 @@ package com.deepreader.ai_service.service;
 import com.deepreader.ai_service.model.DocumentSection;
 import com.deepreader.ai_service.model.DocumentChunk;
 import com.deepreader.ai_service.model.IndexedDocument;
-import com.deepreader.ai_service.model.IngestionResult;
+import com.deepreader.ai_service.model.api.internal.IngestionResult;
 import com.deepreader.ai_service.config.IngestionProperties;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.codec.multipart.FilePart;

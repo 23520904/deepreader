@@ -10,8 +10,8 @@
 
 ## Abuse protections
 
-- JWT auth required for document APIs.
-- Redis-backed rate limiting active for `/api/documents` and `/api/v1/documents`.
+- JWT auth required at gateway APIs.
+- Redis-backed rate limiting active for internal AI API `/internal/ai/v1/documents`.
 - Daily quotas enforced via `usage_counters`.
 
 ## Token/session security

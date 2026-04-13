@@ -26,9 +26,9 @@ Use this template after each k6 run (local or CI artifact from `performance/resu
 
 | Endpoint | Status trend | Latency trend | Notes |
 |---|---|---|---|
-| `/api/auth/login` |  |  |  |
-| `/api/documents/search` |  |  |  |
-| `/api/documents/chat/ask` |  |  |  |
+| `/api/v1/auth/login` |  |  |  |
+| `/api/v1/books/{bookId}/search` |  |  |  |
+| `/api/v1/books/{bookId}/chat` |  |  |  |
 
 ## Regressions / anomalies
 

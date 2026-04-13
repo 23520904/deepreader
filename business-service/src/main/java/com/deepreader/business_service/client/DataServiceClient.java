@@ -22,27 +22,27 @@ public class DataServiceClient {
 	}
 
 	public Mono<Book> saveBook(Book book) {
-		return webClient.post().uri("/api/data/books").bodyValue(book).retrieve().bodyToMono(Book.class);
+		return webClient.post().uri("/internal/data/v1/books").bodyValue(book).retrieve().bodyToMono(Book.class);
 	}
 
 	public Flux<Book> listBooks(String userId) {
-		return webClient.get().uri(uriBuilder -> uriBuilder.path("/api/data/books").queryParamIfPresent("userId", java.util.Optional.ofNullable(userId)).build()).retrieve().bodyToFlux(Book.class);
+		return webClient.get().uri(uriBuilder -> uriBuilder.path("/internal/data/v1/books").queryParamIfPresent("userId", java.util.Optional.ofNullable(userId)).build()).retrieve().bodyToFlux(Book.class);
 	}
 
 	public Mono<Book> getBook(String bookId) {
-		return webClient.get().uri("/api/data/books/{bookId}", bookId).retrieve().bodyToMono(Book.class);
+		return webClient.get().uri("/internal/data/v1/books/{bookId}", bookId).retrieve().bodyToMono(Book.class);
 	}
 
 	public Mono<ChapterSummary> saveSummary(ChapterSummary summary) {
-		return webClient.post().uri("/api/data/summaries").bodyValue(summary).retrieve().bodyToMono(ChapterSummary.class);
+		return webClient.post().uri("/internal/data/v1/summaries").bodyValue(summary).retrieve().bodyToMono(ChapterSummary.class);
 	}
 
 	public Flux<ChapterSummary> listSummaries(String bookId) {
-		return webClient.get().uri("/api/data/books/{bookId}/summaries", bookId).retrieve().bodyToFlux(ChapterSummary.class);
+		return webClient.get().uri("/internal/data/v1/books/{bookId}/summaries", bookId).retrieve().bodyToFlux(ChapterSummary.class);
 	}
 
 	public Mono<Flashcard> saveFlashcard(Flashcard flashcard) {
-		return webClient.post().uri("/api/data/flashcards").bodyValue(flashcard).retrieve().bodyToMono(Flashcard.class);
+		return webClient.post().uri("/internal/data/v1/flashcards").bodyValue(flashcard).retrieve().bodyToMono(Flashcard.class);
 	}
 
 	public Flux<Flashcard> saveFlashcards(List<Flashcard> flashcards) {
@@ -50,14 +50,14 @@ public class DataServiceClient {
 	}
 
 	public Flux<Flashcard> listFlashcards(String bookId) {
-		return webClient.get().uri("/api/data/books/{bookId}/flashcards", bookId).retrieve().bodyToFlux(Flashcard.class);
+		return webClient.get().uri("/internal/data/v1/books/{bookId}/flashcards", bookId).retrieve().bodyToFlux(Flashcard.class);
 	}
 
 	public Mono<ChatHistory> saveChat(ChatHistory chatHistory) {
-		return webClient.post().uri("/api/data/chats").bodyValue(chatHistory).retrieve().bodyToMono(ChatHistory.class);
+		return webClient.post().uri("/internal/data/v1/chats").bodyValue(chatHistory).retrieve().bodyToMono(ChatHistory.class);
 	}
 
 	public Flux<ChatHistory> listChats(String bookId) {
-		return webClient.get().uri("/api/data/books/{bookId}/chats", bookId).retrieve().bodyToFlux(ChatHistory.class);
+		return webClient.get().uri("/internal/data/v1/books/{bookId}/chats", bookId).retrieve().bodyToFlux(ChatHistory.class);
 	}
 }

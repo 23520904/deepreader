@@ -1,9 +1,9 @@
 package com.deepreader.ai_service.service;
 
-import com.deepreader.ai_service.model.ChatAskResponse;
 import com.deepreader.ai_service.model.RetrievedChunk;
-import com.deepreader.ai_service.model.SearchResponse;
-import com.deepreader.ai_service.model.SourceReference;
+import com.deepreader.ai_service.model.api.internal.ChatAskResponse;
+import com.deepreader.ai_service.model.api.internal.SearchResponse;
+import com.deepreader.ai_service.model.api.internal.SourceReference;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;

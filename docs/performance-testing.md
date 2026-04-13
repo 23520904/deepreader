@@ -17,7 +17,7 @@ k6 run performance/k6-basic.js
 Optional tuning:
 
 ```bash
-BASE_URL=http://localhost:8080 VUS=20 DURATION=60s PROVIDER=gemini k6 run performance/k6-basic.js
+BASE_URL=http://localhost:8083 VUS=20 DURATION=60s PROVIDER=gemini TEST_BOOK_ID=<bookId> k6 run performance/k6-basic.js
 ```
 
 ## CI execution
@@ -33,9 +33,9 @@ BASE_URL=http://localhost:8080 VUS=20 DURATION=60s PROVIDER=gemini k6 run perfor
 
 ## What this test hits
 
-- `POST /api/auth/login` (or register fallback)
-- `POST /api/documents/search`
-- `POST /api/documents/chat/ask`
+- `POST /api/v1/auth/login` (or register fallback)
+- `POST /api/v1/books/{bookId}/search`
+- `POST /api/v1/books/{bookId}/chat`
 
 ## Initial target thresholds
 

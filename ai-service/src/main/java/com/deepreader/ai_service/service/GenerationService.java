@@ -1,9 +1,9 @@
 package com.deepreader.ai_service.service;
 
-import com.deepreader.ai_service.model.Flashcard;
-import com.deepreader.ai_service.model.FlashcardResponse;
 import com.deepreader.ai_service.model.IndexedDocument;
-import com.deepreader.ai_service.model.SummaryResponse;
+import com.deepreader.ai_service.model.api.internal.Flashcard;
+import com.deepreader.ai_service.model.api.internal.FlashcardResponse;
+import com.deepreader.ai_service.model.api.internal.SummaryResponse;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;

@@ -23,7 +23,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RestController
-@RequestMapping(path = "/api/web/books", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(path = "/api/v1/books", produces = MediaType.APPLICATION_JSON_VALUE)
 public class PublicGatewayController {
 
 	private final BusinessServiceClient businessServiceClient;

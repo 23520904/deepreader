@@ -2,11 +2,11 @@ package com.deepreader.ai_service.service;
 
 import com.deepreader.ai_service.config.GeminiProperties;
 import com.deepreader.ai_service.config.OpenAiProperties;
-import com.deepreader.ai_service.model.GeminiGenerateContentRequest;
-import com.deepreader.ai_service.model.GeminiGenerateContentResponse;
-import com.deepreader.ai_service.model.OpenAiChatRequest;
-import com.deepreader.ai_service.model.OpenAiChatResponse;
 import com.deepreader.ai_service.model.SupportedProvider;
+import com.deepreader.ai_service.model.provider.gemini.GeminiGenerateContentRequest;
+import com.deepreader.ai_service.model.provider.gemini.GeminiGenerateContentResponse;
+import com.deepreader.ai_service.model.provider.openai.OpenAiChatRequest;
+import com.deepreader.ai_service.model.provider.openai.OpenAiChatResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;

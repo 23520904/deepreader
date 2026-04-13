@@ -14,14 +14,15 @@ const baseUrl = __ENV.BASE_URL || "http://localhost:8080";
 const email = __ENV.TEST_EMAIL || "k6@example.com";
 const password = __ENV.TEST_PASSWORD || "password123";
 const provider = __ENV.PROVIDER || "gemini";
+const bookId = __ENV.TEST_BOOK_ID || "book-id-required";
 
 function getToken() {
   const payload = JSON.stringify({ email, password });
   const params = { headers: { "Content-Type": "application/json" } };
 
-  let res = http.post(`${baseUrl}/api/auth/login`, payload, params);
+  let res = http.post(`${baseUrl}/api/v1/auth/login`, payload, params);
   if (res.status !== 200) {
-    res = http.post(`${baseUrl}/api/auth/register`, payload, params);
+    res = http.post(`${baseUrl}/api/v1/auth/register`, payload, params);
   }
   check(res, { "auth success": (r) => r.status === 200 });
   const body = res.json();
@@ -30,13 +31,10 @@ function getToken() {
 
 export default function () {
   const token = getToken();
-  const headers = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
   const searchRes = http.post(
-    `${baseUrl}/api/documents/search`,
+    `${baseUrl}/api/v1/books/${bookId}/search`,
     JSON.stringify({
       query: "What is the main idea?",
       limit: 5,
@@ -49,7 +47,7 @@ export default function () {
   });
 
   const chatRes = http.post(
-    `${baseUrl}/api/documents/chat/ask`,
+    `${baseUrl}/api/v1/books/${bookId}/chat`,
     JSON.stringify({
       query: "Summarize key points briefly.",
       limit: 5,

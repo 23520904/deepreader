@@ -2,16 +2,12 @@
 
 ## Current version
 
-- Stable base path: `/api/v1`
-- Legacy compatibility paths (`/api/auth`, `/api/documents`) are deprecated.
+- Stable public base path: `/api/v1` (gateway)
+- Internal service base path: `/internal/{service}/v1`
 
 ## Deprecation behavior
 
-Deprecated paths return headers:
-
-- `Deprecation: true`
-- `Sunset: Wed, 31 Dec 2026 23:59:59 GMT`
-- `Link: </docs/api-versioning-policy.md>; rel="deprecation"`
+Legacy public compatibility paths have been removed.
 
 ## Version governance rules
 

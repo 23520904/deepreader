@@ -4,14 +4,14 @@ services:
     container_name: deepreader-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-deepreader}
-      POSTGRES_USER: ${DATABASE_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME:-postgres} -d ${POSTGRES_DB:-deepreader}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-deepreader}"]
       interval: 10s
       timeout: 5s
       retries: 8
@@ -29,7 +29,7 @@ services:
     image: redis:7-alpine
     container_name: deepreader-redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_HOST_PORT:-6379}:6379"
 
   minio:
     image: minio/minio:latest
@@ -87,10 +87,66 @@ services:
         condition: service_started
       minio:
         condition: service_started
+  data-service:
+    build:
+      context: .
+      dockerfile: data-service/Dockerfile
+    container_name: deepreader-data-service
+    environment:
+      SERVER_PORT: 8081
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/deepreader}
+    depends_on:
+      mongo:
+        condition: service_started
+  business-service:
+    build:
+      context: .
+      dockerfile: business-service/Dockerfile
+    container_name: deepreader-business-service
+    environment:
+      SERVER_PORT: 8082
+      AI_SERVICE_BASE_URL: ${AI_SERVICE_BASE_URL:-http://ai-service:8080}
+      DATA_SERVICE_BASE_URL: ${DATA_SERVICE_BASE_URL:-http://data-service:8081}
+    depends_on:
+      ai-service:
+        condition: service_started
+      data-service:
+        condition: service_started
+  web-module:
+    build:
+      context: .
+      dockerfile: web-module/Dockerfile
+    container_name: deepreader-web-module
+    environment:
+      SERVER_PORT: 8083
+      BUSINESS_SERVICE_BASE_URL: ${BUSINESS_SERVICE_BASE_URL:-http://business-service:8082}
+      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/deepreader}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      JWT_SECRET: ${JWT_SECRET:-dev-change-me-secret-32-bytes-minimum}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-86400}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      business-service:
+        condition: service_started
     ports:
-      - "${AI_SERVICE_PORT:-8080}:8080"
+      - "${WEB_MODULE_PORT:-8083}:8083"
+
+  mongo:
+    image: mongo:7
+    container_name: deepreader-mongo
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo_data:/data/db
 
 volumes:
   postgres_data:
   qdrant_data:
   minio_data:
+  mongo_data:

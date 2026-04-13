@@ -36,7 +36,7 @@ public class LibraryOrchestrationService {
 			org.springframework.core.io.buffer.DataBufferUtils.release(dataBuffer);
 			out.write(bytes, 0, bytes.length);
 			return out;
-		}).flatMap(out -> aiServiceClient.uploadDocument(filePart.filename(), out.toByteArray()))
+		}).flatMap(out -> aiServiceClient.uploadDocument(userId, filePart.filename(), out.toByteArray()))
 				.flatMap(upload -> {
 					Book book = new Book();
 					book.setUserId(userId);
@@ -57,12 +57,12 @@ public class LibraryOrchestrationService {
 
 	public Mono<AiServiceClient.AiSearchResponse> searchBook(String bookId, BookQueryRequest request) {
 		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.search(request.query(), request.limit(), request.provider()));
+				.flatMap(book -> aiServiceClient.search(book.getUserId(), request.query(), request.limit(), request.provider()));
 	}
 
 	public Mono<AiServiceClient.AiChatResponse> chatWithBook(String bookId, BookQueryRequest request) {
 		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.chat(request.query(), request.limit(), request.provider())
+				.flatMap(book -> aiServiceClient.chat(book.getUserId(), request.query(), request.limit(), request.provider())
 						.flatMap(response -> {
 							ChatHistory userMessage = new ChatHistory();
 							userMessage.setBookId(bookId);
@@ -84,7 +84,7 @@ public class LibraryOrchestrationService {
 
 	public Mono<AiServiceClient.AiSummaryResponse> summarizeBook(String bookId, BookSummaryCommand command) {
 		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.summarize(book.getAiDocumentId(), command.provider())
+				.flatMap(book -> aiServiceClient.summarize(book.getUserId(), book.getAiDocumentId(), command.provider())
 						.flatMap(summary -> {
 							ChapterSummary entity = new ChapterSummary();
 							entity.setBookId(bookId);
@@ -98,7 +98,7 @@ public class LibraryOrchestrationService {
 
 	public Mono<AiServiceClient.AiFlashcardResponse> generateFlashcards(String bookId, BookFlashcardCommand command) {
 		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.flashcards(book.getAiDocumentId(), command.provider(), command.count())
+				.flatMap(book -> aiServiceClient.flashcards(book.getUserId(), book.getAiDocumentId(), command.provider(), command.count())
 						.flatMap(response -> dataServiceClient.saveFlashcards(response.flashcards().stream().map(card -> {
 							Flashcard flashcard = new Flashcard();
 							flashcard.setBookId(bookId);

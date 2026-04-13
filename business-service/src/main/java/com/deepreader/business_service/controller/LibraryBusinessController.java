@@ -24,7 +24,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @RestController
-@RequestMapping(path = "/api/business/books", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(path = "/internal/business/v1/books", produces = MediaType.APPLICATION_JSON_VALUE)
 public class LibraryBusinessController {
 
 	private final LibraryOrchestrationService libraryOrchestrationService;

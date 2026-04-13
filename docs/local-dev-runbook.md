@@ -11,7 +11,8 @@ From repository root:
    - `docker compose up --build`
 
 Services after startup:
-- API: `http://localhost:8080`
+- Public API gateway: `http://localhost:8083`
+- Internal AI service: `http://localhost:8080` (not exposed in production)
 - Qdrant HTTP: `http://localhost:6333`
 - PostgreSQL: `localhost:5432`
 - Redis: `localhost:6379`
@@ -19,15 +20,15 @@ Services after startup:
 - MinIO Console: `http://localhost:9001`
 
 Versioned API:
-- Preferred: `/api/v1/...`
-- Legacy `/api/...` still works but is deprecated.
+- Public: `/api/v1/...` (via `web-module`)
+- Internal-only: `/internal/{service}/v1/...` (service-to-service)
 
 ## API smoke tests (PowerShell)
 
 Register and capture token:
 
 ```bash
-$AUTH = curl -X POST "http://localhost:8080/api/auth/register" `
+$AUTH = curl -X POST "http://localhost:8083/api/v1/auth/register" `
   -H "Content-Type: application/json" `
   -d "{\"email\":\"test@example.com\",\"password\":\"password123\"}"
 
@@ -39,7 +40,7 @@ $HEADERS = @{"Authorization"="Bearer $TOKEN"}
 Refresh access token:
 
 ```bash
-curl -X POST "http://localhost:8080/api/v1/auth/refresh" `
+curl -X POST "http://localhost:8083/api/v1/auth/refresh" `
   -H "Content-Type: application/json" `
   -d "{\"refreshToken\":\"$REFRESH\"}"
 ```
@@ -47,23 +48,23 @@ curl -X POST "http://localhost:8080/api/v1/auth/refresh" `
 Upload:
 
 ```bash
-curl -X POST "http://localhost:8080/api/documents/upload" `
-  -H "Authorization: Bearer $TOKEN" `
+curl -X POST "http://localhost:8083/api/v1/books/upload" `
+  -F "userId=test-user" `
+  -F "provider=gemini" `
   -F "file=@C:/tmp/book.pdf"
 ```
 
 Set variables:
 
 ```bash
-$DOC_ID="<paste-document-id>"
+$BOOK_ID="<paste-book-id>"
 $PROVIDER="gemini"   # or "openai"
 ```
 
 Search:
 
 ```bash
-curl -X POST "http://localhost:8080/api/documents/search" `
-  -H "Authorization: Bearer $TOKEN" `
+curl -X POST "http://localhost:8083/api/v1/books/$BOOK_ID/search" `
   -H "Content-Type: application/json" `
   -d "{\"query\":\"main argument of chapter 1\",\"limit\":5,\"provider\":\"$PROVIDER\"}"
 ```
@@ -71,8 +72,7 @@ curl -X POST "http://localhost:8080/api/documents/search" `
 Chat ask:
 
 ```bash
-curl -X POST "http://localhost:8080/api/documents/chat/ask" `
-  -H "Authorization: Bearer $TOKEN" `
+curl -X POST "http://localhost:8083/api/v1/books/$BOOK_ID/chat" `
   -H "Content-Type: application/json" `
   -d "{\"query\":\"What are the key ideas?\",\"limit\":5,\"provider\":\"$PROVIDER\"}"
 ```
@@ -80,19 +80,17 @@ curl -X POST "http://localhost:8080/api/documents/chat/ask" `
 Summary:
 
 ```bash
-curl -X POST "http://localhost:8080/api/documents/summary" `
-  -H "Authorization: Bearer $TOKEN" `
+curl -X POST "http://localhost:8083/api/v1/books/$BOOK_ID/summary" `
   -H "Content-Type: application/json" `
-  -d "{\"documentId\":\"$DOC_ID\",\"provider\":\"$PROVIDER\"}"
+  -d "{\"provider\":\"$PROVIDER\"}"
 ```
 
 Flashcards:
 
 ```bash
-curl -X POST "http://localhost:8080/api/documents/flashcards" `
-  -H "Authorization: Bearer $TOKEN" `
+curl -X POST "http://localhost:8083/api/v1/books/$BOOK_ID/flashcards" `
   -H "Content-Type: application/json" `
-  -d "{\"documentId\":\"$DOC_ID\",\"provider\":\"$PROVIDER\",\"count\":10}"
+  -d "{\"provider\":\"$PROVIDER\",\"count\":10}"
 ```
 
 ## CI and performance

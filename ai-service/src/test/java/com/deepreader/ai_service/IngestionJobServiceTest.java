@@ -1,7 +1,7 @@
 package com.deepreader.ai_service;
 
 import com.deepreader.ai_service.config.IngestionProperties;
-import com.deepreader.ai_service.model.IngestionResult;
+import com.deepreader.ai_service.model.api.internal.IngestionResult;
 import com.deepreader.ai_service.service.AuditLogService;
 import com.deepreader.ai_service.service.DocumentIngestionService;
 import com.deepreader.ai_service.service.IngestionJobService;

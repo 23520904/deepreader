@@ -1,8 +1,8 @@
 package com.deepreader.ai_service.service;
 
-import com.deepreader.ai_service.model.IngestionJobResponse;
 import com.deepreader.ai_service.model.IngestionJobStatus;
-import com.deepreader.ai_service.model.IngestionResult;
+import com.deepreader.ai_service.model.api.internal.IngestionJobResponse;
+import com.deepreader.ai_service.model.api.internal.IngestionResult;
 import com.deepreader.ai_service.config.IngestionProperties;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
