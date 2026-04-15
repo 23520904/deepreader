@@ -11,21 +11,8 @@
 	<groupId>com.deepreader</groupId>
 	<artifactId>business-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
+	<name>DeepReader Business Service</name>
+	<description>Orchestration layer coordinating AI workflows, data persistence, and event streaming.</description>
 	<properties>
 		<java.version>21</java.version>
 	</properties>
@@ -33,6 +20,28 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webflux</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.camel.springboot</groupId>
+			<artifactId>camel-spring-boot-starter</artifactId>
+			<version>4.18.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.camel</groupId>
+			<artifactId>camel-kafka</artifactId>
+			<version>4.18.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -49,24 +58,44 @@
 			<artifactId>lombok</artifactId>
 			<optional>true</optional>
 		</dependency>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.projectreactor</groupId>
-			<artifactId>reactor-test</artifactId>
-			<scope>test</scope>
-		</dependency>
 	</dependencies>
 
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<id>enforce-dependency-rules</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<fail>true</fail>
+							<rules>
+								<dependencyConvergence>
+									<excludes>
+										<exclude>at.yawk.lz4:lz4-java</exclude>
+									</excludes>
+								</dependencyConvergence>
+								<requireReleaseDeps>
+									<onlyWhenRelease>false</onlyWhenRelease>
+									<excludes>
+										<exclude>com.deepreader:*</exclude>
+									</excludes>
+								</requireReleaseDeps>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
+					<classifier>exec</classifier>
 					<excludes>
 						<exclude>
 							<groupId>org.projectlombok</groupId>

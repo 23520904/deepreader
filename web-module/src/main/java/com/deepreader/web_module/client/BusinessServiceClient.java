@@ -4,6 +4,7 @@ import com.deepreader.business_service.model.BookFlashcardCommand;
 import com.deepreader.business_service.model.BookQueryRequest;
 import com.deepreader.business_service.model.BookSummaryCommand;
 import com.deepreader.business_service.model.BookUploadResponse;
+import com.deepreader.business_service.client.AiServiceClient;
 import com.deepreader.core.model.Book;
 import com.deepreader.core.model.ChapterSummary;
 import com.deepreader.core.model.ChatHistory;
@@ -47,20 +48,20 @@ public class BusinessServiceClient {
 		return webClient.get().uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books").queryParamIfPresent("userId", java.util.Optional.ofNullable(userId)).build()).retrieve().bodyToFlux(Book.class);
 	}
 
-	public Mono<String> search(String bookId, BookQueryRequest request) {
-		return webClient.post().uri("/internal/business/v1/books/{bookId}/search", bookId).bodyValue(request).retrieve().bodyToMono(String.class);
+	public Mono<AiServiceClient.AiSearchResponse> search(String bookId, BookQueryRequest request) {
+		return webClient.post().uri("/internal/business/v1/books/{bookId}/search", bookId).bodyValue(request).retrieve().bodyToMono(AiServiceClient.AiSearchResponse.class);
 	}
 
-	public Mono<String> chat(String bookId, BookQueryRequest request) {
-		return webClient.post().uri("/internal/business/v1/books/{bookId}/chat", bookId).bodyValue(request).retrieve().bodyToMono(String.class);
+	public Mono<AiServiceClient.AiChatResponse> chat(String bookId, BookQueryRequest request) {
+		return webClient.post().uri("/internal/business/v1/books/{bookId}/chat", bookId).bodyValue(request).retrieve().bodyToMono(AiServiceClient.AiChatResponse.class);
 	}
 
-	public Mono<String> summary(String bookId, BookSummaryCommand command) {
-		return webClient.post().uri("/internal/business/v1/books/{bookId}/summary", bookId).bodyValue(command).retrieve().bodyToMono(String.class);
+	public Mono<AiServiceClient.AiSummaryResponse> summary(String bookId, BookSummaryCommand command) {
+		return webClient.post().uri("/internal/business/v1/books/{bookId}/summary", bookId).bodyValue(command).retrieve().bodyToMono(AiServiceClient.AiSummaryResponse.class);
 	}
 
-	public Mono<String> flashcards(String bookId, BookFlashcardCommand command) {
-		return webClient.post().uri("/internal/business/v1/books/{bookId}/flashcards", bookId).bodyValue(command).retrieve().bodyToMono(String.class);
+	public Mono<AiServiceClient.AiFlashcardResponse> flashcards(String bookId, BookFlashcardCommand command) {
+		return webClient.post().uri("/internal/business/v1/books/{bookId}/flashcards", bookId).bodyValue(command).retrieve().bodyToMono(AiServiceClient.AiFlashcardResponse.class);
 	}
 
 	public Flux<ChapterSummary> listSummaries(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/summaries", bookId).retrieve().bodyToFlux(ChapterSummary.class); }

@@ -6,6 +6,7 @@ import com.deepreader.business_service.model.BookFlashcardCommand;
 import com.deepreader.business_service.model.BookQueryRequest;
 import com.deepreader.business_service.model.BookSummaryCommand;
 import com.deepreader.business_service.model.BookUploadResponse;
+import com.deepreader.business_service.event.BookEventPublisher;
 import com.deepreader.core.model.Book;
 import com.deepreader.core.model.ChapterSummary;
 import com.deepreader.core.model.ChatHistory;
@@ -16,6 +17,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Locale;
 
 @Service
@@ -23,10 +25,14 @@ public class LibraryOrchestrationService {
 
 	private final AiServiceClient aiServiceClient;
 	private final DataServiceClient dataServiceClient;
+	private final BookEventPublisher bookEventPublisher;
 
-	public LibraryOrchestrationService(AiServiceClient aiServiceClient, DataServiceClient dataServiceClient) {
+	public LibraryOrchestrationService(AiServiceClient aiServiceClient,
+			DataServiceClient dataServiceClient,
+			BookEventPublisher bookEventPublisher) {
 		this.aiServiceClient = aiServiceClient;
 		this.dataServiceClient = dataServiceClient;
+		this.bookEventPublisher = bookEventPublisher;
 	}
 
 	public Mono<BookUploadResponse> uploadBook(String userId, FilePart filePart, String provider) {
@@ -47,7 +53,12 @@ public class LibraryOrchestrationService {
 					book.setFormat(resolveFormat(upload.fileName()));
 					book.setCreatedAt(LocalDateTime.now());
 					return dataServiceClient.saveBook(book)
-							.map(saved -> new BookUploadResponse(saved, provider == null ? "gemini" : provider, upload.documentId(), upload.chunkCount()));
+							.map(saved -> {
+								bookEventPublisher.publish("BOOK_UPLOADED", userId, saved.getId(),
+										Map.of("provider", provider == null ? "gemini" : provider,
+												"chunkCount", upload.chunkCount()));
+								return new BookUploadResponse(saved, provider == null ? "gemini" : provider, upload.documentId(), upload.chunkCount());
+							});
 				});
 	}
 
@@ -92,7 +103,12 @@ public class LibraryOrchestrationService {
 							entity.setContent(summary.summary());
 							entity.setModel(summary.provider());
 							entity.setCreatedAt(LocalDateTime.now());
-							return dataServiceClient.saveSummary(entity).thenReturn(summary);
+							return dataServiceClient.saveSummary(entity)
+									.doOnSuccess(ignored -> bookEventPublisher.publish("BOOK_SUMMARIZED",
+											book.getUserId(),
+											bookId,
+											Map.of("provider", summary.provider())))
+									.thenReturn(summary);
 						}));
 	}
 
@@ -100,14 +116,20 @@ public class LibraryOrchestrationService {
 		return dataServiceClient.getBook(bookId)
 				.flatMap(book -> aiServiceClient.flashcards(book.getUserId(), book.getAiDocumentId(), command.provider(), command.count())
 						.flatMap(response -> dataServiceClient.saveFlashcards(response.flashcards().stream().map(card -> {
-							Flashcard flashcard = new Flashcard();
-							flashcard.setBookId(bookId);
-							flashcard.setUserId(book.getUserId());
-							flashcard.setQuestion(card.question());
-							flashcard.setAnswer(card.answer());
-							flashcard.setCreatedAt(LocalDateTime.now());
-							return flashcard;
-						}).toList()).then().thenReturn(response)));
+									Flashcard flashcard = new Flashcard();
+									flashcard.setBookId(bookId);
+									flashcard.setUserId(book.getUserId());
+									flashcard.setQuestion(card.question());
+									flashcard.setAnswer(card.answer());
+									flashcard.setCreatedAt(LocalDateTime.now());
+									return flashcard;
+								}).toList())
+								.then()
+								.doOnSuccess(ignored -> bookEventPublisher.publish("FLASHCARDS_GENERATED",
+										book.getUserId(),
+										bookId,
+										Map.of("count", response.flashcards().size())))
+								.thenReturn(response)));
 	}
 
 	public Flux<ChapterSummary> listSummaries(String bookId) {

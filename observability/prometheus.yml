@@ -6,6 +6,18 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ["ai-service:8080"]
+  - job_name: "business-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["business-service:8082"]
+  - job_name: "data-service"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["data-service:8081"]
+  - job_name: "web-module"
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["web-module:8083"]
 
 rule_files:
   - /etc/prometheus/alerts.yml

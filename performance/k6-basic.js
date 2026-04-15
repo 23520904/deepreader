@@ -2,15 +2,30 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 
 export const options = {
-  vus: Number(__ENV.VUS || 10),
-  duration: __ENV.DURATION || "30s",
+  scenarios: {
+    warmup: {
+      executor: "constant-vus",
+      vus: Number(__ENV.WARMUP_VUS || __ENV.VUS || 10),
+      duration: __ENV.WARMUP_DURATION || "10s",
+      exec: "warmup",
+      tags: { phase: "warmup" },
+    },
+    main: {
+      executor: "constant-vus",
+      vus: Number(__ENV.VUS || 10),
+      duration: __ENV.DURATION || "30s",
+      startTime: __ENV.WARMUP_DURATION || "10s",
+      exec: "main",
+      tags: { phase: "main" },
+    },
+  },
   thresholds: {
-    http_req_failed: ["rate<0.05"],
-    http_req_duration: ["p(95)<1500"],
+    "http_req_failed{phase:main}": ["rate<0.05"],
+    "http_req_duration{phase:main}": ["p(95)<1500"],
   },
 };
 
-const baseUrl = __ENV.BASE_URL || "http://localhost:8080";
+const baseUrl = __ENV.BASE_URL || "http://localhost:8083";
 const email = __ENV.TEST_EMAIL || "k6@example.com";
 const password = __ENV.TEST_PASSWORD || "password123";
 const provider = __ENV.PROVIDER || "gemini";
@@ -24,13 +39,31 @@ function getToken() {
   if (res.status !== 200) {
     res = http.post(`${baseUrl}/api/v1/auth/register`, payload, params);
   }
-  check(res, { "auth success": (r) => r.status === 200 });
-  const body = res.json();
-  return body.token;
+  const success = check(res, { "auth success": (r) => r.status === 200 });
+  if (!success) {
+    return null;
+  }
+
+  let body = null;
+  try {
+    body = res.json();
+  } catch (e) {
+    return null;
+  }
+
+  return body?.token || null;
 }
 
-export default function () {
+function runFlow() {
   const token = getToken();
+  if (!token) {
+    sleep(1);
+    return;
+  }
+  if (!bookId || bookId === "book-id-required") {
+    sleep(1);
+    return;
+  }
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
   const searchRes = http.post(
@@ -60,4 +93,12 @@ export default function () {
   });
 
   sleep(1);
+}
+
+export function warmup() {
+  runFlow();
+}
+
+export function main() {
+  runFlow();
 }

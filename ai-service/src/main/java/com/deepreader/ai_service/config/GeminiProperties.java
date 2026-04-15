@@ -1,14 +1,25 @@
 package com.deepreader.ai_service.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
+
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 @ConfigurationProperties(prefix = "deepreader.gemini")
+@Validated
 public class GeminiProperties {
 
 	private String apiKey;
+	@NotBlank
 	private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
+	@NotBlank
 	private String embeddingModel = "gemini-embedding-001";
+	@NotNull
+	@Min(1)
 	private Integer embeddingDimensions = 768;
+	@NotBlank
 	private String generationModel = "gemini-2.0-flash";
 
 	public String getApiKey() {

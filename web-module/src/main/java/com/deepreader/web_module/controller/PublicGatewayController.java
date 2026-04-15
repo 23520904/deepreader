@@ -4,11 +4,13 @@ import com.deepreader.business_service.model.BookFlashcardCommand;
 import com.deepreader.business_service.model.BookQueryRequest;
 import com.deepreader.business_service.model.BookSummaryCommand;
 import com.deepreader.business_service.model.BookUploadResponse;
+import com.deepreader.business_service.client.AiServiceClient;
 import com.deepreader.core.model.Book;
 import com.deepreader.core.model.ChapterSummary;
 import com.deepreader.core.model.ChatHistory;
 import com.deepreader.core.model.Flashcard;
 import com.deepreader.web_module.client.BusinessServiceClient;
+import com.deepreader.web_module.service.RequestUserContext;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -33,9 +36,10 @@ public class PublicGatewayController {
 	}
 
 	@PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public Mono<BookUploadResponse> upload(@RequestParam String userId,
-			@RequestParam(required = false) String provider,
+	public Mono<BookUploadResponse> upload(@RequestParam(required = false) String provider,
+			ServerWebExchange exchange,
 			@RequestPart("file") FilePart filePart) {
+		String userId = RequestUserContext.requireUserId(exchange);
 		return filePart.content().reduce(new java.io.ByteArrayOutputStream(), (out, dataBuffer) -> {
 			byte[] bytes = new byte[dataBuffer.readableByteCount()];
 			dataBuffer.read(bytes);
@@ -46,21 +50,22 @@ public class PublicGatewayController {
 	}
 
 	@GetMapping
-	public Flux<Book> listBooks(@RequestParam(required = false) String userId) {
+	public Flux<Book> listBooks(ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
 		return businessServiceClient.listBooks(userId);
 	}
 
 	@PostMapping(value = "/{bookId}/search", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<String> search(@PathVariable String bookId, @RequestBody BookQueryRequest request) { return businessServiceClient.search(bookId, request); }
+	public Mono<AiServiceClient.AiSearchResponse> search(@PathVariable String bookId, @RequestBody BookQueryRequest request) { return businessServiceClient.search(bookId, request); }
 
 	@PostMapping(value = "/{bookId}/chat", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<String> chat(@PathVariable String bookId, @RequestBody BookQueryRequest request) { return businessServiceClient.chat(bookId, request); }
+	public Mono<AiServiceClient.AiChatResponse> chat(@PathVariable String bookId, @RequestBody BookQueryRequest request) { return businessServiceClient.chat(bookId, request); }
 
 	@PostMapping(value = "/{bookId}/summary", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<String> summary(@PathVariable String bookId, @RequestBody BookSummaryCommand command) { return businessServiceClient.summary(bookId, command); }
+	public Mono<AiServiceClient.AiSummaryResponse> summary(@PathVariable String bookId, @RequestBody BookSummaryCommand command) { return businessServiceClient.summary(bookId, command); }
 
 	@PostMapping(value = "/{bookId}/flashcards", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<String> flashcards(@PathVariable String bookId, @RequestBody BookFlashcardCommand command) { return businessServiceClient.flashcards(bookId, command); }
+	public Mono<AiServiceClient.AiFlashcardResponse> flashcards(@PathVariable String bookId, @RequestBody BookFlashcardCommand command) { return businessServiceClient.flashcards(bookId, command); }
 
 	@GetMapping("/{bookId}/summaries")
 	public Flux<ChapterSummary> listSummaries(@PathVariable String bookId) { return businessServiceClient.listSummaries(bookId); }

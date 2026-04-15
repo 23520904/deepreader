@@ -10,6 +10,7 @@ import com.deepreader.core.model.Book;
 import com.deepreader.core.model.ChapterSummary;
 import com.deepreader.core.model.ChatHistory;
 import com.deepreader.core.model.Flashcard;
+import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,22 +47,22 @@ public class LibraryBusinessController {
 	}
 
 	@PostMapping(value = "/{bookId}/search", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<AiServiceClient.AiSearchResponse> search(@PathVariable String bookId, @RequestBody BookQueryRequest request) {
+	public Mono<AiServiceClient.AiSearchResponse> search(@PathVariable String bookId, @Valid @RequestBody BookQueryRequest request) {
 		return libraryOrchestrationService.searchBook(bookId, request);
 	}
 
 	@PostMapping(value = "/{bookId}/chat", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<AiServiceClient.AiChatResponse> chat(@PathVariable String bookId, @RequestBody BookQueryRequest request) {
+	public Mono<AiServiceClient.AiChatResponse> chat(@PathVariable String bookId, @Valid @RequestBody BookQueryRequest request) {
 		return libraryOrchestrationService.chatWithBook(bookId, request);
 	}
 
 	@PostMapping(value = "/{bookId}/summary", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<AiServiceClient.AiSummaryResponse> summary(@PathVariable String bookId, @RequestBody BookSummaryCommand command) {
+	public Mono<AiServiceClient.AiSummaryResponse> summary(@PathVariable String bookId, @Valid @RequestBody BookSummaryCommand command) {
 		return libraryOrchestrationService.summarizeBook(bookId, command);
 	}
 
 	@PostMapping(value = "/{bookId}/flashcards", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<AiServiceClient.AiFlashcardResponse> flashcards(@PathVariable String bookId, @RequestBody BookFlashcardCommand command) {
+	public Mono<AiServiceClient.AiFlashcardResponse> flashcards(@PathVariable String bookId, @Valid @RequestBody BookFlashcardCommand command) {
 		return libraryOrchestrationService.generateFlashcards(bookId, command);
 	}
 

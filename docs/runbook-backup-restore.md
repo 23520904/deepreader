@@ -1,5 +1,28 @@
 # Backup and Restore Runbook
 
+## PostgreSQL backup (Neon/managed Postgres)
+- Daily logical backup:
+  - `pg_dump "$DATABASE_URL" -Fc -f deepreader_$(date +%F).dump`
+- Keep backups for at least 14 days in object storage.
+
+## PostgreSQL restore
+- `pg_restore -d "$DATABASE_URL" --clean --if-exists deepreader_YYYY-MM-DD.dump`
+
+## MongoDB backup
+- `mongodump --uri "$MONGODB_URI" --out ./backup/mongo`
+- Restore:
+  - `mongorestore --uri "$MONGODB_URI" ./backup/mongo`
+
+## Operational data retention
+- `ai-service` exposes cleanup routine via scheduled job calling:
+  - `cleanup_old_operational_data(audit_days, dead_letter_days, session_days, usage_days)`
+- Tune retention by env vars:
+  - `RETENTION_AUDIT_DAYS`
+  - `RETENTION_DEAD_LETTER_DAYS`
+  - `RETENTION_SESSION_DAYS`
+  - `RETENTION_USAGE_DAYS`
+# Backup and Restore Runbook
+
 ## Scope
 
 - PostgreSQL metadata database

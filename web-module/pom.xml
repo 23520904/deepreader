@@ -11,21 +11,8 @@
 	<groupId>com.deepreader</groupId>
 	<artifactId>web-module</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
+	<name>DeepReader Web Module</name>
+	<description>Public API gateway module for authentication and book-facing web endpoints.</description>
 	<properties>
 		<java.version>21</java.version>
 	</properties>
@@ -59,14 +46,6 @@
 			<artifactId>spring-security-crypto</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-core</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-database-postgresql</artifactId>
-		</dependency>
-		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
 			<version>2.8.9</version>
@@ -93,21 +72,6 @@
 			<optional>true</optional>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.projectreactor</groupId>
-			<artifactId>reactor-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.security</groupId>
-			<artifactId>spring-security-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
 			<version>0.11.5</version>
@@ -128,13 +92,42 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-configuration-processor</artifactId>
-			<optional>true</optional>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<id>enforce-dependency-rules</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<fail>true</fail>
+							<rules>
+								<dependencyConvergence>
+									<excludes>
+										<exclude>at.yawk.lz4:lz4-java</exclude>
+									</excludes>
+								</dependencyConvergence>
+								<requireReleaseDeps>
+									<onlyWhenRelease>false</onlyWhenRelease>
+									<excludes>
+										<exclude>com.deepreader:*</exclude>
+									</excludes>
+								</requireReleaseDeps>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

@@ -17,6 +17,14 @@ public final class RequestUserContext {
 		return UserRole.USER;
 	}
 
+	public static String requireUserId(ServerWebExchange exchange) {
+		Object value = exchange.getAttribute(USER_ID_ATTRIBUTE);
+		if (value instanceof String userId && !userId.isBlank()) {
+			return userId;
+		}
+		throw new IllegalArgumentException("Authenticated user id is required");
+	}
+
 	public static void requireAdmin(ServerWebExchange exchange) {
 		if (requireUserRole(exchange) != UserRole.ADMIN) {
 			throw new IllegalArgumentException("Admin role required");

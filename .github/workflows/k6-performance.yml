@@ -13,6 +13,10 @@ on:
         description: "Test duration"
         required: false
         default: "60s"
+      warmup_duration:
+        description: "Warmup duration (excluded from threshold)"
+        required: false
+        default: "15s"
       provider:
         description: "LLM provider for test payloads"
         required: false
@@ -21,6 +25,9 @@ on:
     types: [opened, synchronize, reopened, labeled]
     paths:
       - "ai-service/**"
+      - "business-service/**"
+      - "data-service/**"
+      - "web-module/**"
       - "performance/**"
       - "docker-compose.yml"
       - ".github/workflows/k6-performance.yml"
@@ -53,25 +60,26 @@ jobs:
       CORS_ALLOWED_ORIGINS: http://localhost:3000
       INGESTION_MAX_FILE_SIZE_BYTES: 26214400
       INGESTION_MAX_RETRIES: 3
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Docker Compose stack
-        run: docker compose up -d --build postgres qdrant redis minio ai-service
+        run: docker compose up -d --build zookeeper kafka postgres mongo qdrant redis minio ai-service data-service business-service web-module
 
       - name: Wait for API readiness
         run: |
           for i in {1..40}; do
-            if curl -fsS "http://localhost:8080/actuator/health/readiness" > /dev/null; then
+            if curl -fsS "http://localhost:8083/actuator/health" > /dev/null; then
               echo "API readiness OK"
               exit 0
             fi
             sleep 5
           done
           echo "API readiness check failed"
-          docker compose logs ai-service
+          docker compose logs web-module business-service data-service ai-service
           exit 1
 
       - name: Setup k6
@@ -79,9 +87,11 @@ jobs:
 
       - name: Run k6 performance test
         env:
-          BASE_URL: http://localhost:8080
+          BASE_URL: http://localhost:8083
           VUS: ${{ github.event.inputs.vus || '20' }}
           DURATION: ${{ github.event.inputs.duration || '60s' }}
+          WARMUP_DURATION: ${{ github.event.inputs.warmup_duration || '15s' }}
+          WARMUP_VUS: ${{ github.event.inputs.vus || '20' }}
           PROVIDER: ${{ github.event.inputs.provider || 'gemini' }}
           TEST_EMAIL: k6-ci@example.com
           TEST_PASSWORD: password123
@@ -97,7 +107,7 @@ jobs:
 
       - name: Dump service logs on failure
         if: failure()
-        run: docker compose logs ai-service postgres qdrant redis minio
+        run: docker compose logs web-module business-service data-service ai-service postgres mongo qdrant redis minio kafka zookeeper
 
       - name: Teardown stack
         if: always()

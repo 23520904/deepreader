@@ -30,7 +30,8 @@ public class AuthWebFilter implements WebFilter {
 		if (isPublicPath(path)) {
 			return chain.filter(exchange);
 		}
-		boolean protectedPath = matcher.match("/api/v1/admin/**", path);
+		boolean protectedPath = matcher.match("/api/v1/admin/**", path)
+				|| matcher.match("/api/v1/books/**", path);
 		if (!protectedPath) {
 			return chain.filter(exchange);
 		}

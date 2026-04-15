@@ -11,25 +11,11 @@
 	<groupId>com.deepreader</groupId>
 	<artifactId>ai-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
+	<name>DeepReader AI Service</name>
+	<description>Reactive AI processing service for ingestion, retrieval, chat, summary, and flashcards.</description>
 	<properties>
 		<java.version>21</java.version>
 		<qdrant.client.version>1.15.0</qdrant.client.version>
-		<grpc.version>1.63.0</grpc.version>
 		<guava.version>33.2.1-jre</guava.version>
 		<protobuf.version>3.25.3</protobuf.version>
 	</properties>
@@ -124,16 +110,6 @@
 			<version>${qdrant.client.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>io.grpc</groupId>
-			<artifactId>grpc-api</artifactId>
-			<version>${grpc.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>io.grpc</groupId>
-			<artifactId>grpc-netty-shaded</artifactId>
-			<version>${grpc.version}</version>
-		</dependency>
-		<dependency>
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
 			<version>${guava.version}</version>
@@ -152,6 +128,38 @@
 	
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<id>enforce-dependency-rules</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<fail>true</fail>
+							<rules>
+								<dependencyConvergence>
+									<excludes>
+										<exclude>com.google.protobuf:protobuf-java</exclude>
+										<exclude>com.google.guava:guava</exclude>
+										<exclude>com.google.errorprone:error_prone_annotations</exclude>
+										<exclude>commons-logging:commons-logging</exclude>
+									</excludes>
+								</dependencyConvergence>
+								<requireReleaseDeps>
+									<onlyWhenRelease>false</onlyWhenRelease>
+									<excludes>
+										<exclude>com.deepreader:*</exclude>
+									</excludes>
+								</requireReleaseDeps>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

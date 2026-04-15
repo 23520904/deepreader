@@ -1,13 +1,20 @@
 package com.deepreader.ai_service.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
+
+import jakarta.validation.constraints.NotBlank;
 
 @ConfigurationProperties(prefix = "deepreader.openai")
+@Validated
 public class OpenAiProperties {
 
 	private String apiKey;
+	@NotBlank
 	private String baseUrl = "https://api.openai.com/v1";
+	@NotBlank
 	private String chatModel = "gpt-4o-mini";
+	@NotBlank
 	private String embeddingModel = "text-embedding-3-small";
 
 	public String getApiKey() {
