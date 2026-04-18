@@ -1,1 +1,6 @@
 .gitnexus
+__pycache__/
+*.pyc
+.venv/
+.env
+aiven_connect/

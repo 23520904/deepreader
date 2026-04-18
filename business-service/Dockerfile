@@ -12,6 +12,6 @@ RUN mvn -q -pl business-service -am package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/business-service/target/*.jar app.jar
+COPY --from=build /app/business-service/target/business-service-0.0.1-SNAPSHOT-exec.jar app.jar
 EXPOSE 8082
 ENTRYPOINT ["java","-jar","/app/app.jar"]

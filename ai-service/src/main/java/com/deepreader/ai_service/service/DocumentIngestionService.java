@@ -1,14 +1,17 @@
 package com.deepreader.ai_service.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.deepreader.ai_service.model.DocumentSection;
 import com.deepreader.ai_service.model.DocumentChunk;
 import com.deepreader.ai_service.model.IndexedDocument;
 import com.deepreader.ai_service.model.api.internal.IngestionResult;
 import com.deepreader.ai_service.config.IngestionProperties;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -23,18 +26,27 @@ public class DocumentIngestionService {
 	private final DocumentIndexStoreService documentIndexStoreService;
 	private final ChunkingService chunkingService;
 	private final EmbeddingService embeddingService;
-	private final QdrantVectorStoreService qdrantVectorStoreService;
 	private final IngestionProperties ingestionProperties;
 	private final ObjectStorageService objectStorageService;
+	private final WebClient haystackClient;
 
-	public DocumentIngestionService(TextExtractionService textExtractionService, DocumentIndexStoreService documentIndexStoreService, ChunkingService chunkingService, EmbeddingService embeddingService, QdrantVectorStoreService qdrantVectorStoreService, IngestionProperties ingestionProperties, ObjectStorageService objectStorageService) {
+	public DocumentIngestionService(
+			TextExtractionService textExtractionService,
+			DocumentIndexStoreService documentIndexStoreService,
+			ChunkingService chunkingService,
+			EmbeddingService embeddingService,
+			IngestionProperties ingestionProperties,
+			ObjectStorageService objectStorageService,
+			WebClient.Builder webClientBuilder,
+			@Value("${deepreader.haystack.base-url}") String haystackBaseUrl
+	) {
 		this.textExtractionService = textExtractionService;
 		this.documentIndexStoreService = documentIndexStoreService;
 		this.chunkingService = chunkingService;
 		this.embeddingService = embeddingService;
-		this.qdrantVectorStoreService = qdrantVectorStoreService;
 		this.ingestionProperties = ingestionProperties;
 		this.objectStorageService = objectStorageService;
+		this.haystackClient = webClientBuilder.baseUrl(haystackBaseUrl).build();
 	}
 
 	public Mono<IngestionResult> ingestDocument(String userId, FilePart filePart) {
@@ -88,7 +100,23 @@ public class DocumentIngestionService {
 
 	private void indexProvider(String provider, List<DocumentChunk> chunks, List<String> indexedProviders) {
 		List<List<Float>> embeddings = embeddingService.embedAll(provider, chunks.stream().map(DocumentChunk::content).toList());
-		qdrantVectorStoreService.upsertChunks(provider, chunks, embeddings, embeddingService.embeddingDimensions(provider));
+		List<HaystackChunk> payloadChunks = chunks.stream()
+				.map(chunk -> new HaystackChunk(
+						chunk.chunkId(),
+						chunk.documentId(),
+						chunk.fileName(),
+						chunk.sectionId(),
+						chunk.sectionTitle(),
+						chunk.chunkIndex(),
+						chunk.content()
+				))
+				.toList();
+		haystackClient.post()
+				.uri("/ingest")
+				.bodyValue(new HaystackIngestRequest(provider, payloadChunks, embeddings))
+				.retrieve()
+				.toBodilessEntity()
+				.block();
 		indexedProviders.add(provider);
 	}
 
@@ -100,5 +128,19 @@ public class DocumentIngestionService {
 		if (fileSizeBytes > 0 && fileSizeBytes > ingestionProperties.getMaxFileSizeBytes()) {
 			throw new IllegalArgumentException("File exceeds max size of " + ingestionProperties.getMaxFileSizeBytes() + " bytes");
 		}
+	}
+
+	private record HaystackIngestRequest(String provider, List<HaystackChunk> chunks, List<List<Float>> embeddings) {
+	}
+
+	private record HaystackChunk(
+			@JsonProperty("chunk_id") String chunkId,
+			@JsonProperty("document_id") String documentId,
+			@JsonProperty("file_name") String fileName,
+			@JsonProperty("section_id") String sectionId,
+			String title,
+			@JsonProperty("chunk_index") int chunkIndex,
+			String content
+	) {
 	}
 }

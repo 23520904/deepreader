@@ -5,8 +5,11 @@ import com.deepreader.ai_service.model.IndexedDocument;
 import com.deepreader.ai_service.model.RetrievedChunk;
 import com.deepreader.ai_service.model.SupportedProvider;
 import com.deepreader.ai_service.model.api.internal.SearchResponse;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -23,12 +26,17 @@ public class RetrievalService {
 
 	private final DocumentIndexStoreService documentIndexStoreService;
 	private final EmbeddingService embeddingService;
-	private final QdrantVectorStoreService qdrantVectorStoreService;
+	private final WebClient haystackClient;
 
-	public RetrievalService(DocumentIndexStoreService documentIndexStoreService, EmbeddingService embeddingService, QdrantVectorStoreService qdrantVectorStoreService) {
+	public RetrievalService(
+			DocumentIndexStoreService documentIndexStoreService,
+			EmbeddingService embeddingService,
+			WebClient.Builder webClientBuilder,
+			@Value("${deepreader.haystack.base-url}") String haystackBaseUrl
+	) {
 		this.documentIndexStoreService = documentIndexStoreService;
 		this.embeddingService = embeddingService;
-		this.qdrantVectorStoreService = qdrantVectorStoreService;
+		this.haystackClient = webClientBuilder.baseUrl(haystackBaseUrl).build();
 	}
 
 	public Mono<SearchResponse> search(String userId, String query, Integer requestedLimit, String provider) {
@@ -49,7 +57,7 @@ public class RetrievalService {
 		List<RetrievedChunk> lexicalMatches = lexicalFallback(query, documents, limit);
 		try {
 			List<Float> queryVector = embeddingService.embed(normalizedProvider, query);
-			List<RetrievedChunk> semanticMatches = qdrantVectorStoreService.search(normalizedProvider, queryVector, limit);
+			List<RetrievedChunk> semanticMatches = searchViaHaystack(normalizedProvider, queryVector, limit);
 			if (!semanticMatches.isEmpty()) {
 				return new SearchResponse(query, limit, normalizedProvider, semanticMatches);
 			}
@@ -103,5 +111,47 @@ public class RetrievalService {
 			return DEFAULT_LIMIT;
 		}
 		return Math.min(requestedLimit, MAX_LIMIT);
+	}
+
+	private List<RetrievedChunk> searchViaHaystack(String provider, List<Float> queryVector, int limit) {
+		HaystackSearchResponse response = haystackClient.post()
+				.uri("/search")
+				.bodyValue(new HaystackSearchRequest(provider, queryVector, limit))
+				.retrieve()
+				.bodyToMono(HaystackSearchResponse.class)
+				.block();
+		if (response == null || response.matches() == null) {
+			return List.of();
+		}
+		return response.matches().stream()
+				.map(match -> new RetrievedChunk(
+						match.documentId(),
+						match.chunkId(),
+						match.fileName(),
+						match.sectionId(),
+						match.title(),
+						match.chunkIndex(),
+						match.content(),
+						match.score() == null ? 0f : match.score()
+				))
+				.toList();
+	}
+
+	private record HaystackSearchRequest(String provider, List<Float> query_embedding, int limit) {
+	}
+
+	private record HaystackSearchResponse(List<HaystackSearchMatch> matches) {
+	}
+
+	private record HaystackSearchMatch(
+			@JsonProperty("document_id") String documentId,
+			@JsonProperty("chunk_id") String chunkId,
+			@JsonProperty("file_name") String fileName,
+			@JsonProperty("section_id") String sectionId,
+			String title,
+			@JsonProperty("chunk_index") Integer chunkIndex,
+			String content,
+			Float score
+	) {
 	}
 }

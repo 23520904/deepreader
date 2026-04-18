@@ -1,73 +1,16 @@
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
-    container_name: deepreader-zookeeper
+  haystack-service:
+    build:
+      context: .
+      dockerfile: haystack-service/Dockerfile
+    container_name: deepreader-haystack-service
     environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-
-  kafka:
-    image: confluentinc/cp-kafka:7.6.1
-    container_name: deepreader-kafka
-    depends_on:
-      - zookeeper
+      QDRANT_URL: ${QDRANT_URL}
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      QDRANT_COLLECTION_PREFIX: ${QDRANT_COLLECTION_PREFIX:-document_chunks}
+      QDRANT_TIMEOUT_SECONDS: ${QDRANT_TIMEOUT_SECONDS:-10}
     ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: deepreader-postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-deepreader}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-deepreader}"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
-
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: deepreader-qdrant
-    ports:
-      - "${QDRANT_HTTP_PORT:-6333}:6333"
-      - "${QDRANT_GRPC_PORT:-6334}:6334"
-    volumes:
-      - qdrant_data:/qdrant/storage
-
-  redis:
-    image: redis:7-alpine
-    container_name: deepreader-redis
-    ports:
-      - "${REDIS_HOST_PORT:-6379}:6379"
-
-  minio:
-    image: minio/minio:latest
-    container_name: deepreader-minio
-    environment:
-      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY:-minioadmin}
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
+      - "${HAYSTACK_PORT:-8000}:8000"
 
   ai-service:
     build:
@@ -78,17 +21,21 @@ services:
       SERVER_PORT: 8080
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      QDRANT_HOST: ${QDRANT_HOST:-qdrant}
+      HAYSTACK_BASE_URL: ${HAYSTACK_BASE_URL:-http://haystack-service:8000}
+      QDRANT_HOST: ${QDRANT_HOST}
       QDRANT_GRPC_PORT: ${QDRANT_GRPC_PORT:-6334}
-      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
-      QDRANT_USE_TLS: ${QDRANT_USE_TLS:-false}
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      QDRANT_USE_TLS: ${QDRANT_USE_TLS:-true}
       QDRANT_COLLECTION_PREFIX: ${QDRANT_COLLECTION_PREFIX:-document_chunks}
-      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/deepreader}
-      DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
-      REDIS_HOST: ${REDIS_HOST:-redis}
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT:-6379}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      REDIS_USERNAME: ${REDIS_USERNAME}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_SSL_ENABLED: ${REDIS_SSL_ENABLED:-true}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       INGESTION_MAX_FILE_SIZE_BYTES: ${INGESTION_MAX_FILE_SIZE_BYTES:-26214400}
       INGESTION_MAX_RETRIES: ${INGESTION_MAX_RETRIES:-3}
       GUARDRAILS_MAX_LLM_REQUESTS_PER_DAY: ${GUARDRAILS_MAX_LLM_REQUESTS_PER_DAY:-500}
@@ -97,21 +44,18 @@ services:
       WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-5000}
       WORKER_BATCH_SIZE: ${WORKER_BATCH_SIZE:-5}
       STORAGE_ENABLED: ${STORAGE_ENABLED:-true}
-      STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:-http://minio:9000}
-      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
-      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-minioadmin}
-      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-minioadmin}
-      STORAGE_BUCKET: ${STORAGE_BUCKET:-deepreader-documents}
+      STORAGE_ENDPOINT: ${STORAGE_ENDPOINT}
+      STORAGE_REGION: ${STORAGE_REGION}
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      STORAGE_BUCKET: ${STORAGE_BUCKET}
       STORAGE_PATH_STYLE: ${STORAGE_PATH_STYLE:-true}
     depends_on:
-      postgres:
-        condition: service_healthy
-      qdrant:
+      haystack-service:
         condition: service_started
-      redis:
-        condition: service_started
-      minio:
-        condition: service_started
+    ports:
+      - "${AI_SERVICE_PORT:-8080}:8080"
+
   data-service:
     build:
       context: .
@@ -119,10 +63,13 @@ services:
     container_name: deepreader-data-service
     environment:
       SERVER_PORT: 8081
-      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/deepreader}
-    depends_on:
-      mongo:
-        condition: service_started
+      MONGODB_URI: ${DEEPREADER_DATA_MONGODB_URI}
+      RELATIONAL_DATABASE_URL: ${RELATIONAL_DATABASE_URL}
+      RELATIONAL_DATABASE_USERNAME: ${RELATIONAL_DATABASE_USERNAME}
+      RELATIONAL_DATABASE_PASSWORD: ${RELATIONAL_DATABASE_PASSWORD}
+    ports:
+      - "${DATA_SERVICE_PORT:-8081}:8081"
+
   business-service:
     build:
       context: .
@@ -132,14 +79,27 @@ services:
       SERVER_PORT: 8082
       AI_SERVICE_BASE_URL: ${AI_SERVICE_BASE_URL:-http://ai-service:8080}
       DATA_SERVICE_BASE_URL: ${DATA_SERVICE_BASE_URL:-http://data-service:8081}
-      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_SECURITY_PROTOCOL: ${KAFKA_SECURITY_PROTOCOL:-SSL}
+      KAFKA_SSL_CERTIFICATE_CHAIN_PATH: ${KAFKA_SSL_CERTIFICATE_CHAIN_PATH:-/etc/aiven/service.cert}
+      KAFKA_SSL_KEY_PATH: ${KAFKA_SSL_KEY_PATH:-/etc/aiven/service.key}
+      KAFKA_SSL_CA_CERT_PATH: ${KAFKA_SSL_CA_CERT_PATH:-/etc/aiven/ca.pem}
+      BOOK_EVENTS_TOPIC: ${BOOK_EVENTS_TOPIC:-deepreader.book.events}
+      BOOK_EVENTS_DLQ_TOPIC: ${BOOK_EVENTS_DLQ_TOPIC:-deepreader.book.events.dlq}
+      KAFKA_CAMEL_ROUTE_ENABLED: ${KAFKA_CAMEL_ROUTE_ENABLED:-true}
+    command: >
+      sh -c "cat /etc/aiven/service.key /etc/aiven/service.cert > /etc/aiven/client-keystore.pem
+      && java -jar /app/app.jar"
+    volumes:
+      - ./aiven_connect:/etc/aiven
     depends_on:
       ai-service:
         condition: service_started
       data-service:
         condition: service_started
-      kafka:
-        condition: service_started
+    ports:
+      - "${BUSINESS_SERVICE_PORT:-8082}:8082"
+
   web-module:
     build:
       context: .
@@ -148,33 +108,19 @@ services:
     environment:
       SERVER_PORT: 8083
       BUSINESS_SERVICE_BASE_URL: ${BUSINESS_SERVICE_BASE_URL:-http://business-service:8082}
-      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/deepreader}
-      DATABASE_USERNAME: ${DATABASE_USERNAME:-postgres}
-      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-postgres}
-      REDIS_HOST: ${REDIS_HOST:-redis}
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT:-6379}
-      JWT_SECRET: ${JWT_SECRET:-dev-change-me-secret-32-bytes-minimum}
+      REDIS_USERNAME: ${REDIS_USERNAME}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_SSL_ENABLED: ${REDIS_SSL_ENABLED:-true}
+      JWT_SECRET: ${JWT_SECRET}
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-86400}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
       business-service:
         condition: service_started
     ports:
       - "${WEB_MODULE_PORT:-8083}:8083"
-
-  mongo:
-    image: mongo:7
-    container_name: deepreader-mongo
-    ports:
-      - "${MONGO_PORT:-27017}:27017"
-    volumes:
-      - mongo_data:/data/db
-
-volumes:
-  postgres_data:
-  qdrant_data:
-  minio_data:
-  mongo_data:
