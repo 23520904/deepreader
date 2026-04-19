@@ -69,7 +69,8 @@ class AuthControllerWebFluxTest {
 		UserAccountService.UserRecord user = new UserAccountService.UserRecord(
 				"user-1",
 				"k6@example.com",
-				UserRole.USER
+				UserRole.USER,
+				null
 		);
 		when(userAccountService.register("k6@example.com", "password123")).thenReturn(user);
 		when(jwtService.generateAccessToken("user-1", UserRole.USER)).thenReturn("jwt-token");

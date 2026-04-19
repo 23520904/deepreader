@@ -34,18 +34,19 @@ public class UserAccountService {
 				passwordHash,
 				role.name()
 		);
-		return new UserRecord(userId, normalizedEmail, role);
+		return new UserRecord(userId, normalizedEmail, role, null);
 	}
 
 	public UserRecord login(String email, String password) {
 		String normalizedEmail = normalizeEmail(email);
 		List<UserWithHash> users = jdbcTemplate.query(
-				"select user_id, email, password_hash, role from app_users where email = ?",
+				"select user_id, email, password_hash, role, llm_api_token from app_users where email = ?",
 				(rs, rowNum) -> new UserWithHash(
 						rs.getString("user_id"),
 						rs.getString("email"),
 						rs.getString("password_hash"),
-						UserRole.from(rs.getString("role"))
+						UserRole.from(rs.getString("role")),
+						rs.getString("llm_api_token")
 				),
 				normalizedEmail
 		);
@@ -56,16 +57,17 @@ public class UserAccountService {
 		if (!BCrypt.checkpw(password, user.passwordHash())) {
 			throw new IllegalArgumentException("Invalid email or password");
 		}
-		return new UserRecord(user.userId(), user.email(), user.role());
+		return new UserRecord(user.userId(), user.email(), user.role(), user.llmApiToken());
 	}
 
 	public UserRecord findById(String userId) {
 		List<UserRecord> users = jdbcTemplate.query(
-				"select user_id, email, role from app_users where user_id = ?",
+				"select user_id, email, role, llm_api_token from app_users where user_id = ?",
 				(rs, rowNum) -> new UserRecord(
 						rs.getString("user_id"),
 						rs.getString("email"),
-						UserRole.from(rs.getString("role"))
+						UserRole.from(rs.getString("role")),
+						rs.getString("llm_api_token")
 				),
 				userId
 		);
@@ -73,6 +75,13 @@ public class UserAccountService {
 			throw new IllegalArgumentException("User not found: " + userId);
 		}
 		return users.getFirst();
+	}
+	
+	public void updateLlmApiToken(String userId, String token) {
+		int updated = jdbcTemplate.update("update app_users set llm_api_token = ? where user_id = ?", token, userId);
+		if (updated == 0) {
+			throw new IllegalArgumentException("User not found: " + userId);
+		}
 	}
 
 	private boolean existsByEmail(String email) {
@@ -98,6 +107,6 @@ public class UserAccountService {
 		}
 	}
 
-	private record UserWithHash(String userId, String email, String passwordHash, UserRole role) {}
-	public record UserRecord(String userId, String email, UserRole role) {}
+	private record UserWithHash(String userId, String email, String passwordHash, UserRole role, String llmApiToken) {}
+	public record UserRecord(String userId, String email, UserRole role, String llmApiToken) {}
 }

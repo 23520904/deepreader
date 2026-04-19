@@ -33,14 +33,14 @@ public class ChatService {
 
 	public Mono<ChatAskResponse> ask(String userId, String query, Integer limit, String provider) {
 		return retrievalService.search(userId, query, limit, provider)
-				.flatMap(searchResponse -> Mono.fromCallable(() -> toChatResponse(searchResponse))
+				.flatMap(searchResponse -> Mono.fromCallable(() -> toChatResponse(searchResponse, userId))
 						.subscribeOn(Schedulers.boundedElastic()));
 	}
 
-	private ChatAskResponse toChatResponse(SearchResponse searchResponse) {
+	private ChatAskResponse toChatResponse(SearchResponse searchResponse, String userId) {
 		List<RetrievedChunk> matches = searchResponse.matches();
 		String prompt = promptBuilderService.buildAnswerPrompt(searchResponse.query(), matches);
-		String answer = llmClientService.generateAnswer(searchResponse.provider(), prompt);
+		String answer = llmClientService.generateAnswer(userId, searchResponse.provider(), prompt);
 
 		List<SourceReference> sources = matches.stream()
 				.map(chunk -> new SourceReference(

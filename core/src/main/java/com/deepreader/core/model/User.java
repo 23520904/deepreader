@@ -12,5 +12,6 @@ public class User {
     private String passwordHash;
     private String fullName;
     private String role;
+    private String llmApiToken;
     private LocalDateTime createdAt;
 }

@@ -7,6 +7,7 @@ import com.deepreader.ai_service.model.provider.gemini.GeminiGenerateContentRequ
 import com.deepreader.ai_service.model.provider.gemini.GeminiGenerateContentResponse;
 import com.deepreader.ai_service.model.provider.openai.OpenAiChatRequest;
 import com.deepreader.ai_service.model.provider.openai.OpenAiChatResponse;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -22,29 +23,44 @@ public class LlmClientService {
 	private final OpenAiProperties openAiProperties;
 	private final GeminiProperties geminiProperties;
 	private final WebClient.Builder webClientBuilder;
+	private final JdbcTemplate jdbcTemplate;
 
-	public LlmClientService(OpenAiProperties openAiProperties, GeminiProperties geminiProperties, WebClient.Builder webClientBuilder) {
+	public LlmClientService(OpenAiProperties openAiProperties, GeminiProperties geminiProperties, WebClient.Builder webClientBuilder, JdbcTemplate jdbcTemplate) {
 		this.openAiProperties = openAiProperties;
 		this.geminiProperties = geminiProperties;
 		this.webClientBuilder = webClientBuilder;
+		this.jdbcTemplate = jdbcTemplate;
 	}
 
-	public String generateAnswer(String provider, String prompt) {
+	public String generateAnswer(String userId, String provider, String prompt) {
+		String userToken = null;
+		if (StringUtils.hasText(userId)) {
+			List<String> tokens = jdbcTemplate.query(
+					"select llm_api_token from app_users where user_id = ?",
+					(rs, rowNum) -> rs.getString("llm_api_token"),
+					userId
+			);
+			if (!tokens.isEmpty() && StringUtils.hasText(tokens.getFirst())) {
+				userToken = tokens.getFirst();
+			}
+		}
+		
 		return switch (SupportedProvider.from(provider)) {
-			case OPENAI -> generateWithOpenAi(prompt);
-			case GEMINI -> generateWithGemini(prompt);
+			case OPENAI -> generateWithOpenAi(userToken, prompt);
+			case GEMINI -> generateWithGemini(userToken, prompt);
 		};
 	}
 
-	private String generateWithOpenAi(String prompt) {
-		if (!StringUtils.hasText(openAiProperties.getApiKey())) {
-			throw new IllegalStateException("Missing required property: deepreader.openai.api-key");
+	private String generateWithOpenAi(String userToken, String prompt) {
+		String apiKey = StringUtils.hasText(userToken) ? userToken : openAiProperties.getApiKey();
+		if (!StringUtils.hasText(apiKey)) {
+			throw new IllegalStateException("Missing required property: deepreader.openai.api-key or User LLM API Token");
 		}
 		WebClient client = webClientBuilder.baseUrl(normalizeUrl(openAiProperties.getBaseUrl())).build();
 		OpenAiChatRequest request = new OpenAiChatRequest(openAiProperties.getChatModel(), List.of(new OpenAiChatRequest.Message("user", prompt)), 0.2d);
 		OpenAiChatResponse response;
 		try {
-			response = client.post().uri("/chat/completions").header("Authorization", "Bearer " + openAiProperties.getApiKey()).bodyValue(request).retrieve().bodyToMono(OpenAiChatResponse.class).switchIfEmpty(Mono.error(new IllegalStateException("OpenAI generation response was empty"))).block();
+			response = client.post().uri("/chat/completions").header("Authorization", "Bearer " + apiKey).bodyValue(request).retrieve().bodyToMono(OpenAiChatResponse.class).switchIfEmpty(Mono.error(new IllegalStateException("OpenAI generation response was empty"))).block();
 		} catch (WebClientResponseException e) {
 			throw new IllegalStateException("OpenAI generation request failed: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
 		}
@@ -55,16 +71,17 @@ public class LlmClientService {
 		return safe.choices().getFirst().message().content().trim();
 	}
 
-	private String generateWithGemini(String prompt) {
-		if (!StringUtils.hasText(geminiProperties.getApiKey())) {
-			throw new IllegalStateException("Missing required property: deepreader.gemini.api-key");
+	private String generateWithGemini(String userToken, String prompt) {
+		String apiKey = StringUtils.hasText(userToken) ? userToken : geminiProperties.getApiKey();
+		if (!StringUtils.hasText(apiKey)) {
+			throw new IllegalStateException("Missing required property: deepreader.gemini.api-key or User LLM API Token");
 		}
 		WebClient client = webClientBuilder.baseUrl(normalizeGeminiBaseUrl(geminiProperties.getBaseUrl())).build();
 		String modelId = normalizeGeminiModel(geminiProperties.getGenerationModel());
 		GeminiGenerateContentRequest request = new GeminiGenerateContentRequest(List.of(new GeminiGenerateContentRequest.Content(List.of(new GeminiGenerateContentRequest.Part(prompt)))), new GeminiGenerateContentRequest.GenerationConfig(0.2d, 512));
 		GeminiGenerateContentResponse response;
 		try {
-			response = client.post().uri(uriBuilder -> uriBuilder.path("/models/{model}:generateContent").queryParam("key", geminiProperties.getApiKey()).build(modelId)).bodyValue(request).retrieve().bodyToMono(GeminiGenerateContentResponse.class).switchIfEmpty(Mono.error(new IllegalStateException("Gemini generation response was empty"))).block();
+			response = client.post().uri(uriBuilder -> uriBuilder.path("/models/{model}:generateContent").queryParam("key", apiKey).build(modelId)).bodyValue(request).retrieve().bodyToMono(GeminiGenerateContentResponse.class).switchIfEmpty(Mono.error(new IllegalStateException("Gemini generation response was empty"))).block();
 		} catch (WebClientResponseException e) {
 			throw new IllegalStateException("Gemini generation request failed: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
 		}

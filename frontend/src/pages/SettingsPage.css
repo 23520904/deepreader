@@ -1,0 +1,20 @@
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 24px;
+  margin-top: 32px;
+}
+.settings-section { display: flex; flex-direction: column; gap: 16px; }
+.section-title { font-size: 1.1rem; font-weight: 700; }
+.section-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-glass);
+}
+.info-row:last-of-type { border-bottom: none; }
+.info-label { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
+.info-value { font-size: 0.85rem; color: var(--text-primary); }
+.info-mono { font-family: 'Courier New', monospace; font-size: 0.75rem; color: var(--text-muted); }

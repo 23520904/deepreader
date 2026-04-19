@@ -2,9 +2,10 @@ create table if not exists app_users (
     user_id varchar(100) primary key,
     email varchar(320) not null unique,
     password_hash text not null,
+    role varchar(50) not null default 'USER',
+    llm_api_token text,
     created_at timestamptz not null default now()
 );
-
 create table if not exists indexed_documents (
     user_id varchar(100) not null references app_users(user_id) on delete cascade,
     document_id varchar(100) primary key,

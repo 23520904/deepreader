@@ -28,7 +28,7 @@ public class GenerationService {
 		return Mono.fromCallable(() -> {
 			IndexedDocument document = documentIndexStoreService.requireById(userId, documentId);
 			String prompt = promptBuilderService.buildSummaryPrompt(document.fileName(), combinedContent(document));
-			String summary = llmClientService.generateAnswer(provider, prompt);
+			String summary = llmClientService.generateAnswer(userId, provider, prompt);
 			return new SummaryResponse(documentId, provider == null ? "gemini" : provider, summary);
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
@@ -38,7 +38,7 @@ public class GenerationService {
 			int count = requestedCount == null || requestedCount <= 0 ? 10 : Math.min(requestedCount, 25);
 			IndexedDocument document = documentIndexStoreService.requireById(userId, documentId);
 			String prompt = promptBuilderService.buildFlashcardPrompt(document.fileName(), combinedContent(document), count);
-			String response = llmClientService.generateAnswer(provider, prompt);
+			String response = llmClientService.generateAnswer(userId, provider, prompt);
 			return new FlashcardResponse(documentId, provider == null ? "gemini" : provider, parseFlashcards(response));
 		}).subscribeOn(Schedulers.boundedElastic());
 	}

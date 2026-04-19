@@ -67,4 +67,30 @@ public class BusinessServiceClient {
 	public Flux<ChapterSummary> listSummaries(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/summaries", bookId).retrieve().bodyToFlux(ChapterSummary.class); }
 	public Flux<Flashcard> listFlashcards(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/flashcards", bookId).retrieve().bodyToFlux(Flashcard.class); }
 	public Flux<ChatHistory> listChats(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/chats", bookId).retrieve().bodyToFlux(ChatHistory.class); }
+
+	public Mono<java.util.Map> analyzeImage(String userId, String provider, String prompt, byte[] content, String mimeType) {
+		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
+		bodyBuilder.part("image", new ByteArrayResource(content) {
+			@Override
+			public String getFilename() {
+				return "image"; // Dummy filename for multipart
+			}
+		}).header("Content-Type", mimeType);
+		if (prompt != null) {
+			bodyBuilder.part("prompt", prompt);
+		}
+		if (provider != null) {
+			bodyBuilder.part("provider", provider);
+		}
+
+		return webClient.post()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/vision/analyze")
+						.queryParam("userId", userId)
+						.queryParamIfPresent("provider", java.util.Optional.ofNullable(provider))
+						.build())
+				.contentType(MediaType.MULTIPART_FORM_DATA)
+				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))
+				.retrieve()
+				.bodyToMono(java.util.Map.class);
+	}
 }
