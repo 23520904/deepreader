@@ -100,6 +100,31 @@ public class AiServiceClient {
 				.bodyToMono(java.util.Map.class);
 	}
 
+	public Mono<java.util.Map> analyzePdf(String userId, String provider, String prompt, String fileName, byte[] content) {
+		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
+		String safeName = (fileName != null && !fileName.isBlank()) ? fileName : "document.pdf";
+		bodyBuilder.part("file", new ByteArrayResource(content) {
+			@Override
+			public String getFilename() {
+				return safeName;
+			}
+		}).contentType(MediaType.APPLICATION_PDF);
+		if (prompt != null) {
+			bodyBuilder.part("prompt", prompt);
+		}
+		if (provider != null) {
+			bodyBuilder.part("provider", provider);
+		}
+
+		return webClient.post()
+				.uri("/internal/ai/v1/vision/analyze-pdf")
+				.header("X-User-Id", userId)
+				.contentType(MediaType.MULTIPART_FORM_DATA)
+				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))
+				.retrieve()
+				.bodyToMono(java.util.Map.class);
+	}
+
 	public record AiUploadResponse(String documentId, String fileName, int chunkCount, java.util.List<String> chunkIds, java.util.List<String> indexedProviders) {}
 	public record AiSearchRequest(String query, Integer limit, String provider) {}
 	public record AiSearchResponse(String query, int limit, String provider, java.util.List<AiRetrievedChunk> matches) {}

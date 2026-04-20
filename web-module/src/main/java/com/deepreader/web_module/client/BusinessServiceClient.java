@@ -93,4 +93,31 @@ public class BusinessServiceClient {
 				.retrieve()
 				.bodyToMono(java.util.Map.class);
 	}
+
+	public Mono<java.util.Map> analyzePdf(String userId, String provider, String prompt, String fileName, byte[] content) {
+		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
+		String safeName = (fileName != null && !fileName.isBlank()) ? fileName : "document.pdf";
+		bodyBuilder.part("file", new ByteArrayResource(content) {
+			@Override
+			public String getFilename() {
+				return safeName;
+			}
+		}).contentType(MediaType.APPLICATION_PDF);
+		if (prompt != null) {
+			bodyBuilder.part("prompt", prompt);
+		}
+		if (provider != null) {
+			bodyBuilder.part("provider", provider);
+		}
+
+		return webClient.post()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/vision/analyze-pdf")
+						.queryParam("userId", userId)
+						.queryParamIfPresent("provider", java.util.Optional.ofNullable(provider))
+						.build())
+				.contentType(MediaType.MULTIPART_FORM_DATA)
+				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))
+				.retrieve()
+				.bodyToMono(java.util.Map.class);
+	}
 }

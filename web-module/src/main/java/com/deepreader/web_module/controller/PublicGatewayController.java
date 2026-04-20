@@ -12,7 +12,10 @@ import com.deepreader.core.model.Flashcard;
 import com.deepreader.web_module.client.BusinessServiceClient;
 import com.deepreader.web_module.service.RequestUserContext;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,9 +24,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping(path = "/api/v1/books", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -75,4 +81,11 @@ public class PublicGatewayController {
 
 	@GetMapping("/{bookId}/chats")
 	public Flux<ChatHistory> listChats(@PathVariable String bookId) { return businessServiceClient.listChats(bookId); }
+
+	@ExceptionHandler(WebClientResponseException.class)
+	public ResponseEntity<Map<String, String>> handleUpstreamWebClientError(WebClientResponseException ex) {
+		String responseBody = ex.getResponseBodyAsString();
+		String message = StringUtils.hasText(responseBody) ? responseBody : ex.getMessage();
+		return ResponseEntity.status(ex.getStatusCode()).body(Map.of("error", message));
+	}
 }

@@ -35,4 +35,21 @@ public class VisionBusinessController {
 					return aiServiceClient.analyzeImage(userId, provider, prompt, bytes, mimeType);
 				});
 	}
+
+	@PostMapping(value = "/analyze-pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+	public Mono<Map> analyzePdf(
+			@RequestParam("userId") String userId,
+			@RequestParam(value = "provider", required = false) String provider,
+			@RequestPart(value = "prompt", required = false) String prompt,
+			@RequestPart("file") FilePart filePart
+	) {
+		String name = filePart.filename();
+		return DataBufferUtils.join(filePart.content())
+				.flatMap(dataBuffer -> {
+					byte[] bytes = new byte[dataBuffer.readableByteCount()];
+					dataBuffer.read(bytes);
+					DataBufferUtils.release(dataBuffer);
+					return aiServiceClient.analyzePdf(userId, provider, prompt, name, bytes);
+				});
+	}
 }

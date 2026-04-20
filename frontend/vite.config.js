@@ -7,7 +7,8 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:8083',
+        // Use IPv4 loopback to avoid ECONNRESET on some Windows/Node setups.
+        target: 'http://127.0.0.1:8083',
         changeOrigin: true,
       },
     },

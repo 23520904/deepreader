@@ -7,15 +7,18 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class VisionService {
+
+	public record ImagePart(String mimeType, byte[] data) {}
 
 	private final OpenAiProperties openAiProperties;
 	private final GeminiProperties geminiProperties;
@@ -30,6 +33,10 @@ public class VisionService {
 	}
 
 	public Mono<String> analyzeImage(String userId, String provider, String prompt, byte[] imageBytes, String mimeType) {
+		return analyzeMultimodal(userId, provider, prompt, List.of(new ImagePart(mimeType, imageBytes)));
+	}
+
+	public Mono<String> analyzeMultimodal(String userId, String provider, String prompt, List<ImagePart> images) {
 		String userToken = null;
 		if (StringUtils.hasText(userId)) {
 			List<String> tokens = jdbcTemplate.query(
@@ -42,31 +49,29 @@ public class VisionService {
 			}
 		}
 
+		List<ImagePart> safeImages = images == null ? List.of() : images;
 		SupportedProvider supported = SupportedProvider.from(provider);
 		if (supported == SupportedProvider.OPENAI) {
-			return analyzeWithOpenAi(userToken, prompt, imageBytes, mimeType);
-		} else {
-			return analyzeWithGemini(userToken, prompt, imageBytes, mimeType);
+			return analyzeWithOpenAi(userToken, prompt, safeImages);
 		}
+		return analyzeWithGemini(userToken, prompt, safeImages);
 	}
 
-	private Mono<String> analyzeWithOpenAi(String userToken, String prompt, byte[] imageBytes, String mimeType) {
+	private Mono<String> analyzeWithOpenAi(String userToken, String prompt, List<ImagePart> images) {
 		String apiKey = StringUtils.hasText(userToken) ? userToken : openAiProperties.getApiKey();
 		WebClient client = webClientBuilder.baseUrl(normalizeUrl(openAiProperties.getBaseUrl())).build();
 
-		String base64Image = Base64.getEncoder().encodeToString(imageBytes);
-		String dataUri = "data:" + mimeType + ";base64," + base64Image;
+		List<Map<String, Object>> contentParts = new ArrayList<>();
+		contentParts.add(Map.of("type", "text", "text", prompt));
+		for (ImagePart img : images) {
+			String dataUri = "data:" + img.mimeType() + ";base64," + Base64.getEncoder().encodeToString(img.data());
+			contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", dataUri)));
+		}
 
-		Map<String, Object> request = Map.of(
-				"model", "gpt-4o", // Must use a vision-capable model
-				"messages", List.of(
-						Map.of("role", "user", "content", List.of(
-								Map.of("type", "text", "text", prompt),
-								Map.of("type", "image_url", "image_url", Map.of("url", dataUri))
-						))
-				),
-				"max_tokens", 1000
-		);
+		Map<String, Object> request = new LinkedHashMap<>();
+		request.put("model", openAiProperties.getChatModel());
+		request.put("messages", List.of(Map.of("role", "user", "content", contentParts)));
+		request.put("max_tokens", 4096);
 
 		return client.post().uri("/chat/completions")
 				.header("Authorization", "Bearer " + apiKey)
@@ -80,24 +85,23 @@ public class VisionService {
 				});
 	}
 
-	private Mono<String> analyzeWithGemini(String userToken, String prompt, byte[] imageBytes, String mimeType) {
+	private Mono<String> analyzeWithGemini(String userToken, String prompt, List<ImagePart> images) {
 		String apiKey = StringUtils.hasText(userToken) ? userToken : geminiProperties.getApiKey();
 		WebClient client = webClientBuilder.baseUrl(normalizeGeminiBaseUrl(geminiProperties.getBaseUrl())).build();
-		String modelId = "gemini-2.5-flash"; // default vision model
+		String modelId = geminiProperties.getGenerationModel();
 
-		String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+		List<Map<String, Object>> parts = new ArrayList<>();
+		parts.add(Map.of("text", prompt));
+		for (ImagePart img : images) {
+			parts.add(Map.of(
+					"inline_data", Map.of(
+							"mime_type", img.mimeType(),
+							"data", Base64.getEncoder().encodeToString(img.data())
+					)
+			));
+		}
 
-		Map<String, Object> request = Map.of(
-				"contents", List.of(
-						Map.of("parts", List.of(
-								Map.of("text", prompt),
-								Map.of("inline_data", Map.of(
-										"mime_type", mimeType,
-										"data", base64Image
-								))
-						))
-				)
-		);
+		Map<String, Object> request = Map.of("contents", List.of(Map.of("parts", parts)));
 
 		return client.post()
 				.uri(uriBuilder -> uriBuilder.path("/models/{model}:generateContent")
@@ -108,22 +112,35 @@ public class VisionService {
 				.map(response -> {
 					List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
 					Map<String, Object> content = (Map<String, Object>) candidates.getFirst().get("content");
-					List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
-					return (String) parts.getFirst().get("text");
+					List<Map<String, Object>> responseParts = (List<Map<String, Object>>) content.get("parts");
+					StringBuilder text = new StringBuilder();
+					for (Map<String, Object> p : responseParts) {
+						Object fragment = p.get("text");
+						if (fragment != null) {
+							text.append(fragment);
+						}
+					}
+					return text.toString();
 				});
 	}
 
 	private String normalizeUrl(String url) {
 		String normalized = StringUtils.hasText(url) ? url.trim() : "https://api.openai.com/v1";
-		while (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
+		while (normalized.endsWith("/")) {
+			normalized = normalized.substring(0, normalized.length() - 1);
+		}
 		return normalized;
 	}
 
 	private String normalizeGeminiBaseUrl(String configuredBaseUrl) {
 		String normalized = StringUtils.hasText(configuredBaseUrl) ? configuredBaseUrl.trim() : "https://generativelanguage.googleapis.com/v1beta";
 		int modelsIndex = normalized.indexOf("/models/");
-		if (modelsIndex >= 0) normalized = normalized.substring(0, modelsIndex);
-		while (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
+		if (modelsIndex >= 0) {
+			normalized = normalized.substring(0, modelsIndex);
+		}
+		while (normalized.endsWith("/")) {
+			normalized = normalized.substring(0, normalized.length() - 1);
+		}
 		return normalized;
 	}
 }

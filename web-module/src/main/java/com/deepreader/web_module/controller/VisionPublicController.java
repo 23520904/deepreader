@@ -37,4 +37,22 @@ public class VisionPublicController {
 			return out;
 		}).flatMap(out -> businessServiceClient.analyzeImage(userId, provider, prompt, out.toByteArray(), mimeType));
 	}
+
+	@PostMapping(value = "/analyze-pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public Mono<Map> analyzePdf(
+			@RequestParam(required = false) String provider,
+			@RequestPart(value = "prompt", required = false) String prompt,
+			@RequestPart("file") FilePart filePart,
+			ServerWebExchange exchange
+	) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		String fileName = filePart.filename();
+		return filePart.content().reduce(new java.io.ByteArrayOutputStream(), (out, dataBuffer) -> {
+			byte[] bytes = new byte[dataBuffer.readableByteCount()];
+			dataBuffer.read(bytes);
+			org.springframework.core.io.buffer.DataBufferUtils.release(dataBuffer);
+			out.write(bytes, 0, bytes.length);
+			return out;
+		}).flatMap(out -> businessServiceClient.analyzePdf(userId, provider, prompt, fileName, out.toByteArray()));
+	}
 }

@@ -12,6 +12,8 @@ import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -21,6 +23,7 @@ import java.util.UUID;
 
 @Service
 public class DocumentIngestionService {
+	private static final Logger log = LoggerFactory.getLogger(DocumentIngestionService.class);
 
 	private final TextExtractionService textExtractionService;
 	private final DocumentIndexStoreService documentIndexStoreService;
@@ -93,9 +96,23 @@ public class DocumentIngestionService {
 			throw new IllegalStateException("No chunks produced for file: " + fileName);
 		}
 		List<String> providers = new ArrayList<>();
-		indexProvider("openai", chunks, providers);
-		indexProvider("gemini", chunks, providers);
+		List<String> providerErrors = new ArrayList<>();
+		indexProviderSafely("openai", chunks, providers, providerErrors);
+		indexProviderSafely("gemini", chunks, providers, providerErrors);
+		if (providers.isEmpty()) {
+			throw new IllegalStateException("All embedding providers failed. " + String.join(" | ", providerErrors));
+		}
 		return new IngestionResult(documentId, fileName, chunks.size(), chunks.stream().map(DocumentChunk::chunkId).toList(), providers);
+	}
+
+	private void indexProviderSafely(String provider, List<DocumentChunk> chunks, List<String> indexedProviders, List<String> providerErrors) {
+		try {
+			indexProvider(provider, chunks, indexedProviders);
+		} catch (RuntimeException ex) {
+			String reason = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+			providerErrors.add(provider + ": " + reason);
+			log.warn("Skipping failed provider '{}' during ingestion: {}", provider, reason);
+		}
 	}
 
 	private void indexProvider(String provider, List<DocumentChunk> chunks, List<String> indexedProviders) {
