@@ -26,7 +26,7 @@ public class UserAccountService {
 		}
 		String userId = UUID.randomUUID().toString();
 		String passwordHash = BCrypt.hashpw(password, BCrypt.gensalt());
-		UserRole role = isFirstUser() ? UserRole.ADMIN : UserRole.USER;
+		UserRole role = UserRole.USER;
 		jdbcTemplate.update(
 				"insert into app_users (user_id, email, password_hash, role) values (?, ?, ?, ?)",
 				userId,
@@ -87,11 +87,6 @@ public class UserAccountService {
 	private boolean existsByEmail(String email) {
 		Integer count = jdbcTemplate.queryForObject("select count(*) from app_users where email = ?", Integer.class, email);
 		return count != null && count > 0;
-	}
-
-	private boolean isFirstUser() {
-		Integer count = jdbcTemplate.queryForObject("select count(*) from app_users", Integer.class);
-		return count == null || count == 0;
 	}
 
 	private String normalizeEmail(String email) {
