@@ -68,15 +68,6 @@ export default function LoginPage() {
             onChange={setPassword}
           />
 
-          <div className="flex justify-end">
-            <button
-              type="button"
-              className="cursor-pointer text-[13px] font-semibold text-[#1e4f8d] transition hover:text-[#163d70]"
-            >
-              Forgot Password?
-            </button>
-          </div>
-
           {message ? (
             <p className="rounded-[8px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {message}
