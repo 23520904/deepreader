@@ -1,0 +1,36 @@
+import Link from "next/link";
+
+export function AboutHero() {
+  return (
+    <section className="bg-[#eef0f7]">
+      <div className="mx-auto grid w-[min(1120px,calc(100%_-_48px))] grid-cols-[1fr_500px] items-center gap-[76px] py-[104px] max-[1024px]:grid-cols-1 max-[700px]:w-[min(100%_-_28px,1120px)] max-[700px]:gap-10 max-[700px]:py-16">
+        <div className="about-fade-left">
+          <h1 className="max-w-[520px] text-[42px] font-extrabold leading-[1.08] tracking-[-0.03em] text-[#171923] max-[700px]:text-[34px]">
+            Building Better Reading Habits With AI-powered Learning Support
+          </h1>
+
+          <p className="mt-5 max-w-[500px] text-[14px] font-medium leading-[1.65] text-[#747984]">
+            DeepReader is an intelligent reading platform that helps users read
+            more efficiently, understand content faster, and remember better
+            through AI summaries, flashcards, and document-based chat.
+          </p>
+
+          <Link
+            href="/library"
+            className="about-hover-lift mt-8 inline-flex min-h-[41px] items-center justify-center rounded-[3px] bg-[#245c93] px-7 text-[12px] font-extrabold text-white transition hover:bg-[#174a7d]"
+          >
+            Learn More
+          </Link>
+        </div>
+
+        <div className="about-fade-right overflow-hidden rounded-[4px] bg-white shadow-[0_18px_45px_rgba(21,36,67,0.12)]">
+          <img
+            src="/about/reading.png"
+            alt="Reading book"
+            className="h-[318px] w-full object-cover transition duration-500 hover:scale-105 max-[700px]:h-[230px]"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
