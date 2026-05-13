@@ -38,20 +38,20 @@ const benefits = [
 
 const featureCards = [
   {
-    title: "Chapter Summary",
-    description: "Automatically create concise, structured summaries for every chapter.",
+    title: "Structured Summaries",
+    description: "Capture the main ideas, key terms, and important arguments from long documents.",
     image: "/home/document-summary.png",
     alt: "Document summary with chart",
   },
   {
-    title: "Cloud Library",
-    description: "Store learning documents in the cloud and return to them quickly.",
+    title: "Organized Library",
+    description: "Keep PDFs, EPUBs, notes, and study files in one tidy workspace.",
     image: "/home/cloud-storage.png",
     alt: "Cloud library with documents",
   },
   {
-    title: "Daily Analytics",
-    description: "Review reading progress, completed pages, and learning performance.",
+    title: "Study Progress",
+    description: "See completed pages, review activity, and learning momentum at a glance.",
     image: "/home/data-analysis.png",
     alt: "Daily analytics with charts",
   },
@@ -217,8 +217,12 @@ export default function Home() {
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
           <div className="mx-auto mb-[46px] max-w-[700px] text-center">
             <h2 className="text-[37px] font-extrabold leading-[1.16] tracking-[0] text-[#1d355b] max-[700px]:text-[29px]">
-              Feature blocks with a sharper 3D visual style
+              Smart reading tools for focused study
             </h2>
+            <p className="mx-auto mt-[18px] max-w-[620px] text-[15px] leading-[1.7] text-[#8391ad]">
+              DeepReader brings summaries, document organization, and study progress
+              into one workspace so every reading session has a clear next step.
+            </p>
           </div>
 
           <div className="grid grid-cols-3 gap-[26px] max-[1050px]:grid-cols-2 max-[700px]:grid-cols-1">
