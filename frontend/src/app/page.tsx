@@ -57,45 +57,109 @@ const featureCards = [
   },
 ];
 
+const whyChooseCards = [
+  {
+    title: "Clear Summaries",
+    description: "Turn dense chapters into concise notes that keep the original meaning.",
+    tone: "why-card-yellow",
+  },
+  {
+    title: "Source-Based Answers",
+    description: "Ask questions and get answers grounded in the document you uploaded.",
+    tone: "why-card-violet",
+  },
+  {
+    title: "Study Cards Fast",
+    description: "Generate flashcards from key ideas so review sessions feel lighter.",
+    tone: "why-card-pink",
+  },
+  {
+    title: "Calm Workspace",
+    description: "Keep reading, summaries, cards, and progress in one organized place.",
+    tone: "why-card-blue",
+  },
+];
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#e8e9f1] text-[#1d355b]">
       <SiteNavbar activeItem="Home" />
 
-      <section className="relative isolate flex min-h-[560px] items-center overflow-hidden bg-[#081936] text-white max-[1050px]:min-h-[520px] max-[700px]:min-h-[500px]">
-        <Image
-          src="/home/ai-reading-banner.png"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="absolute inset-0 -z-30 object-cover"
-        />
-        <div className="absolute inset-0 -z-20 bg-[linear-gradient(90deg,rgba(3,13,34,0.94)_0%,rgba(5,18,45,0.80)_34%,rgba(5,21,51,0.40)_66%,rgba(5,22,52,0.14)_100%),linear-gradient(180deg,rgba(4,16,38,0.02)_0%,rgba(4,16,38,0.12)_70%,#eef0f6_100%)] max-[700px]:bg-[linear-gradient(180deg,rgba(4,15,35,0.70)_0%,rgba(4,15,35,0.82)_60%,#eef0f6_100%)]" />
-
-        <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] py-16 max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:py-12 max-[700px]:text-center">
-          <div className="max-w-[590px]">
-            <h1 className="text-[44px] font-extrabold leading-[1.1] tracking-[0] text-white [text-shadow:0_16px_44px_rgba(0,0,0,0.35)] max-[1050px]:text-[40px] max-[700px]:mx-auto max-[700px]:max-w-[360px] max-[700px]:text-[31px]">
-              Summarize reading documents with AI
+      <section className="home-hero relative isolate overflow-hidden bg-[#dfe3e7] text-[#151923]">
+        <div className="relative z-10 mx-auto grid min-h-[535px] w-[min(1180px,calc(100%_-_56px))] grid-cols-[minmax(300px,0.84fr)_minmax(500px,1.16fr)] items-center gap-8 py-8 max-[1050px]:min-h-[660px] max-[1050px]:grid-cols-1 max-[1050px]:gap-6 max-[1050px]:text-center max-[700px]:min-h-[580px] max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:py-8">
+          <div className="relative z-20 max-w-[420px] self-start pt-10 max-[1050px]:mx-auto max-[1050px]:max-w-[620px] max-[1050px]:pt-0">
+            <h1 className="max-w-[420px] text-[58px] font-black uppercase leading-[0.94] tracking-[0] text-[#151923] max-[1050px]:mx-auto max-[1050px]:max-w-[620px] max-[1050px]:text-[54px] max-[700px]:text-[38px]">
+              <span className="block whitespace-nowrap">Read Faster</span>
+              <span className="block">with AI</span>
             </h1>
-            <p className="mt-6 text-[17px] leading-[1.62] text-[#eef7ff]/80 max-[700px]:mx-auto max-[700px]:max-w-[360px] max-[700px]:text-[15px]">
-              DeepReader turns PDFs, EPUBs, and long documents into summaries,
-              flashcards, contextual answers, and clear learning progress in seconds.
+            <p className="mt-6 max-w-[390px] text-[15px] leading-[1.62] text-[#4d5967] max-[1050px]:mx-auto">
+              Summaries, flashcards, and answers from your documents in one calm
+              workspace.
             </p>
-            <div className="mt-8 flex flex-wrap gap-[14px] max-[700px]:justify-center">
+            <div className="mt-8 flex flex-nowrap gap-[14px] max-[1050px]:justify-center max-[430px]:flex-wrap">
               <Link
                 href="/signup"
-                className="flex min-h-[50px] items-center justify-center rounded-[8px] bg-[linear-gradient(135deg,#74ead4_0%,#7edce9_48%,#f0d45f_100%)] px-6 text-[15px] font-extrabold text-[#06223d] shadow-[0_18px_34px_rgba(89,210,201,0.24)] transition hover:-translate-y-0.5"
+                className="flex min-h-[54px] min-w-[150px] items-center justify-center whitespace-nowrap rounded-[8px] bg-[linear-gradient(135deg,#245895_0%,#6bc9c9_100%)] px-8 text-[15px] font-extrabold text-white shadow-[0_18px_34px_rgba(36,88,149,0.24)] transition hover:-translate-y-0.5"
               >
-                Start Summarizing
+                Get Started
               </Link>
               <Link
                 href="/login"
-                className="flex min-h-[50px] items-center justify-center rounded-[8px] border border-white/30 bg-white/10 px-6 text-[15px] font-extrabold text-white transition hover:-translate-y-0.5 hover:border-white/60 hover:bg-white/15"
+                className="flex min-h-[54px] min-w-[150px] items-center justify-center whitespace-nowrap rounded-[8px] border border-[#9aa4ae]/60 bg-white/[0.42] px-8 text-[15px] font-extrabold text-[#59616b] shadow-[0_12px_28px_rgba(39,50,62,0.08)] transition hover:-translate-y-0.5 hover:bg-white/[0.72]"
               >
                 Open Library
               </Link>
             </div>
+          </div>
+
+          <div className="home-hero-visual relative z-30 mx-auto h-[450px] w-[min(560px,100%)] -translate-x-8 -translate-y-16 max-[1050px]:order-first max-[1050px]:h-[360px] max-[1050px]:translate-x-0 max-[1050px]:-translate-y-6 max-[700px]:h-[300px]">
+            <svg
+              className="home-hero-zigzag"
+              viewBox="0 0 560 300"
+              aria-hidden="true"
+              preserveAspectRatio="none"
+            >
+              <path
+                className="home-hero-zigzag-track"
+                d="M22 206 L122 118 L220 188 L324 92 L438 160 L538 74"
+                pathLength="100"
+              />
+              <path
+                className="home-hero-zigzag-flow"
+                d="M22 206 L122 118 L220 188 L324 92 L438 160 L538 74"
+                pathLength="100"
+              />
+            </svg>
+            <span className="home-float home-float-note">
+              <Image
+                src="/home/pdf-icon.png"
+                alt=""
+                width={86}
+                height={86}
+                className="h-full w-full object-contain"
+              />
+            </span>
+            <span className="home-float home-float-code">
+              <Image
+                src="/home/ai-icon.png"
+                alt=""
+                width={86}
+                height={86}
+                className="h-full w-full object-contain"
+              />
+            </span>
+            <span className="home-float home-float-mail" />
+            <span className="home-float home-float-ring" />
+            <Image
+              src="/home/ai-pdf-robot.webp"
+              alt="DeepReader AI robot holding a PDF"
+              priority
+              width={760}
+              height={760}
+              sizes="(max-width: 700px) 86vw, (max-width: 1050px) 480px, 500px"
+              className="relative z-10 h-full w-full object-contain drop-shadow-[0_28px_42px_rgba(34,72,108,0.22)]"
+            />
+            <span className="absolute bottom-4 left-1/2 h-7 w-[70%] -translate-x-1/2 rounded-[999px] bg-[#245895]/14 blur-[13px]" />
           </div>
         </div>
       </section>
@@ -103,7 +167,7 @@ export default function Home() {
       <section id="workflow" className="bg-white py-[86px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
           <div className="mx-auto mb-[46px] max-w-[780px] text-center">
-            <h2 className="text-[37px] font-extrabold leading-[1.16] tracking-[0] text-[#1d355b] max-[700px]:text-[29px]">
+            <h2 className="home-section-heading font-extrabold leading-[1.16] tracking-[0] text-[#1d355b]">
               A clearer, deeper document reading workflow
             </h2>
             <p className="mx-auto mt-[18px] max-w-[690px] text-[15px] leading-[1.7] text-[#8391ad]">
@@ -112,16 +176,55 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="relative grid grid-cols-4 gap-6 before:absolute before:left-[8%] before:right-[8%] before:top-[74px] before:h-px before:bg-[linear-gradient(90deg,transparent,rgba(116,191,215,0.28),transparent)] max-[1050px]:grid-cols-2 max-[700px]:grid-cols-1 max-[700px]:before:hidden">
-            {workflowSteps.map((step) => (
+          <div className="workflow-v-stage">
+            <svg
+              className="workflow-v-path"
+              viewBox="0 0 1120 430"
+              aria-hidden="true"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <linearGradient id="workflowTrackGradient" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0%" stopColor="#74ead4" stopOpacity="0.12" />
+                  <stop offset="50%" stopColor="#5c74df" stopOpacity="0.28" />
+                  <stop offset="100%" stopColor="#f0d45f" stopOpacity="0.12" />
+                </linearGradient>
+                <linearGradient id="workflowFlowGradient" x1="0" x2="1" y1="0" y2="0">
+                  <stop offset="0%" stopColor="#74ead4" />
+                  <stop offset="55%" stopColor="#7edce9" />
+                  <stop offset="100%" stopColor="#f0d45f" />
+                </linearGradient>
+                <filter id="workflowFlowGlow" x="-20%" y="-80%" width="140%" height="260%">
+                  <feGaussianBlur stdDeviation="7" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <path
+                className="workflow-v-track"
+                d="M82 96 L388 320 L706 96 L1038 320"
+                pathLength="100"
+              />
+              <path
+                className="workflow-v-flow"
+                d="M82 96 L388 320 L706 96 L1038 320"
+                pathLength="100"
+              />
+            </svg>
+
+            {workflowSteps.map((step, index) => (
               <article
                 key={step.number}
-                className="relative z-10 min-h-[228px] overflow-hidden rounded-[8px] border border-[#e8eef8] bg-white p-6 shadow-[0_22px_50px_rgba(32,55,103,0.12)]"
+                className={`workflow-step-card workflow-step-card-${
+                  index + 1
+                } relative z-10 min-h-[232px] overflow-hidden rounded-[8px] border border-[#e8eef8] bg-white/95 p-6 shadow-[0_22px_50px_rgba(32,55,103,0.12)] backdrop-blur`}
               >
-                <span className="absolute right-[18px] top-[18px] text-[40px] font-extrabold leading-none text-[#d8deea]">
+                <span className="workflow-step-number absolute right-[18px] top-[18px] text-[40px] font-extrabold leading-none text-[#d8deea]">
                   {step.number}
                 </span>
-                <div className="mb-[26px] grid h-[72px] w-[72px] place-items-center rounded-[8px] bg-[#155796] shadow-[0_14px_28px_rgba(21,87,150,0.18)]">
+                <div className="workflow-step-icon mb-[26px] grid h-[72px] w-[72px] place-items-center rounded-[8px] bg-[#155796] shadow-[0_14px_28px_rgba(21,87,150,0.18)]">
                   <Image
                     src={step.icon}
                     alt=""
@@ -140,11 +243,56 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="why-choose-section bg-[#f7f8fb] py-[92px] max-[700px]:py-[70px]">
+        <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] text-center max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
+          <h2 className="home-section-heading why-choose-title font-extrabold leading-[1.08] tracking-[0] text-[#25242a]">
+            Why <span>Choose</span> DeepReader?
+          </h2>
+          <p className="mx-auto mt-5 max-w-[620px] text-[16px] leading-[1.65] text-[#526176]">
+            Here&apos;s why readers choose DeepReader to study long documents faster.
+          </p>
+
+          <div className="why-choose-stage">
+            <svg
+              className="why-choose-path"
+              viewBox="0 0 980 560"
+              aria-hidden="true"
+              preserveAspectRatio="none"
+            >
+              <path d="M178 116 C372 70 490 252 792 150" />
+              <path d="M174 438 C390 246 518 338 810 296" />
+              <path d="M352 408 C474 482 620 452 808 350" />
+            </svg>
+
+            {whyChooseCards.map((card, index) => (
+              <article
+                className={`why-card why-card-${index + 1} ${card.tone}`}
+                key={card.title}
+              >
+                <div className="why-card-pin">
+                  <Image
+                    src="/home/pin-icon.png"
+                    alt=""
+                    width={76}
+                    height={76}
+                    className="h-full w-full object-contain"
+                  />
+                </div>
+                <div className="why-card-body">
+                  <h3>{card.title}</h3>
+                  <p>{card.description}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="workspace" className="bg-[#e8e9f1] py-[82px] max-[700px]:py-[70px]">
         <div className="mx-auto grid min-h-[520px] w-[min(1180px,calc(100%_-_48px))] grid-cols-[minmax(0,500px)_minmax(520px,1fr)] items-center gap-[100px] max-[1050px]:grid-cols-1 max-[1050px]:gap-12 max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
           <div className="max-w-[500px] max-[1050px]:max-w-[720px]">
-            <h2 className="max-w-[490px] text-[38px] font-extrabold leading-[1.16] tracking-[0] text-[#1d355b] max-[700px]:text-[29px]">
-              A study dashboard that feels real, calm, and easy to scan
+            <h2 className="max-w-[520px] text-[38px] font-extrabold leading-[1.16] tracking-[0] text-[#1d355b] max-[700px]:text-[29px]">
+              A calm dashboard for focused study
             </h2>
             <p className="mt-6 text-[15px] leading-[1.72] text-[#7c8ca8]">
               Our dashboard helps you study smarter with clear insights, organized tools,
@@ -216,7 +364,7 @@ export default function Home() {
       >
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
           <div className="mx-auto mb-[46px] max-w-[700px] text-center">
-            <h2 className="text-[37px] font-extrabold leading-[1.16] tracking-[0] text-[#1d355b] max-[700px]:text-[29px]">
+            <h2 className="home-section-heading font-extrabold leading-[1.16] tracking-[0] text-[#1d355b]">
               Smart reading tools for focused study
             </h2>
             <p className="mx-auto mt-[18px] max-w-[620px] text-[15px] leading-[1.7] text-[#8391ad]">
