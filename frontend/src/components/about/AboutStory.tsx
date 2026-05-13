@@ -11,11 +11,11 @@ export function AboutStory() {
         </div>
 
         <div className="about-fade-right about-delay-100">
-          <h2 className="max-w-[520px] text-[30px] font-extrabold leading-[1.15] tracking-[-0.03em] text-[#181b24] max-[700px]:text-[26px]">
+          <h2 className="max-w-[560px] text-[34px] font-extrabold leading-[1.15] tracking-[0] text-[#181b24] max-[700px]:text-[28px]">
             Together, We’re Shaping A Smarter Way To Read And Learn
           </h2>
 
-          <p className="mt-5 max-w-[515px] text-[14px] font-semibold leading-[1.55] text-[#252a35]">
+          <p className="mt-5 max-w-[515px] text-[15px] font-medium leading-[1.65] text-[#252a35]">
             DeepReader is more than just a document storage space. It’s a smart
             learning environment where AI helps you quickly understand content,
             systematize knowledge, and build effective reading habits. We

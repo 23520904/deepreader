@@ -50,7 +50,7 @@ export const quickLinks = [
   },
   {
     title: "Ready to connect with the DeepReader team?",
-    href: "/#contact",
+    href: "/contact",
     label: "Our Contact Page",
   },
 ];

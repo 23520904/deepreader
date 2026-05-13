@@ -6,7 +6,7 @@ const navItems = [
   { label: "About", href: "/about" },
   { label: "Library", href: "/library" },
   { label: "Flashcards", href: "/#flashcards" },
-  { label: "Contact", href: "/#contact" },
+  { label: "Contact", href: "/contact" },
 ];
 
 type SiteNavbarProps = {

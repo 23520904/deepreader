@@ -5,11 +5,11 @@ export function AboutHero() {
     <section className="bg-[#eef0f7]">
       <div className="mx-auto grid w-[min(1120px,calc(100%_-_48px))] grid-cols-[1fr_500px] items-center gap-[76px] py-[104px] max-[1024px]:grid-cols-1 max-[700px]:w-[min(100%_-_28px,1120px)] max-[700px]:gap-10 max-[700px]:py-16">
         <div className="about-fade-left">
-          <h1 className="max-w-[520px] text-[42px] font-extrabold leading-[1.08] tracking-[-0.03em] text-[#171923] max-[700px]:text-[34px]">
+          <h1 className="max-w-[520px] text-[42px] font-extrabold leading-[1.1] tracking-[0] text-[#171923] max-[700px]:text-[34px]">
             Building Better Reading Habits With AI-powered Learning Support
           </h1>
 
-          <p className="mt-5 max-w-[500px] text-[14px] font-medium leading-[1.65] text-[#747984]">
+          <p className="mt-5 max-w-[500px] text-[15px] font-medium leading-[1.65] text-[#747984]">
             DeepReader is an intelligent reading platform that helps users read
             more efficiently, understand content faster, and remember better
             through AI summaries, flashcards, and document-based chat.
@@ -17,7 +17,7 @@ export function AboutHero() {
 
           <Link
             href="/library"
-            className="about-hover-lift mt-8 inline-flex min-h-[41px] items-center justify-center rounded-[3px] bg-[#245c93] px-7 text-[12px] font-extrabold text-white transition hover:bg-[#174a7d]"
+            className="about-hover-lift mt-8 inline-flex min-h-[41px] items-center justify-center rounded-[3px] bg-[#245c93] px-7 text-[13px] font-extrabold text-white transition hover:bg-[#174a7d]"
           >
             Learn More
           </Link>

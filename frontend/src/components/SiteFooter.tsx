@@ -4,16 +4,16 @@ const footerGroups = [
   {
     title: "Support",
     links: [
-      { label: "Help centre", href: "/#contact" },
+      { label: "Help centre", href: "/contact" },
       { label: "Account information", href: "/login" },
-      { label: "About", href: "/#about" },
-      { label: "Contact us", href: "/#contact" },
+      { label: "About", href: "/about" },
+      { label: "Contact us", href: "/contact" },
     ],
   },
   {
     title: "Help and Solution",
     links: [
-      { label: "Talk to support", href: "/#contact" },
+      { label: "Talk to support", href: "/contact" },
       { label: "Support docs", href: "/#workflow" },
       { label: "System status", href: "/#workflow" },
       { label: "Reading workflow", href: "/#workflow" },
@@ -25,7 +25,7 @@ const footerGroups = [
       { label: "Library", href: "/library" },
       { label: "Flashcards", href: "/#flashcards" },
       { label: "Chat AI", href: "/#workspace" },
-      { label: "About product", href: "/#about" },
+      { label: "About product", href: "/about" },
     ],
   },
 ];
