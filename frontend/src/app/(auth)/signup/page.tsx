@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
-import { AuthShell } from "@/components/AuthShell";
+import { useState, type SyntheticEvent } from "react";
+import { InputField } from "@/components/InputField";
 import { PasswordField } from "@/components/PasswordField";
 import { clearAuthSession, registerUser, type AuthCredentials } from "@/lib/auth";
 
@@ -21,7 +21,7 @@ export default function SignupPage() {
   const [verificationInput, setVerificationInput] = useState("");
   const [verificationMessage, setVerificationMessage] = useState("");
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
 
@@ -44,7 +44,9 @@ export default function SignupPage() {
     setVerificationMessage("");
   }
 
-  async function handleVerificationSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleVerificationSubmit(
+    event: SyntheticEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
     setVerificationMessage("");
 
@@ -95,47 +97,36 @@ export default function SignupPage() {
   }
 
   return (
-    <AuthShell>
+    <>
       <div className="mx-auto w-full max-w-[406px] lg:mx-0">
         <h1 className="whitespace-nowrap text-center text-[clamp(28px,8.4vw,46px)] font-extrabold leading-[1.05] tracking-[0] text-[#1e4f8d]">
           Create an account
         </h1>
+
         <p className="mt-3 text-center text-[18px] leading-[1.35] text-[#8b909a]">
           Join DeepReader to read, summarize and learn with AI.
         </p>
 
-        <form className="mt-4 space-y-3 sm:mt-5 sm:space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="sr-only" htmlFor="userName">
-              User Name
-            </label>
-            <input
-              id="userName"
-              type="text"
-              value={userName}
-              autoComplete="name"
-              required
-              placeholder="User Name"
-              onChange={(event) => setUserName(event.target.value)}
-              className="h-11 w-full rounded-[8px] border border-[#c8ccd6] bg-white px-4 text-[14px] text-[#17213a] outline-none transition placeholder:text-[#9095a1] focus:border-[#255895] focus:ring-4 focus:ring-[#255895]/10 sm:h-12"
-            />
-          </div>
+        <form
+          className="mt-4 space-y-3 sm:mt-5 sm:space-y-4"
+          onSubmit={handleSubmit}
+        >
+          <InputField
+            id="userName"
+            label="User Name"
+            value={userName}
+            autoComplete="name"
+            onChange={setUserName}
+          />
 
-          <div>
-            <label className="sr-only" htmlFor="email">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              autoComplete="email"
-              required
-              placeholder="Email"
-              onChange={(event) => setEmail(event.target.value)}
-              className="h-11 w-full rounded-[8px] border border-[#c8ccd6] bg-white px-4 text-[14px] text-[#17213a] outline-none transition placeholder:text-[#9095a1] focus:border-[#255895] focus:ring-4 focus:ring-[#255895]/10 sm:h-12"
-            />
-          </div>
+          <InputField
+            id="email"
+            label="Email"
+            type="email"
+            value={email}
+            autoComplete="email"
+            onChange={setEmail}
+          />
 
           <PasswordField
             id="password"
@@ -188,6 +179,7 @@ export default function SignupPage() {
             <h2 className="text-[28px] font-extrabold leading-tight text-[#1e4f8d]">
               Verify sign up
             </h2>
+
             <p className="mt-3 text-[15px] leading-6 text-[#7f8794]">
               Enter the 4-digit code to finish creating your account.
             </p>
@@ -199,6 +191,7 @@ export default function SignupPage() {
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_18px_18px,rgba(36,88,149,0.18)_1px,transparent_1px)] bg-[length:18px_18px]" />
               <div className="absolute left-[-8%] top-1/2 h-[2px] w-[116%] -rotate-6 bg-[#245895]/15" />
               <div className="absolute left-[-8%] top-1/3 h-[2px] w-[116%] rotate-3 bg-[#245895]/10" />
+
               <div className="relative flex h-full select-none items-center justify-center">
                 <span className="rotate-[-2deg] text-[32px] font-extrabold tracking-[0.35em] text-[#245895]/75 blur-[0.7px] [text-shadow:0_1px_0_rgba(255,255,255,0.75)]">
                   {verificationCode}
@@ -209,6 +202,7 @@ export default function SignupPage() {
             <label className="sr-only" htmlFor="verificationCode">
               Verification code
             </label>
+
             <input
               id="verificationCode"
               value={verificationInput}
@@ -217,7 +211,9 @@ export default function SignupPage() {
               maxLength={4}
               autoFocus
               placeholder="0000"
-              onChange={(event) => handleVerificationInputChange(event.target.value)}
+              onChange={(event) =>
+                handleVerificationInputChange(event.target.value)
+              }
               className="mt-5 h-14 w-full rounded-[8px] border border-[#c8ccd6] bg-white px-4 text-center text-[28px] font-bold tracking-[0.35em] text-[#17213a] outline-none transition placeholder:text-[#c1c7d0]/70 focus:border-[#255895] focus:ring-4 focus:ring-[#255895]/10"
             />
 
@@ -236,6 +232,7 @@ export default function SignupPage() {
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -247,6 +244,6 @@ export default function SignupPage() {
           </form>
         </div>
       ) : null}
-    </AuthShell>
+    </>
   );
 }

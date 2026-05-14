@@ -1,4 +1,7 @@
+"use client";
+
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { SiteNavbar } from "@/components/SiteNavbar";
 
@@ -7,31 +10,59 @@ type AuthShellProps = {
 };
 
 export function AuthShell({ children }: AuthShellProps) {
+  const pathname = usePathname();
+  const isSignupPage = pathname === "/signup";
+
   return (
     <main className="flex min-h-screen flex-col bg-[#e9ecf4] text-[#1c4d89]">
       <SiteNavbar />
 
       <section className="mx-auto flex w-full max-w-[1144px] flex-1 items-center justify-center px-3 py-6 sm:px-5 sm:py-8 lg:py-10">
-        <div className="grid w-full max-w-[440px] overflow-hidden rounded-[18px] bg-white sm:max-w-[520px] lg:h-[min(572px,calc(100dvh-120px))] lg:max-w-none lg:grid-cols-2 lg:rounded-[22px]">
-          <div className="flex items-center px-5 py-6 min-[380px]:px-7 sm:px-14 sm:py-8 lg:px-[76px] lg:py-6">
-            <div className="w-full">{children}</div>
+        <div className="relative w-full max-w-[440px] overflow-hidden rounded-[20px] bg-white shadow-[0_22px_70px_rgba(20,45,80,0.14)] sm:max-w-[520px] lg:h-[min(572px,calc(100dvh-120px))] lg:max-w-none lg:rounded-[24px]">
+          <div
+            className={`relative z-20 flex min-h-[520px] w-full items-center bg-white px-5 py-6 transition-transform duration-[760ms] ease-[cubic-bezier(0.22,1,0.36,1)] min-[380px]:px-7 sm:px-14 sm:py-8 lg:absolute lg:inset-y-0 lg:left-0 lg:w-1/2 lg:px-[76px] lg:py-6 ${
+              isSignupPage ? "lg:translate-x-full" : "lg:translate-x-0"
+            }`}
+          >
+            <div
+              key={pathname}
+              className="w-full animate-[authContentIn_420ms_cubic-bezier(0.22,1,0.36,1)]"
+            >
+              {children}
+            </div>
           </div>
 
-          <aside className="hidden flex-col items-center justify-center bg-[#d1dceb] px-8 py-8 text-center lg:flex lg:min-h-full">
-            <Image
-              src="/deepreader-logo.png"
-              alt="DeepReader AI logo"
-              width={612}
-              height={408}
-              priority
-              className="mb-1 h-auto w-[270px] object-contain xl:w-[300px]"
-            />
-            <h2 className="max-w-[520px] text-[29px] font-extrabold leading-[1.22] tracking-[0] text-[#1d4f8e] sm:text-[31px]">
-              Read smarter and learn faster with DeepReader AI
-            </h2>
-            <p className="mt-5 text-[17px] font-medium text-[#8b929d] sm:text-[18px]">
-              AI Summary. Smart Flashcards. Book Chat Assistant.
-            </p>
+          <aside
+            className={`hidden bg-[#d4dfef] transition-transform duration-[760ms] ease-[cubic-bezier(0.22,1,0.36,1)] lg:absolute lg:inset-y-0 lg:left-0 lg:flex lg:w-1/2 ${
+              isSignupPage ? "lg:translate-x-0" : "lg:translate-x-full"
+            }`}
+          >
+            <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-10 py-10 text-center">
+              <div className="absolute inset-0 bg-[linear-gradient(145deg,#e0e9f6_0%,#d2deee_52%,#c4d4e8_100%)]" />
+
+              <div className="absolute left-10 top-10 h-16 w-16 rounded-full border border-white/55" />
+              <div className="absolute bottom-12 right-12 h-24 w-24 rounded-full border border-white/45" />
+              <div className="absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-[#245895]/10 blur-2xl" />
+
+              <div className="relative z-10">
+                <Image
+                  src="/deepreader-logo.png"
+                  alt="DeepReader AI logo"
+                  width={612}
+                  height={408}
+                  priority
+                  className="mx-auto h-auto w-[275px] object-contain"
+                />
+
+                <h2 className="mt-2 max-w-[440px] text-[30px] font-extrabold leading-[1.18] tracking-[-0.02em] text-[#1d4f8e]">
+                  Read smarter and learn faster with DeepReader AI
+                </h2>
+
+                <p className="mx-auto mt-5 max-w-[390px] text-[17px] font-medium leading-7 text-[#7b8796]">
+                  AI Summary. Smart Flashcards. Book Chat Assistant.
+                </p>
+              </div>
+            </div>
           </aside>
         </div>
       </section>
