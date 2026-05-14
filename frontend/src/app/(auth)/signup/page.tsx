@@ -38,6 +38,7 @@ export default function SignupPage() {
     setPendingCredentials({
       email: email.trim(),
       password,
+      username: userName.trim(),
     });
     setVerificationCode(String(Math.floor(1000 + Math.random() * 9000)));
     setVerificationInput("");

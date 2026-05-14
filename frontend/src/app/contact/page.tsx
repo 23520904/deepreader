@@ -11,15 +11,15 @@ export const metadata: Metadata = {
 const contactItems = [
   {
     label: "+84 0900000000",
-    icon: "/contact/phone-icon.png",
+    icon: "/assets/icons/contact/phone-icon.png",
   },
   {
     label: "deepreader@gmail.com",
-    icon: "/contact/email-icon.png",
+    icon: "/assets/icons/contact/email-icon.png",
   },
   {
     label: "Address",
-    icon: "/contact/address-icon.png",
+    icon: "/assets/icons/contact/address-icon.png",
   },
 ];
 

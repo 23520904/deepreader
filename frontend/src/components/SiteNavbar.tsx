@@ -3,7 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
+import {
+  AccountAvatar,
+  AccountSidebar,
+} from "@/components/AccountSidebar";
 import {
   clearAuthSession,
   getAuthSessionSnapshot,
@@ -24,13 +28,19 @@ type SiteNavbarProps = {
 
 export function SiteNavbar({ activeItem }: SiteNavbarProps) {
   const router = useRouter();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const session = useSyncExternalStore(
     subscribeAuthSession,
     getAuthSessionSnapshot,
     () => null,
   );
 
+  const closeSidebar = useCallback(() => {
+    setIsSidebarOpen(false);
+  }, []);
+
   function handleLogout() {
+    setIsSidebarOpen(false);
     clearAuthSession();
     router.push("/");
   }
@@ -44,7 +54,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
           aria-label="DeepReader Home"
         >
           <Image
-            src="/deepreader-navbar-logo.png"
+            src="/assets/images/brand/deepreader-navbar-logo.png"
             alt=""
             width={252}
             height={320}
@@ -72,10 +82,17 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
         {session ? (
           <button
             type="button"
-            onClick={handleLogout}
-            className="flex min-h-[40px] min-w-[96px] cursor-pointer items-center justify-center rounded-[8px] bg-[linear-gradient(145deg,#6976d6_0%,#4d5ab8_100%)] px-5 text-[14px] font-extrabold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_12px_22px_rgba(77,88,181,0.24)] transition hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_16px_28px_rgba(77,88,181,0.30)] max-[700px]:min-h-10"
+            onClick={() => setIsSidebarOpen(true)}
+            className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-[#eaf2ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_13px_24px_rgba(77,88,181,0.20)] ring-2 ring-white/80 transition hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_17px_30px_rgba(77,88,181,0.27)] focus:outline-none focus:ring-4 focus:ring-[#5d6bd6]/30"
+            aria-label="Open account sidebar"
+            aria-expanded={isSidebarOpen}
           >
-            Logout
+            <AccountAvatar
+              avatarUrl={session.avatarUrl}
+              size={44}
+              imagePaddingClassName="p-2.5"
+              className="h-full w-full"
+            />
           </button>
         ) : (
           <Link
@@ -86,6 +103,15 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
           </Link>
         )}
       </div>
+
+      {session ? (
+        <AccountSidebar
+          isOpen={isSidebarOpen}
+          onClose={closeSidebar}
+          onLogout={handleLogout}
+          session={session}
+        />
+      ) : null}
     </header>
   );
 }

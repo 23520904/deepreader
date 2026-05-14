@@ -46,12 +46,12 @@ public class AuthController {
 	@Operation(summary = "Register a new user")
 	public Mono<AuthResponse> register(@Valid @RequestBody AuthRegisterRequest request) {
 		return Mono.fromCallable(() -> {
-			UserAccountService.UserRecord user = userAccountService.register(request.email(), request.password());
+			UserAccountService.UserRecord user = userAccountService.register(request.email(), request.password(), request.username());
 			String token = jwtService.generateAccessToken(user.userId(), user.role());
 			String refreshToken = sessionService.createRefreshToken(user.userId());
 			registerCounter.increment();
 			auditLogService.log(user.userId(), "AUTH_REGISTER", "email=" + user.email());
-			return new AuthResponse(user.userId(), user.email(), token, refreshToken, user.role().name());
+			return new AuthResponse(user.userId(), user.email(), user.username(), user.avatarUrl(), token, refreshToken, user.role().name());
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
@@ -64,7 +64,7 @@ public class AuthController {
 			String refreshToken = sessionService.createRefreshToken(user.userId());
 			loginCounter.increment();
 			auditLogService.log(user.userId(), "AUTH_LOGIN", "email=" + user.email());
-			return new AuthResponse(user.userId(), user.email(), token, refreshToken, user.role().name());
+			return new AuthResponse(user.userId(), user.email(), user.username(), user.avatarUrl(), token, refreshToken, user.role().name());
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
@@ -77,7 +77,7 @@ public class AuthController {
 			String newRefreshToken = sessionService.rotateRefreshToken(request.refreshToken());
 			String accessToken = jwtService.generateAccessToken(user.userId(), user.role());
 			auditLogService.log(user.userId(), "AUTH_REFRESH", "session refreshed");
-			return new AuthResponse(user.userId(), user.email(), accessToken, newRefreshToken, user.role().name());
+			return new AuthResponse(user.userId(), user.email(), user.username(), user.avatarUrl(), accessToken, newRefreshToken, user.role().name());
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 

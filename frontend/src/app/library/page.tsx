@@ -19,7 +19,7 @@ export default function LibraryPage() {
 
       <section className="mx-auto flex min-h-[calc(100vh-67px)] max-w-5xl flex-col items-center justify-center px-6 py-16 text-center">
         <Image
-          src="/deepreader-logo.png"
+          src="/assets/images/brand/deepreader-logo.png"
           alt="DeepReader AI logo"
           width={150}
           height={150}

@@ -1,12 +1,13 @@
 package com.deepreader.web_module.model;
 
-public record AuthResponse(
+public record UserProfileResponse(
 		String userId,
 		String email,
 		String username,
 		String avatarUrl,
-		String token,
-		String refreshToken,
+		String fullName,
+		String phoneNumber,
+		String location,
 		String role
 ) {
 }

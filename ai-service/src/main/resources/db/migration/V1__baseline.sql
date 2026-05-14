@@ -1,6 +1,11 @@
 create table if not exists app_users (
     user_id varchar(100) primary key,
     email varchar(320) not null unique,
+    username varchar(80),
+    avatar_url text,
+    full_name varchar(120),
+    phone_number varchar(30),
+    location varchar(120),
     password_hash text not null,
     created_at timestamptz not null default now()
 );

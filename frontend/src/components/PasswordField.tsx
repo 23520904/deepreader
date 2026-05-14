@@ -19,7 +19,7 @@ export function PasswordField({
   onChange,
 }: PasswordFieldProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const iconSrc = isVisible ? "/password-eye-off.png" : "/password-eye-on.png";
+  const iconSrc = isVisible ? "/assets/icons/auth/password-eye-off.png" : "/assets/icons/auth/password-eye-on.png";
 
   return (
     <div className="relative">

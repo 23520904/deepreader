@@ -69,17 +69,22 @@ class AuthControllerWebFluxTest {
 		UserAccountService.UserRecord user = new UserAccountService.UserRecord(
 				"user-1",
 				"k6@example.com",
+				"K6 User",
+				null,
+				null,
+				null,
+				null,
 				UserRole.USER,
 				null
 		);
-		when(userAccountService.register("k6@example.com", "password123")).thenReturn(user);
+		when(userAccountService.register("k6@example.com", "password123", "K6 User")).thenReturn(user);
 		when(jwtService.generateAccessToken("user-1", UserRole.USER)).thenReturn("jwt-token");
 		when(sessionService.createRefreshToken("user-1")).thenReturn("refresh-token");
 
 		webTestClient.post()
 				.uri("/api/v1/auth/register")
 				.header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-				.bodyValue("{\"email\":\"k6@example.com\",\"password\":\"password123\"}")
+				.bodyValue("{\"username\":\"K6 User\",\"email\":\"k6@example.com\",\"password\":\"password123\"}")
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()

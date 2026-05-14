@@ -8,25 +8,25 @@ const workflowSteps = [
     number: "01",
     title: "Upload Document",
     description: "Add PDFs, EPUBs, notes, or learning files to your private library.",
-    icon: "/home/icons/upload-icon.png",
+    icon: "/assets/icons/home/upload-icon.png",
   },
   {
     number: "02",
     title: "AI Summary",
     description: "Condense long chapters into key points, arguments, and important terms.",
-    icon: "/home/icons/magic-icon.png",
+    icon: "/assets/icons/home/magic-icon.png",
   },
   {
     number: "03",
     title: "Create Flashcards",
     description: "Turn important knowledge into short study cards that are easy to review.",
-    icon: "/home/icons/stack-icon.png",
+    icon: "/assets/icons/home/stack-icon.png",
   },
   {
     number: "04",
     title: "Ask AI",
     description: "Ask contextual questions directly from the document you are reading.",
-    icon: "/home/icons/chat-icon.png",
+    icon: "/assets/icons/home/chat-icon.png",
   },
 ];
 
@@ -40,19 +40,19 @@ const featureCards = [
   {
     title: "Structured Summaries",
     description: "Capture the main ideas, key terms, and important arguments from long documents.",
-    image: "/home/document-summary.png",
+    image: "/assets/images/home/document-summary.png",
     alt: "Document summary with chart",
   },
   {
     title: "Organized Library",
     description: "Keep PDFs, EPUBs, notes, and study files in one tidy workspace.",
-    image: "/home/cloud-storage.png",
+    image: "/assets/images/home/cloud-storage.png",
     alt: "Cloud library with documents",
   },
   {
     title: "Study Progress",
     description: "See completed pages, review activity, and learning momentum at a glance.",
-    image: "/home/data-analysis.png",
+    image: "/assets/images/home/data-analysis.png",
     alt: "Daily analytics with charts",
   },
 ];
@@ -132,7 +132,7 @@ export default function Home() {
             </svg>
             <span className="home-float home-float-note">
               <Image
-                src="/home/pdf-icon.png"
+                src="/assets/icons/home/pdf-icon.png"
                 alt=""
                 width={86}
                 height={86}
@@ -141,7 +141,7 @@ export default function Home() {
             </span>
             <span className="home-float home-float-code">
               <Image
-                src="/home/ai-icon.png"
+                src="/assets/icons/home/ai-icon.png"
                 alt=""
                 width={86}
                 height={86}
@@ -151,7 +151,7 @@ export default function Home() {
             <span className="home-float home-float-mail" />
             <span className="home-float home-float-ring" />
             <Image
-              src="/home/ai-pdf-robot.webp"
+              src="/assets/images/home/ai-pdf-robot.webp"
               alt="DeepReader AI robot holding a PDF"
               priority
               width={760}
@@ -271,7 +271,7 @@ export default function Home() {
               >
                 <div className="why-card-pin">
                   <Image
-                    src="/home/pin-icon.png"
+                    src="/assets/icons/home/pin-icon.png"
                     alt=""
                     width={76}
                     height={76}

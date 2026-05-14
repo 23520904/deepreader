@@ -1,6 +1,8 @@
 export type AuthResponse = {
   userId: string;
   email: string;
+  username?: string | null;
+  avatarUrl?: string | null;
   token: string;
   refreshToken: string;
   role: string;
@@ -9,6 +11,26 @@ export type AuthResponse = {
 export type AuthCredentials = {
   email: string;
   password: string;
+  username?: string;
+};
+
+export type UserProfile = {
+  userId: string;
+  email: string;
+  username?: string | null;
+  avatarUrl?: string | null;
+  fullName?: string | null;
+  phoneNumber?: string | null;
+  location?: string | null;
+  role: string;
+};
+
+export type UpdateProfilePayload = {
+  username: string;
+  fullName?: string | null;
+  phoneNumber?: string | null;
+  location?: string | null;
+  avatarUrl?: string | null;
 };
 
 const AUTH_STORAGE_KEY = "deepreader.auth";
@@ -108,6 +130,69 @@ export function clearAuthSession() {
   cachedAuthSessionRaw = null;
   cachedAuthSession = null;
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+}
+
+function requireAuthSession() {
+  const session = getAuthSession();
+
+  if (!session) {
+    throw new Error("Please log in again.");
+  }
+
+  return session;
+}
+
+function syncProfileIntoSession(profile: UserProfile) {
+  const session = requireAuthSession();
+  const nextSession = {
+    ...session,
+    email: profile.email,
+    username: profile.username,
+    avatarUrl: profile.avatarUrl,
+    role: profile.role,
+  };
+
+  saveAuthSession(nextSession);
+  return nextSession;
+}
+
+export async function fetchUserProfile() {
+  const session = requireAuthSession();
+  const response = await fetch("/api/v1/users/me", {
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response, "Could not load profile."));
+  }
+
+  const profile = (await response.json()) as UserProfile;
+  syncProfileIntoSession(profile);
+
+  return profile;
+}
+
+export async function updateUserProfile(payload: UpdateProfilePayload) {
+  const session = requireAuthSession();
+  const response = await fetch("/api/v1/users/me", {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response, "Could not update profile."));
+  }
+
+  const profile = (await response.json()) as UserProfile;
+  syncProfileIntoSession(profile);
+
+  return profile;
 }
 
 export function getAuthSessionSnapshot() {

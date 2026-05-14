@@ -4,7 +4,7 @@ export function AboutStory() {
       <div className="mx-auto grid w-[min(1060px,calc(100%_-_48px))] grid-cols-[490px_1fr] items-center gap-[78px] max-[1024px]:grid-cols-1 max-[700px]:w-[min(100%_-_28px,1060px)] max-[700px]:gap-10">
         <div className="about-fade-left overflow-hidden rounded-[4px] bg-white">
           <img
-            src="/about/community.png"
+            src="/assets/images/about/community.png"
             alt="Reading community"
             className="h-[315px] w-full object-cover transition duration-500 hover:scale-105 max-[700px]:h-[230px]"
           />

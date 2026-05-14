@@ -25,7 +25,7 @@ export function AboutHero() {
 
         <div className="about-fade-right overflow-hidden rounded-[4px] bg-white shadow-[0_18px_45px_rgba(21,36,67,0.12)]">
           <img
-            src="/about/reading.png"
+            src="/assets/images/about/reading.png"
             alt="Reading book"
             className="h-[318px] w-full object-cover transition duration-500 hover:scale-105 max-[700px]:h-[230px]"
           />
