@@ -85,10 +85,10 @@ export default function Home() {
     <main className="min-h-screen bg-[#e8e9f1] text-[#1d355b]">
       <SiteNavbar activeItem="Home" />
 
-      <section className="home-hero relative isolate overflow-hidden bg-[#dfe3e7] text-[#151923]">
+      <section className="home-hero relative isolate overflow-hidden bg-[#dfe3e7] text-[#1d355b]">
         <div className="relative z-10 mx-auto grid min-h-[535px] w-[min(1180px,calc(100%_-_56px))] grid-cols-[minmax(300px,0.84fr)_minmax(500px,1.16fr)] items-center gap-8 py-8 max-[1050px]:min-h-[660px] max-[1050px]:grid-cols-1 max-[1050px]:gap-6 max-[1050px]:text-center max-[700px]:min-h-[580px] max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:py-8">
-          <div className="relative z-20 max-w-[420px] self-start pt-10 max-[1050px]:mx-auto max-[1050px]:max-w-[620px] max-[1050px]:pt-0">
-            <h1 className="max-w-[420px] text-[58px] font-black uppercase leading-[0.94] tracking-[0] text-[#151923] max-[1050px]:mx-auto max-[1050px]:max-w-[620px] max-[1050px]:text-[54px] max-[700px]:text-[38px]">
+          <div className="relative z-20 max-w-[420px] self-start pt-[72px] max-[1050px]:mx-auto max-[1050px]:max-w-[620px] max-[1050px]:pt-2">
+            <h1 className="max-w-[420px] text-[58px] font-black uppercase leading-[0.94] tracking-[0] text-[#1d355b] max-[1050px]:mx-auto max-[1050px]:max-w-[620px] max-[1050px]:text-[54px] max-[700px]:text-[38px]">
               <span className="block whitespace-nowrap">Read Faster</span>
               <span className="block">with AI</span>
             </h1>
@@ -112,7 +112,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="home-hero-visual relative z-30 mx-auto h-[450px] w-[min(560px,100%)] -translate-x-8 -translate-y-16 max-[1050px]:order-first max-[1050px]:h-[360px] max-[1050px]:translate-x-0 max-[1050px]:-translate-y-6 max-[700px]:h-[300px]">
+          <div className="home-hero-visual relative z-30 mx-auto h-[450px] w-[min(560px,100%)] -translate-x-8 -translate-y-4 max-[1050px]:order-first max-[1050px]:h-[360px] max-[1050px]:translate-x-0 max-[1050px]:translate-y-0 max-[700px]:h-[300px]">
             <svg
               className="home-hero-zigzag"
               viewBox="0 0 560 300"
@@ -245,7 +245,7 @@ export default function Home() {
 
       <section className="why-choose-section bg-[#f7f8fb] py-[92px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] text-center max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <h2 className="home-section-heading why-choose-title font-extrabold leading-[1.08] tracking-[0] text-[#25242a]">
+          <h2 className="home-section-heading why-choose-title font-extrabold leading-[1.08] tracking-[0] text-[#1d355b]">
             Why <span>Choose</span> DeepReader?
           </h2>
           <p className="mx-auto mt-5 max-w-[620px] text-[16px] leading-[1.65] text-[#526176]">

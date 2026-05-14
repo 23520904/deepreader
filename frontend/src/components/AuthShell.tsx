@@ -1,14 +1,6 @@
 import Image from "next/image";
-import Link from "next/link";
 import type { ReactNode } from "react";
-
-const navItems = [
-  { label: "Home", href: "/" },
-  { label: "About", href: "/#about" },
-  { label: "Library", href: "/library" },
-  { label: "Flashcards", href: "/#flashcards" },
-  { label: "Contact", href: "/#contact" },
-];
+import { SiteNavbar } from "@/components/SiteNavbar";
 
 type AuthShellProps = {
   children: ReactNode;
@@ -16,36 +8,10 @@ type AuthShellProps = {
 
 export function AuthShell({ children }: AuthShellProps) {
   return (
-    <main className="flex h-dvh flex-col overflow-y-auto bg-[#e9ecf4] text-[#1c4d89] lg:overflow-hidden">
-      <header className="flex h-16 shrink-0 items-center justify-between bg-white px-4 shadow-[0_4px_18px_rgba(31,41,55,0.14)] sm:h-20 sm:px-8 lg:h-[88px] lg:px-[86px]">
-        <Link
-          href="/"
-          className="cursor-pointer text-[24px] font-bold tracking-[0] text-[#3449aa] sm:text-[28px] lg:text-[30px]"
-        >
-          DeepReader
-        </Link>
+    <main className="flex min-h-screen flex-col bg-[#e9ecf4] text-[#1c4d89]">
+      <SiteNavbar />
 
-        <nav className="hidden items-center gap-8 text-[15px] font-semibold text-[#253ba5] lg:flex xl:gap-[54px]">
-          {navItems.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="cursor-pointer transition hover:text-[#1f5597]"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <Link
-          href="/login"
-          className="flex h-10 min-w-[88px] cursor-pointer items-center justify-center rounded-[2px] bg-[#5861c6] px-5 text-[14px] font-semibold text-white transition hover:bg-[#4852b8] sm:h-11 sm:min-w-[106px] sm:px-6 sm:text-[15px]"
-        >
-          Login
-        </Link>
-      </header>
-
-      <section className="mx-auto flex min-h-0 w-full max-w-[1144px] flex-1 items-center justify-center px-3 py-3 sm:px-5 sm:py-5 lg:py-6">
+      <section className="mx-auto flex w-full max-w-[1144px] flex-1 items-center justify-center px-3 py-6 sm:px-5 sm:py-8 lg:py-10">
         <div className="grid w-full max-w-[440px] overflow-hidden rounded-[18px] bg-white sm:max-w-[520px] lg:h-[min(572px,calc(100dvh-120px))] lg:max-w-none lg:grid-cols-2 lg:rounded-[22px]">
           <div className="flex items-center px-5 py-6 min-[380px]:px-7 sm:px-14 sm:py-8 lg:px-[76px] lg:py-6">
             <div className="w-full">{children}</div>

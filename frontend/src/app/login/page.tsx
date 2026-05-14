@@ -25,9 +25,9 @@ export default function LoginPage() {
         password,
       });
       saveAuthSession(session);
-      router.push("/library");
+      router.replace("/");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Đăng nhập thất bại.");
+      setMessage(error instanceof Error ? error.message : "Login failed.");
     } finally {
       setIsSubmitting(false);
     }

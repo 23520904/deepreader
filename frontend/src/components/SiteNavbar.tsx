@@ -1,5 +1,14 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSyncExternalStore } from "react";
+import {
+  clearAuthSession,
+  getAuthSessionSnapshot,
+  subscribeAuthSession,
+} from "@/lib/auth";
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -13,7 +22,19 @@ type SiteNavbarProps = {
   activeItem?: string;
 };
 
-export function SiteNavbar({ activeItem = "Home" }: SiteNavbarProps) {
+export function SiteNavbar({ activeItem }: SiteNavbarProps) {
+  const router = useRouter();
+  const session = useSyncExternalStore(
+    subscribeAuthSession,
+    getAuthSessionSnapshot,
+    () => null,
+  );
+
+  function handleLogout() {
+    clearAuthSession();
+    router.push("/");
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-white/70 bg-[#eef2f8]/90 shadow-[0_14px_32px_rgba(18,31,65,0.12)] backdrop-blur-xl">
       <div className="mx-auto flex min-h-[66px] w-[min(1180px,calc(100%_-_40px))] items-center justify-between gap-4 max-[1050px]:min-h-0 max-[1050px]:flex-wrap max-[1050px]:py-3 max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:justify-center max-[700px]:text-center">
@@ -48,12 +69,22 @@ export function SiteNavbar({ activeItem = "Home" }: SiteNavbarProps) {
           ))}
         </nav>
 
-        <Link
-          href="/login"
-          className="flex min-h-[40px] min-w-[96px] items-center justify-center rounded-[8px] bg-[linear-gradient(145deg,#6976d6_0%,#4d5ab8_100%)] px-5 text-[14px] font-extrabold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_12px_22px_rgba(77,88,181,0.24)] transition hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_16px_28px_rgba(77,88,181,0.30)] max-[700px]:min-h-10"
-        >
-          Login
-        </Link>
+        {session ? (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex min-h-[40px] min-w-[96px] cursor-pointer items-center justify-center rounded-[8px] bg-[linear-gradient(145deg,#6976d6_0%,#4d5ab8_100%)] px-5 text-[14px] font-extrabold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_12px_22px_rgba(77,88,181,0.24)] transition hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_16px_28px_rgba(77,88,181,0.30)] max-[700px]:min-h-10"
+          >
+            Logout
+          </button>
+        ) : (
+          <Link
+            href="/login"
+            className="flex min-h-[40px] min-w-[96px] items-center justify-center rounded-[8px] bg-[linear-gradient(145deg,#6976d6_0%,#4d5ab8_100%)] px-5 text-[14px] font-extrabold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_12px_22px_rgba(77,88,181,0.24)] transition hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_16px_28px_rgba(77,88,181,0.30)] max-[700px]:min-h-10"
+          >
+            Login
+          </Link>
+        )}
       </div>
     </header>
   );
