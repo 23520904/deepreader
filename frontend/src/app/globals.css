@@ -677,10 +677,10 @@ input::-ms-clear {
   }
 }
 
-@keyframes authContentIn {
+@keyframes authFormIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
 
   to {

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.deepreader.ai_service.model.DocumentSection;
 import com.deepreader.ai_service.model.DocumentChunk;
 import com.deepreader.ai_service.model.IndexedDocument;
+import com.deepreader.ai_service.model.SupportedProvider;
 import com.deepreader.ai_service.model.api.internal.IngestionResult;
 import com.deepreader.ai_service.config.IngestionProperties;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -53,6 +54,10 @@ public class DocumentIngestionService {
 	}
 
 	public Mono<IngestionResult> ingestDocument(String userId, FilePart filePart) {
+		return ingestDocument(userId, filePart, null);
+	}
+
+	public Mono<IngestionResult> ingestDocument(String userId, FilePart filePart, String provider) {
 		String fileName = StringUtils.hasText(filePart.filename()) ? filePart.filename() : "uploaded.pdf";
 		validateUpload(fileName, -1);
 
@@ -64,10 +69,14 @@ public class DocumentIngestionService {
 					validateUpload(fileName, bytes.length);
 					return bytes;
 				})
-				.flatMap(bytes -> Mono.fromCallable(() -> ingestBytes(userId, fileName, bytes)).subscribeOn(Schedulers.boundedElastic()));
+				.flatMap(bytes -> Mono.fromCallable(() -> ingestBytes(userId, fileName, bytes, provider)).subscribeOn(Schedulers.boundedElastic()));
 	}
 
 	public IngestionResult ingestBytes(String userId, String fileName, byte[] bytes) {
+		return ingestBytes(userId, fileName, bytes, null);
+	}
+
+	public IngestionResult ingestBytes(String userId, String fileName, byte[] bytes, String provider) {
 		String documentId = UUID.randomUUID().toString();
 		List<DocumentSection> extractedSections = textExtractionService.extractSections(fileName, bytes);
 		if (extractedSections.isEmpty()) {
@@ -97,12 +106,20 @@ public class DocumentIngestionService {
 		}
 		List<String> providers = new ArrayList<>();
 		List<String> providerErrors = new ArrayList<>();
-		indexProviderSafely("openai", chunks, providers, providerErrors);
-		indexProviderSafely("gemini", chunks, providers, providerErrors);
+		for (String providerToIndex : providersToIndex(provider)) {
+			indexProviderSafely(providerToIndex, chunks, providers, providerErrors);
+		}
 		if (providers.isEmpty()) {
 			throw new IllegalStateException("All embedding providers failed. " + String.join(" | ", providerErrors));
 		}
 		return new IngestionResult(documentId, fileName, chunks.size(), chunks.stream().map(DocumentChunk::chunkId).toList(), providers);
+	}
+
+	private List<String> providersToIndex(String provider) {
+		if (StringUtils.hasText(provider)) {
+			return List.of(SupportedProvider.from(provider).value());
+		}
+		return List.of("openai", "gemini");
 	}
 
 	private void indexProviderSafely(String provider, List<DocumentChunk> chunks, List<String> indexedProviders, List<String> providerErrors) {

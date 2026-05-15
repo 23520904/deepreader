@@ -1,6 +1,7 @@
 package com.deepreader.business_service.event;
 
 import com.deepreader.business_service.config.KafkaTopicsProperties;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -14,14 +15,21 @@ public class BookEventPublisher {
 
 	private final KafkaTemplate<String, BookDomainEvent> kafkaTemplate;
 	private final KafkaTopicsProperties topicsProperties;
+	private final boolean publisherEnabled;
 
-	public BookEventPublisher(KafkaTemplate<String, BookDomainEvent> kafkaTemplate, KafkaTopicsProperties topicsProperties) {
+	public BookEventPublisher(KafkaTemplate<String, BookDomainEvent> kafkaTemplate,
+			KafkaTopicsProperties topicsProperties,
+			@Value("${deepreader.kafka.publisher-enabled:true}") boolean publisherEnabled) {
 		this.kafkaTemplate = kafkaTemplate;
 		this.topicsProperties = topicsProperties;
+		this.publisherEnabled = publisherEnabled;
 	}
 
 	public void publish(String eventType, String userId, String bookId, Map<String, Object> metadata) {
 		String key = Objects.requireNonNull(bookId, "bookId is required");
+		if (!publisherEnabled) {
+			return;
+		}
 		String topic = Objects.requireNonNull(topicsProperties.bookEvents(), "book-events topic is required");
 		BookDomainEvent event = new BookDomainEvent(eventType, userId, bookId, Instant.now(), metadata);
 		try {

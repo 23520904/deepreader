@@ -170,6 +170,15 @@ public class UserAccountService {
 		return count != null && count > 0;
 	}
 
+	public List<String> findAdminUserIds() {
+		ensureProfileColumns();
+		return jdbcTemplate.queryForList(
+				"select user_id from app_users where role = ?",
+				String.class,
+				UserRole.ADMIN.name()
+		);
+	}
+
 	private void ensureProfileColumns() {
 		if (profileColumnsEnsured) {
 			return;

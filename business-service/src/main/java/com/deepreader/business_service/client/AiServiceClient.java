@@ -9,6 +9,8 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.Optional;
+
 @Component
 public class AiServiceClient {
 
@@ -18,7 +20,7 @@ public class AiServiceClient {
 		this.webClient = builder.baseUrl(baseUrl).build();
 	}
 
-	public Mono<AiUploadResponse> uploadDocument(String userId, String fileName, byte[] content) {
+	public Mono<AiUploadResponse> uploadDocument(String userId, String provider, String fileName, byte[] content) {
 		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
 		bodyBuilder.part("file", new ByteArrayResource(content) {
 			@Override
@@ -28,7 +30,9 @@ public class AiServiceClient {
 		}).contentType(MediaType.APPLICATION_OCTET_STREAM);
 
 		return webClient.post()
-				.uri("/internal/ai/v1/documents/upload")
+				.uri(uriBuilder -> uriBuilder.path("/internal/ai/v1/documents/upload")
+						.queryParamIfPresent("provider", Optional.ofNullable(provider))
+						.build())
 				.header("X-User-Id", userId)
 				.contentType(MediaType.MULTIPART_FORM_DATA)
 				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))

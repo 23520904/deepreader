@@ -11,6 +11,7 @@ import com.deepreader.core.model.ChatHistory;
 import com.deepreader.core.model.Flashcard;
 import com.deepreader.web_module.client.BusinessServiceClient;
 import com.deepreader.web_module.service.RequestUserContext;
+import com.deepreader.web_module.service.UserAccountService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
@@ -36,9 +37,12 @@ import java.util.Map;
 public class PublicGatewayController {
 
 	private final BusinessServiceClient businessServiceClient;
+	private final UserAccountService userAccountService;
 
-	public PublicGatewayController(BusinessServiceClient businessServiceClient) {
+	public PublicGatewayController(BusinessServiceClient businessServiceClient,
+			UserAccountService userAccountService) {
 		this.businessServiceClient = businessServiceClient;
+		this.userAccountService = userAccountService;
 	}
 
 	@PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -59,6 +63,13 @@ public class PublicGatewayController {
 	public Flux<Book> listBooks(ServerWebExchange exchange) {
 		String userId = RequestUserContext.requireUserId(exchange);
 		return businessServiceClient.listBooks(userId);
+	}
+
+	@GetMapping("/admin-library")
+	public Flux<Book> listAdminBooks(ServerWebExchange exchange) {
+		RequestUserContext.requireUserId(exchange);
+		return Flux.fromIterable(userAccountService.findAdminUserIds())
+				.flatMap(businessServiceClient::listBooks);
 	}
 
 	@PostMapping(value = "/{bookId}/search", consumes = MediaType.APPLICATION_JSON_VALUE)

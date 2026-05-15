@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
@@ -68,11 +69,12 @@ public class DocumentIngestionController {
 	@Operation(summary = "Upload and synchronously ingest a PDF or EPUB")
 	public Mono<IngestionResult> uploadDocument(
 			@RequestPart("file") FilePart filePart,
+			@RequestParam(required = false) String provider,
 			@RequestHeader(name = "X-User-Id", required = false) String userIdHeader
 	) {
 		String userId = requireUserId(userIdHeader);
 		guardrailService.enforceDailyLimit(userId, "UPLOADS", 1, guardrailProperties.getMaxUploadsPerDay());
-		return documentIngestionService.ingestDocument(userId, filePart)
+		return documentIngestionService.ingestDocument(userId, filePart, provider)
 				.doOnSuccess(result -> auditLogService.log(userId, "INGESTION_SYNC_SUCCEEDED", "documentId=" + result.documentId()));
 	}
 

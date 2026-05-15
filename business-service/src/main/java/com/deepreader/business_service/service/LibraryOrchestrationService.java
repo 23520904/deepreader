@@ -42,7 +42,7 @@ public class LibraryOrchestrationService {
 			org.springframework.core.io.buffer.DataBufferUtils.release(dataBuffer);
 			out.write(bytes, 0, bytes.length);
 			return out;
-		}).flatMap(out -> aiServiceClient.uploadDocument(userId, filePart.filename(), out.toByteArray()))
+		}).flatMap(out -> aiServiceClient.uploadDocument(userId, provider, filePart.filename(), out.toByteArray()))
 				.flatMap(upload -> {
 					Book book = new Book();
 					book.setUserId(userId);

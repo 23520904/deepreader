@@ -3,8 +3,8 @@ package com.deepreader.ai_service.service;
 import com.deepreader.ai_service.config.GeminiProperties;
 import com.deepreader.ai_service.config.OpenAiProperties;
 import com.deepreader.ai_service.model.SupportedProvider;
-import com.deepreader.ai_service.model.provider.gemini.GeminiEmbedContentRequest;
-import com.deepreader.ai_service.model.provider.gemini.GeminiEmbedContentResponse;
+import com.deepreader.ai_service.model.provider.gemini.GeminiBatchEmbeddingRequest;
+import com.deepreader.ai_service.model.provider.gemini.GeminiBatchEmbeddingResponse;
 import com.deepreader.ai_service.model.provider.openai.OpenAiEmbeddingRequest;
 import com.deepreader.ai_service.model.provider.openai.OpenAiEmbeddingResponse;
 import org.springframework.stereotype.Service;
@@ -84,24 +84,36 @@ public class EmbeddingService {
 			throw new IllegalStateException("Missing required property: deepreader.gemini.api-key");
 		}
 		WebClient client = webClientBuilder.baseUrl(normalizeBaseUrl(geminiProperties.getBaseUrl())).build();
-		GeminiEmbedContentResponse response;
+		GeminiBatchEmbeddingResponse response;
 		try {
 			response = client.post()
 					.uri(uriBuilder -> uriBuilder.path("/models/{model}:batchEmbedContents").queryParam("key", geminiProperties.getApiKey()).build(normalizeModel(geminiProperties.getEmbeddingModel())))
-					.bodyValue(new GeminiEmbedContentRequest(inputs.stream().map(text -> new GeminiEmbedContentRequest.ContentRequest(
+					.bodyValue(new GeminiBatchEmbeddingRequest(inputs.stream().map(text -> new GeminiBatchEmbeddingRequest.EmbedRequest(
 							"models/" + normalizeModel(geminiProperties.getEmbeddingModel()),
-							new GeminiEmbedContentRequest.EmbedContent(List.of(new GeminiEmbedContentRequest.Part(text))),
-							"RETRIEVAL_DOCUMENT"
+							new GeminiBatchEmbeddingRequest.GeminiContent(List.of(new GeminiBatchEmbeddingRequest.GeminiPart(text))),
+							"RETRIEVAL_DOCUMENT",
+							geminiProperties.getEmbeddingDimensions()
 					)).toList()))
 					.retrieve()
-					.bodyToMono(GeminiEmbedContentResponse.class)
+					.bodyToMono(GeminiBatchEmbeddingResponse.class)
 					.switchIfEmpty(Mono.error(new IllegalStateException("Gemini embedding response was empty")))
 					.block();
 		} catch (WebClientResponseException e) {
 			throw new IllegalStateException("Gemini embeddings request failed: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
 		}
-		GeminiEmbedContentResponse safeResponse = Objects.requireNonNull(response, "Gemini embedding response must not be null");
-		List<List<Float>> embeddings = safeResponse.embeddings() == null ? List.of() : safeResponse.embeddings().stream().map(result -> result.embedding().values()).toList();
+		GeminiBatchEmbeddingResponse safeResponse = Objects.requireNonNull(response, "Gemini embedding response must not be null");
+		List<List<Float>> embeddings = new ArrayList<>();
+		if (safeResponse.embeddings() != null) {
+			for (GeminiBatchEmbeddingResponse.EmbeddingResult result : safeResponse.embeddings()) {
+				if (result == null) {
+					embeddings.add(List.of());
+				} else if (result.values() != null) {
+					embeddings.add(result.values());
+				} else {
+					embeddings.add(result.embedding() == null ? List.of() : result.embedding().values());
+				}
+			}
+		}
 		validateEmbeddings(inputs, embeddings, "Gemini");
 		return embeddings;
 	}
