@@ -2,6 +2,7 @@ package com.deepreader.web_module.config;
 
 import com.deepreader.web_module.service.JwtService;
 import com.deepreader.web_module.service.RequestUserContext;
+import com.deepreader.web_module.service.UserAccountService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -12,16 +13,19 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.nio.charset.StandardCharsets;
 
 @Component
 public class AuthWebFilter implements WebFilter {
 	private final JwtService jwtService;
+	private final UserAccountService userAccountService;
 	private final AntPathMatcher matcher = new AntPathMatcher();
 
-	public AuthWebFilter(JwtService jwtService) {
+	public AuthWebFilter(JwtService jwtService, UserAccountService userAccountService) {
 		this.jwtService = jwtService;
+		this.userAccountService = userAccountService;
 	}
 
 	@Override
@@ -43,9 +47,14 @@ public class AuthWebFilter implements WebFilter {
 		String token = auth.substring("Bearer ".length()).trim();
 		try {
 			JwtService.AuthPrincipal principal = jwtService.verifyAndGetPrincipal(token);
-			exchange.getAttributes().put(RequestUserContext.USER_ID_ATTRIBUTE, principal.userId());
-			exchange.getAttributes().put(RequestUserContext.USER_ROLE_ATTRIBUTE, principal.role());
-			return chain.filter(exchange);
+			return Mono.fromCallable(() -> userAccountService.findById(principal.userId()))
+					.subscribeOn(Schedulers.boundedElastic())
+					.flatMap(user -> {
+						exchange.getAttributes().put(RequestUserContext.USER_ID_ATTRIBUTE, user.userId());
+						exchange.getAttributes().put(RequestUserContext.USER_ROLE_ATTRIBUTE, user.role());
+						return chain.filter(exchange);
+					})
+					.onErrorResume(IllegalArgumentException.class, ex -> unauthorized(exchange, "Invalid JWT"));
 		} catch (IllegalArgumentException ex) {
 			return unauthorized(exchange, ex.getMessage());
 		}

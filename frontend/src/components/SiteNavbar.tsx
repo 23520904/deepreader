@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   AccountAvatar,
   AccountSidebar,
@@ -38,6 +38,33 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
   const closeSidebar = useCallback(() => {
     setIsSidebarOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (!session?.token) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    fetch("/api/v1/users/me", {
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+      },
+    })
+      .then((response) => {
+        if (!isCancelled && (response.status === 401 || response.status === 403)) {
+          clearAuthSession();
+          setIsSidebarOpen(false);
+        }
+      })
+      .catch(() => {
+        // Keep the local session if the API is temporarily unreachable.
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [session?.token]);
 
   function handleLogout() {
     setIsSidebarOpen(false);
