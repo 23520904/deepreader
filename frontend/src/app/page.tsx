@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+import { FeatureCardsShowcase } from "@/components/FeatureCardsShowcase";
+import { ScrollReveal } from "@/components/ScrollReveal";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
 
@@ -148,7 +150,6 @@ export default function Home() {
                 className="h-full w-full object-contain"
               />
             </span>
-            <span className="home-float home-float-mail" />
             <span className="home-float home-float-ring" />
             <Image
               src="/assets/images/home/ai-pdf-robot.webp"
@@ -166,7 +167,7 @@ export default function Home() {
 
       <section id="workflow" className="bg-white py-[86px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <div className="mx-auto mb-[46px] max-w-[780px] text-center">
+          <ScrollReveal className="mx-auto mb-[46px] max-w-[780px] text-center">
             <h2 className="home-section-heading font-extrabold leading-[1.16] tracking-[0] text-[#1d355b]">
               A clearer, deeper document reading workflow
             </h2>
@@ -174,7 +175,7 @@ export default function Home() {
               Each step is designed like a lightweight AI system: upload your file,
               extract the key ideas, create study cards, and ask questions based on the text.
             </p>
-          </div>
+          </ScrollReveal>
 
           <div className="workflow-v-stage">
             <svg
@@ -215,8 +216,11 @@ export default function Home() {
             </svg>
 
             {workflowSteps.map((step, index) => (
-              <article
+              <ScrollReveal
+                as="article"
                 key={step.number}
+                delay={index * 120}
+                variant={index % 2 === 0 ? "up" : "zoom"}
                 className={`workflow-step-card workflow-step-card-${
                   index + 1
                 } relative z-10 min-h-[232px] overflow-hidden rounded-[8px] border border-[#e8eef8] bg-white/95 p-6 shadow-[0_22px_50px_rgba(32,55,103,0.12)] backdrop-blur`}
@@ -230,14 +234,15 @@ export default function Home() {
                     alt=""
                     width={38}
                     height={38}
-                    className="h-[38px] w-[38px] object-contain invert"
+                    unoptimized
+                    className="h-[38px] w-[38px] object-contain brightness-0 invert"
                   />
                 </div>
                 <h3 className="mb-2.5 text-[16px] font-extrabold leading-[1.35] text-[#273d64]">
                   {step.title}
                 </h3>
                 <p className="text-[15px] leading-[1.62] text-[#7f8eaa]">{step.description}</p>
-              </article>
+              </ScrollReveal>
             ))}
           </div>
         </div>
@@ -245,12 +250,14 @@ export default function Home() {
 
       <section className="why-choose-section bg-[#f7f8fb] py-[92px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] text-center max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <h2 className="home-section-heading why-choose-title font-extrabold leading-[1.08] tracking-[0] text-[#1d355b]">
-            Why <span>Choose</span> DeepReader?
-          </h2>
-          <p className="mx-auto mt-5 max-w-[620px] text-[16px] leading-[1.65] text-[#526176]">
-            Here&apos;s why readers choose DeepReader to study long documents faster.
-          </p>
+          <ScrollReveal>
+            <h2 className="home-section-heading why-choose-title font-extrabold leading-[1.08] tracking-[0] text-[#1d355b]">
+              Why <span>Choose</span> DeepReader?
+            </h2>
+            <p className="mx-auto mt-5 max-w-[620px] text-[16px] leading-[1.65] text-[#526176]">
+              Here&apos;s why readers choose DeepReader to study long documents faster.
+            </p>
+          </ScrollReveal>
 
           <div className="why-choose-stage">
             <svg
@@ -265,9 +272,12 @@ export default function Home() {
             </svg>
 
             {whyChooseCards.map((card, index) => (
-              <article
+              <ScrollReveal
+                as="article"
                 className={`why-card why-card-${index + 1} ${card.tone}`}
                 key={card.title}
+                delay={index * 130}
+                variant={index % 2 === 0 ? "left" : "right"}
               >
                 <div className="why-card-pin">
                   <Image
@@ -282,7 +292,7 @@ export default function Home() {
                   <h3>{card.title}</h3>
                   <p>{card.description}</p>
                 </div>
-              </article>
+              </ScrollReveal>
             ))}
           </div>
         </div>
@@ -290,7 +300,7 @@ export default function Home() {
 
       <section id="workspace" className="bg-[#e8e9f1] py-[82px] max-[700px]:py-[70px]">
         <div className="mx-auto grid min-h-[520px] w-[min(1180px,calc(100%_-_48px))] grid-cols-[minmax(0,500px)_minmax(520px,1fr)] items-center gap-[100px] max-[1050px]:grid-cols-1 max-[1050px]:gap-12 max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <div className="max-w-[500px] max-[1050px]:max-w-[720px]">
+          <ScrollReveal className="max-w-[500px] max-[1050px]:max-w-[720px]" variant="left">
             <h2 className="max-w-[520px] text-[38px] font-extrabold leading-[1.16] tracking-[0] text-[#1d355b] max-[700px]:text-[29px]">
               A calm dashboard for focused study
             </h2>
@@ -308,9 +318,9 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-          </div>
+          </ScrollReveal>
 
-          <div className="relative min-h-[500px] max-w-[720px] max-[1050px]:mx-auto max-[1050px]:w-full max-[700px]:min-h-[420px]">
+          <ScrollReveal className="relative min-h-[500px] max-w-[720px] max-[1050px]:mx-auto max-[1050px]:w-full max-[700px]:min-h-[420px]" variant="right">
             <div className="absolute right-0 top-0 h-[500px] w-[500px] rounded-[8px] bg-[linear-gradient(135deg,#e5fcff_0%,#dff6fb_48%,#d0eef5_100%)] max-[700px]:h-[420px] max-[700px]:w-full" />
             <div className="absolute left-[6%] top-[86px] min-h-[300px] w-[420px] rounded-[8px] bg-white/95 p-[22px] shadow-[0_24px_56px_rgba(39,65,114,0.15)] max-[700px]:left-[5%] max-[700px]:top-[58px] max-[700px]:min-h-[270px] max-[700px]:w-[82%]">
               <div className="mb-7 flex gap-2.5">
@@ -354,7 +364,7 @@ export default function Home() {
               </span>
               <i className="mt-3.5 block h-2 w-[76%] rounded-full bg-[#78d8df]" />
             </div>
-          </div>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -363,7 +373,7 @@ export default function Home() {
         className="bg-white py-[90px] max-[700px]:py-[70px]"
       >
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <div className="mx-auto mb-[46px] max-w-[700px] text-center">
+          <ScrollReveal className="mx-auto mb-[46px] max-w-[700px] text-center">
             <h2 className="home-section-heading font-extrabold leading-[1.16] tracking-[0] text-[#1d355b]">
               Smart reading tools for focused study
             </h2>
@@ -371,30 +381,9 @@ export default function Home() {
               DeepReader brings summaries, document organization, and study progress
               into one workspace so every reading session has a clear next step.
             </p>
-          </div>
+          </ScrollReveal>
 
-          <div className="grid grid-cols-3 gap-[26px] max-[1050px]:grid-cols-2 max-[700px]:grid-cols-1">
-            {featureCards.map((feature) => (
-              <article
-                key={feature.title}
-                className="flex min-h-[390px] flex-col items-center rounded-[8px] border border-[#e8eef8] bg-white px-[34px] py-6 pb-[34px] shadow-[0_18px_42px_rgba(32,55,103,0.08)]"
-              >
-                <Image
-                  src={feature.image}
-                  alt={feature.alt}
-                  width={320}
-                  height={230}
-                  className="mb-[26px] h-[210px] w-full max-w-[260px] object-contain"
-                />
-                <h3 className="text-center text-[17px] font-extrabold leading-[1.3] text-[#273d64]">
-                  {feature.title}
-                </h3>
-                <p className="mt-3 max-w-[260px] text-center text-[15px] leading-[1.58] text-[#8996ae]">
-                  {feature.description}
-                </p>
-              </article>
-            ))}
-          </div>
+          <FeatureCardsShowcase features={featureCards} />
         </div>
       </section>
 

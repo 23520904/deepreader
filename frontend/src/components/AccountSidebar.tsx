@@ -138,27 +138,24 @@ export function AccountSidebar({
     };
   }, [isOpen, onClose]);
 
+  if (!isOpen) {
+    return null;
+  }
+
   return (
     <div
-      className={`fixed inset-0 z-50 transition ${
-        isOpen ? "pointer-events-auto" : "pointer-events-none"
-      }`}
-      aria-hidden={!isOpen}
-      inert={!isOpen}
+      className="fixed inset-0 z-50"
+      aria-hidden={false}
     >
       <button
         type="button"
-        className={`absolute inset-0 cursor-default bg-[#07111f]/36 backdrop-blur-[3px] transition-opacity duration-200 ${
-          isOpen ? "opacity-100" : "opacity-0"
-        }`}
+        className="account-sidebar-backdrop absolute inset-0 cursor-default bg-[#07111f]/36 backdrop-blur-[3px]"
         onClick={onClose}
         aria-label="Close account sidebar"
       />
 
       <aside
-        className={`absolute right-0 top-0 flex h-dvh w-[min(320px,calc(100vw_-_28px))] flex-col bg-white px-7 py-8 text-[#2f47b8] shadow-[-26px_0_70px_rgba(12,22,48,0.18)] transition-transform duration-300 ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className="account-sidebar-panel absolute right-0 top-0 flex h-dvh w-[min(320px,calc(100vw_-_28px))] flex-col bg-white px-7 py-8 text-[#2f47b8] shadow-[-26px_0_70px_rgba(12,22,48,0.18)]"
         aria-label="Account sidebar"
         aria-modal="true"
         role="dialog"
