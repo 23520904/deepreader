@@ -6,6 +6,7 @@ public record BookUploadResponse(
 		Book book,
 		String provider,
 		String aiDocumentId,
+		int sectionCount,
 		int chunkCount
 ) {
 }

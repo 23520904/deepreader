@@ -38,7 +38,7 @@ class IngestionJobServiceTest {
 		when(ingestionService.ingestBytes(anyString(), anyString(), any(byte[].class)))
 				.thenThrow(new IllegalStateException("try1"))
 				.thenThrow(new IllegalStateException("try2"))
-				.thenReturn(new IngestionResult("doc-1", "book.pdf", 1, List.of("c1"), List.of("gemini")));
+				.thenReturn(new IngestionResult("doc-1", "book.pdf", 1, 1, List.of("c1"), List.of("gemini")));
 
 		IngestionJobService jobService = new IngestionJobService(
 				jdbcTemplate,

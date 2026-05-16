@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -63,6 +64,19 @@ public class PublicGatewayController {
 	public Flux<Book> listBooks(ServerWebExchange exchange) {
 		String userId = RequestUserContext.requireUserId(exchange);
 		return businessServiceClient.listBooks(userId);
+	}
+
+	@DeleteMapping("/{bookId}")
+	public Mono<ResponseEntity<Void>> deleteBook(@PathVariable String bookId, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.deleteBook(userId, bookId)
+				.thenReturn(ResponseEntity.noContent().build());
+	}
+
+	@GetMapping("/{bookId}/content")
+	public Mono<AiServiceClient.AiDocumentContentResponse> getBookContent(@PathVariable String bookId, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.getBookContent(userId, bookId);
 	}
 
 	@GetMapping("/admin-library")

@@ -40,6 +40,14 @@ public class AiServiceClient {
 				.bodyToMono(AiUploadResponse.class);
 	}
 
+	public Mono<AiDocumentContentResponse> getDocumentContent(String userId, String documentId) {
+		return webClient.get()
+				.uri("/internal/ai/v1/documents/{documentId}/content", documentId)
+				.header("X-User-Id", userId)
+				.retrieve()
+				.bodyToMono(AiDocumentContentResponse.class);
+	}
+
 	public Mono<AiSearchResponse> search(String userId, String query, Integer limit, String provider) {
 		return webClient.post()
 				.uri("/internal/ai/v1/documents/search")
@@ -129,7 +137,9 @@ public class AiServiceClient {
 				.bodyToMono(java.util.Map.class);
 	}
 
-	public record AiUploadResponse(String documentId, String fileName, int chunkCount, java.util.List<String> chunkIds, java.util.List<String> indexedProviders) {}
+	public record AiUploadResponse(String documentId, String fileName, int sectionCount, int chunkCount, java.util.List<String> chunkIds, java.util.List<String> indexedProviders) {}
+	public record AiDocumentContentResponse(String documentId, String fileName, java.util.List<AiDocumentSection> sections) {}
+	public record AiDocumentSection(String sectionId, String title, Integer pageNumber, String summary, String content) {}
 	public record AiSearchRequest(String query, Integer limit, String provider) {}
 	public record AiSearchResponse(String query, int limit, String provider, java.util.List<AiRetrievedChunk> matches) {}
 	public record AiRetrievedChunk(String documentId, String chunkId, String fileName, String sectionId, String title, Integer chunkIndex, String content, float score) {}

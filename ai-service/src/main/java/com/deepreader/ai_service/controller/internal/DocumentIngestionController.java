@@ -1,6 +1,8 @@
 package com.deepreader.ai_service.controller.internal;
 
 import com.deepreader.ai_service.config.GuardrailProperties;
+import com.deepreader.ai_service.model.DocumentSection;
+import com.deepreader.ai_service.model.IndexedDocument;
 import com.deepreader.ai_service.model.api.internal.ChatAskRequest;
 import com.deepreader.ai_service.model.api.internal.ChatAskResponse;
 import com.deepreader.ai_service.model.api.internal.FlashcardRequest;
@@ -13,6 +15,7 @@ import com.deepreader.ai_service.model.api.internal.SummaryRequest;
 import com.deepreader.ai_service.model.api.internal.SummaryResponse;
 import com.deepreader.ai_service.service.AuditLogService;
 import com.deepreader.ai_service.service.ChatService;
+import com.deepreader.ai_service.service.DocumentIndexStoreService;
 import com.deepreader.ai_service.service.DocumentIngestionService;
 import com.deepreader.ai_service.service.GenerationService;
 import com.deepreader.ai_service.service.GuardrailService;
@@ -37,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -44,6 +48,7 @@ import java.util.Map;
 @Tag(name = "Documents")
 public class DocumentIngestionController {
 	private final DocumentIngestionService documentIngestionService;
+	private final DocumentIndexStoreService documentIndexStoreService;
 	private final RetrievalService retrievalService;
 	private final ChatService chatService;
 	private final GenerationService generationService;
@@ -53,8 +58,9 @@ public class DocumentIngestionController {
 	private final GuardrailService guardrailService;
 	private final GuardrailProperties guardrailProperties;
 
-	public DocumentIngestionController(DocumentIngestionService documentIngestionService, RetrievalService retrievalService, ChatService chatService, GenerationService generationService, IngestionJobService ingestionJobService, AuditLogService auditLogService, ObjectStorageService objectStorageService, GuardrailService guardrailService, GuardrailProperties guardrailProperties) {
+	public DocumentIngestionController(DocumentIngestionService documentIngestionService, DocumentIndexStoreService documentIndexStoreService, RetrievalService retrievalService, ChatService chatService, GenerationService generationService, IngestionJobService ingestionJobService, AuditLogService auditLogService, ObjectStorageService objectStorageService, GuardrailService guardrailService, GuardrailProperties guardrailProperties) {
 		this.documentIngestionService = documentIngestionService;
+		this.documentIndexStoreService = documentIndexStoreService;
 		this.retrievalService = retrievalService;
 		this.chatService = chatService;
 		this.generationService = generationService;
@@ -63,6 +69,17 @@ public class DocumentIngestionController {
 		this.objectStorageService = objectStorageService;
 		this.guardrailService = guardrailService;
 		this.guardrailProperties = guardrailProperties;
+	}
+
+	@GetMapping(value = "/{documentId}/content", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Return indexed sections for a document")
+	public Mono<DocumentContentResponse> getDocumentContent(
+			@PathVariable String documentId,
+			@RequestHeader(name = "X-User-Id", required = false) String userIdHeader
+	) {
+		String userId = requireUserId(userIdHeader);
+		return Mono.fromCallable(() -> toContentResponse(documentIndexStoreService.requireById(userId, documentId)))
+				.subscribeOn(Schedulers.boundedElastic());
 	}
 
 	@PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -173,10 +190,31 @@ public class DocumentIngestionController {
 		return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
 	}
 
+	private DocumentContentResponse toContentResponse(IndexedDocument document) {
+		return new DocumentContentResponse(
+				document.documentId(),
+				document.fileName(),
+				document.sections().stream().map(this::toContentSection).toList()
+		);
+	}
+
+	private DocumentContentSection toContentSection(DocumentSection section) {
+		return new DocumentContentSection(
+				section.sectionId(),
+				section.title(),
+				section.pageNumber(),
+				section.summary(),
+				section.content()
+		);
+	}
+
 	private String requireUserId(String userIdHeader) {
 		if (userIdHeader == null || userIdHeader.isBlank()) {
 			throw new IllegalArgumentException("Missing X-User-Id header");
 		}
 		return userIdHeader.trim();
 	}
+
+	public record DocumentContentResponse(String documentId, String fileName, List<DocumentContentSection> sections) {}
+	public record DocumentContentSection(String sectionId, String title, Integer pageNumber, String summary, String content) {}
 }

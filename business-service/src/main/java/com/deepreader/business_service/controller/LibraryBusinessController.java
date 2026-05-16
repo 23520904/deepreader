@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,6 +51,17 @@ public class LibraryBusinessController {
 	@GetMapping
 	public Flux<Book> listBooks(@RequestParam(required = false) String userId) {
 		return libraryOrchestrationService.listBooks(userId);
+	}
+
+	@DeleteMapping("/{bookId}")
+	public Mono<ResponseEntity<Void>> deleteBook(@PathVariable String bookId, @RequestParam String userId) {
+		return libraryOrchestrationService.deleteBook(userId, bookId)
+				.thenReturn(ResponseEntity.noContent().build());
+	}
+
+	@GetMapping("/{bookId}/content")
+	public Mono<AiServiceClient.AiDocumentContentResponse> getBookContent(@PathVariable String bookId, @RequestParam String userId) {
+		return libraryOrchestrationService.getBookContent(userId, bookId);
 	}
 
 	@PostMapping(value = "/{bookId}/search", consumes = MediaType.APPLICATION_JSON_VALUE)

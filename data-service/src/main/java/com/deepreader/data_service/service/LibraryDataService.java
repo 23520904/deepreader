@@ -52,6 +52,15 @@ public class LibraryDataService {
 	public Mono<Book> saveBook(Book book) { return bookRepository.save(book); }
 	public Flux<Book> findBooks(String userId) { return userId == null || userId.isBlank() ? bookRepository.findAll() : bookRepository.findByUserId(userId); }
 	public Mono<Book> findBookById(String id) { return bookRepository.findById(id); }
+	public Mono<Void> deleteBookById(String id) {
+		return Mono.when(
+						chapterRepository.deleteByBookId(id),
+						summaryRepository.deleteByBookId(id),
+						flashcardRepository.deleteByBookId(id),
+						chatHistoryRepository.deleteByBookId(id),
+						readingSessionRepository.deleteByBookId(id))
+				.then(bookRepository.deleteById(id));
+	}
 
 	public Mono<Chapter> saveChapter(Chapter chapter) { return chapterRepository.save(chapter); }
 	public Flux<Chapter> findChaptersByBook(String bookId) { return chapterRepository.findByBookIdOrderByChapterNumberAsc(bookId); }

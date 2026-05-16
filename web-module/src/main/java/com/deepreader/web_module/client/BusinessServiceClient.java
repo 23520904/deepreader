@@ -48,6 +48,24 @@ public class BusinessServiceClient {
 		return webClient.get().uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books").queryParamIfPresent("userId", java.util.Optional.ofNullable(userId)).build()).retrieve().bodyToFlux(Book.class);
 	}
 
+	public Mono<Void> deleteBook(String userId, String bookId) {
+		return webClient.delete()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.retrieve()
+				.bodyToMono(Void.class);
+	}
+
+	public Mono<AiServiceClient.AiDocumentContentResponse> getBookContent(String userId, String bookId) {
+		return webClient.get()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/content")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.retrieve()
+				.bodyToMono(AiServiceClient.AiDocumentContentResponse.class);
+	}
+
 	public Mono<AiServiceClient.AiSearchResponse> search(String bookId, BookQueryRequest request) {
 		return webClient.post().uri("/internal/business/v1/books/{bookId}/search", bookId).bodyValue(request).retrieve().bodyToMono(AiServiceClient.AiSearchResponse.class);
 	}

@@ -33,6 +33,10 @@ public class DataServiceClient {
 		return webClient.get().uri("/internal/data/v1/books/{bookId}", bookId).retrieve().bodyToMono(Book.class);
 	}
 
+	public Mono<Void> deleteBook(String bookId) {
+		return webClient.delete().uri("/internal/data/v1/books/{bookId}", bookId).retrieve().bodyToMono(Void.class);
+	}
+
 	public Mono<ChapterSummary> saveSummary(ChapterSummary summary) {
 		return webClient.post().uri("/internal/data/v1/summaries").bodyValue(summary).retrieve().bodyToMono(ChapterSummary.class);
 	}

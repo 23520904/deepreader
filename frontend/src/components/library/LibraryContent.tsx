@@ -36,6 +36,9 @@ type LibraryContentProps = {
   onPreviousPage: () => void;
   onNextPage: () => void;
   onPageChange: (page: number) => void;
+  deletingDocumentId: string;
+  onReadDocument: (document: LibraryDocument) => void;
+  onDeleteDocument: (document: LibraryDocument) => void;
 };
 
 function SearchIcon() {
@@ -102,6 +105,9 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
       onPreviousPage,
       onNextPage,
       onPageChange,
+      deletingDocumentId,
+      onReadDocument,
+      onDeleteDocument,
     },
     ref,
   ) {
@@ -110,7 +116,7 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
         ref={ref}
         className="min-h-[900px] bg-white pb-24 pt-12"
       >
-        <div className="mx-auto w-[min(1000px,calc(100%_-_42px))]">
+        <div className="mx-auto w-[min(1220px,calc(100%_-_42px))]">
           <h2 className="text-[30px] font-black tracking-[0] text-black">
             Your Library Collection
           </h2>
@@ -164,13 +170,13 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
           ) : null}
 
           {isLoading ? (
-            <div className="mt-20 grid gap-x-[58px] gap-y-[42px] md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-20 grid gap-x-[52px] gap-y-[48px] md:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-[310px] rounded-[16px] bg-white shadow-[0_4px_16px_rgba(21,24,34,0.16)]"
+                  className="h-[422px] rounded-[18px] bg-white shadow-[0_10px_24px_rgba(21,36,67,0.12)]"
                 >
-                  <div className="h-[154px] rounded-t-[16px] bg-[#e5e8f1]" />
+                  <div className="h-[220px] rounded-t-[18px] bg-[#e9f5ff]" />
                   <div className="space-y-4 p-5">
                     <div className="h-4 rounded bg-[#eef1f6]" />
                     <div className="h-4 w-4/5 rounded bg-[#eef1f6]" />
@@ -180,11 +186,14 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
               ))}
             </div>
           ) : pagedDocuments.length ? (
-            <div className="mt-20 grid gap-x-[58px] gap-y-[42px] md:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-20 grid gap-x-[52px] gap-y-[48px] md:grid-cols-2 xl:grid-cols-3">
               {pagedDocuments.map((document) => (
                 <LibraryCard
                   key={`${document.source}-${document.id}`}
                   document={document}
+                  isDeleting={deletingDocumentId === document.id}
+                  onRead={onReadDocument}
+                  onDelete={onDeleteDocument}
                 />
               ))}
             </div>

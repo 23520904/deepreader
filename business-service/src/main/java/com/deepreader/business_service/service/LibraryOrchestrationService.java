@@ -12,7 +12,9 @@ import com.deepreader.core.model.ChapterSummary;
 import com.deepreader.core.model.ChatHistory;
 import com.deepreader.core.model.Flashcard;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -49,7 +51,7 @@ public class LibraryOrchestrationService {
 					book.setAiDocumentId(upload.documentId());
 					book.setTitle(upload.fileName());
 					book.setStatus("READY");
-					book.setTotalChapters(null);
+					book.setTotalChapters(upload.sectionCount());
 					book.setFormat(resolveFormat(upload.fileName()));
 					book.setCreatedAt(LocalDateTime.now());
 					return dataServiceClient.saveBook(book)
@@ -57,13 +59,45 @@ public class LibraryOrchestrationService {
 								bookEventPublisher.publish("BOOK_UPLOADED", userId, saved.getId(),
 										Map.of("provider", provider == null ? "gemini" : provider,
 												"chunkCount", upload.chunkCount()));
-								return new BookUploadResponse(saved, provider == null ? "gemini" : provider, upload.documentId(), upload.chunkCount());
+								return new BookUploadResponse(saved, provider == null ? "gemini" : provider, upload.documentId(), upload.sectionCount(), upload.chunkCount());
 							});
 				});
 	}
 
 	public Flux<Book> listBooks(String userId) {
 		return dataServiceClient.listBooks(userId);
+	}
+
+	public Mono<Void> deleteBook(String userId, String bookId) {
+		return dataServiceClient.getBook(bookId)
+				.switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found")))
+				.flatMap(book -> {
+					if (!userId.equals(book.getUserId())) {
+						return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot delete this book"));
+					}
+
+					return dataServiceClient.deleteBook(bookId)
+							.doOnSuccess(ignored -> bookEventPublisher.publish("BOOK_DELETED",
+									userId,
+									bookId,
+									Map.of("aiDocumentId", book.getAiDocumentId() == null ? "" : book.getAiDocumentId())));
+				});
+	}
+
+	public Mono<AiServiceClient.AiDocumentContentResponse> getBookContent(String userId, String bookId) {
+		return dataServiceClient.getBook(bookId)
+				.switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found")))
+				.flatMap(book -> {
+					if (!userId.equals(book.getUserId())) {
+						return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot read this book"));
+					}
+
+					if (book.getAiDocumentId() == null || book.getAiDocumentId().isBlank()) {
+						return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Indexed document not found"));
+					}
+
+					return aiServiceClient.getDocumentContent(userId, book.getAiDocumentId());
+				});
 	}
 
 	public Mono<AiServiceClient.AiSearchResponse> searchBook(String bookId, BookQueryRequest request) {

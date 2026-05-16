@@ -112,7 +112,7 @@ public class DocumentIngestionService {
 		if (providers.isEmpty()) {
 			throw new IllegalStateException("All embedding providers failed. " + String.join(" | ", providerErrors));
 		}
-		return new IngestionResult(documentId, fileName, chunks.size(), chunks.stream().map(DocumentChunk::chunkId).toList(), providers);
+		return new IngestionResult(documentId, fileName, sections.size(), chunks.size(), chunks.stream().map(DocumentChunk::chunkId).toList(), providers);
 	}
 
 	private List<String> providersToIndex(String provider) {

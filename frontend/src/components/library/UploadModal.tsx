@@ -1,10 +1,15 @@
 import Image from "next/image";
+import Lottie from "lottie-react";
 import type { ChangeEvent, DragEvent, RefObject } from "react";
+import uploadLoadingAnimation from "@/assets/animations/upload-loading.json";
 
 type UploadModalProps = {
   isOpen: boolean;
   isUploading: boolean;
   isUploadBlocked: boolean;
+  isUploadComplete: boolean;
+  uploadProgress: number;
+  uploadEtaLabel: string;
   isDragging: boolean;
   stagedFile: File | null;
   provider: string;
@@ -115,6 +120,9 @@ export function UploadModal({
   isOpen,
   isUploading,
   isUploadBlocked,
+  isUploadComplete,
+  uploadProgress,
+  uploadEtaLabel,
   isDragging,
   stagedFile,
   provider,
@@ -134,28 +142,58 @@ export function UploadModal({
     return null;
   }
 
+  const safeUploadProgress = Math.min(
+    100,
+    Math.max(0, Math.round(uploadProgress)),
+  );
+  const primaryButtonDisabled = isUploadComplete ? false : isUploadBlocked;
+  const uploadMessageClasses = isUploadComplete
+    ? "border-[#9bdcac] bg-[#effcf3] text-[#1d7b45]"
+    : "border-[#ffc4ca] bg-[#fff0f1] text-[#b42335]";
+  const isStatusView = isUploading || isUploadComplete;
+  const modalWidthClass = isStatusView
+    ? "w-[min(640px,100%)]"
+    : "w-[min(960px,100%)]";
+  const modalTitle = isStatusView
+    ? isUploadComplete
+      ? "Upload complete"
+      : safeUploadProgress >= 100
+        ? "Processing document"
+        : "Uploading document"
+    : "Add new documents to the Library";
+  const modalDescription = isStatusView
+    ? isUploadComplete
+      ? "Your document has been added to the library."
+      : safeUploadProgress >= 100
+        ? "Your file was uploaded. DeepReader is extracting and indexing it now."
+        : "Please wait while DeepReader uploads your file."
+    : "Choose PDF or EPUB file format and provider if needed.";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#121826]/45 px-4 py-5"
       role="dialog"
       aria-modal="true"
     >
-      <div className="max-h-[92vh] w-[min(960px,100%)] overflow-y-auto rounded-[10px] bg-white shadow-[0_26px_80px_rgba(18,24,38,0.32)]">
+      <div
+        className={`max-h-[92vh] ${modalWidthClass} overflow-y-auto rounded-[10px] bg-white shadow-[0_26px_80px_rgba(18,24,38,0.32)]`}
+      >
         <div className="flex items-start justify-between gap-6 px-8 py-7">
           <div>
             <h2 className="text-[26px] font-black tracking-[0] text-black">
-              Add new documents to the Library
+              {modalTitle}
             </h2>
 
             <p className="mt-3 text-[16px] font-medium text-[#8e929d]">
-              Choose PDF or EPUB file format and provider if needed.
+              {modalDescription}
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer text-black transition hover:scale-105"
+            disabled={isUploading}
+            className="cursor-pointer text-black transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-45"
             aria-label="Close upload dialog"
           >
             <CloseIcon />
@@ -165,6 +203,66 @@ export function UploadModal({
         <div className="border-t border-[#d8dbe3]" />
 
         <div className="px-8 py-7">
+          {isStatusView ? (
+            <div className="grid min-h-[360px] place-items-center text-center">
+              <div className="w-full">
+                <div className="mx-auto h-[190px] w-[190px]">
+                  <Lottie
+                    animationData={uploadLoadingAnimation}
+                    autoplay
+                    loop={isUploading}
+                    className="h-full w-full"
+                  />
+                </div>
+
+                <div className="mx-auto mt-5 max-w-[500px]">
+                  <div className="flex items-center justify-between gap-4 text-left text-[14px] font-black text-[#245895]">
+                    <span>
+                      {isUploadComplete
+                        ? "Upload completed successfully."
+                        : safeUploadProgress >= 100
+                          ? "Processing document..."
+                          : "Uploading file..."}
+                    </span>
+
+                    <span>{safeUploadProgress}%</span>
+                  </div>
+
+                  <div className="mt-3 h-4 overflow-hidden rounded-full bg-[#dfe7f4]">
+                    <div
+                      className="h-full rounded-full bg-[#245895] transition-[width] duration-300 ease-out"
+                      style={{ width: `${safeUploadProgress}%` }}
+                    />
+                  </div>
+
+                  {uploadEtaLabel ? (
+                    <p className="mt-3 text-left text-[13px] font-bold text-[#7f8da5]">
+                      {uploadEtaLabel}
+                    </p>
+                  ) : null}
+                </div>
+
+                {uploadMessage ? (
+                  <div
+                    className={`mx-auto mt-5 max-w-[500px] rounded-[8px] border px-5 py-3 text-[14px] font-bold ${uploadMessageClasses}`}
+                  >
+                    {uploadMessage}
+                  </div>
+                ) : null}
+
+                {isUploadComplete ? (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-7 h-[48px] min-w-[138px] cursor-pointer rounded-[7px] bg-[#245895] px-7 text-[15px] font-black text-white transition hover:bg-[#1d4d86]"
+                  >
+                    Done
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <>
           <label
             onDragOver={(event) => {
               event.preventDefault();
@@ -183,6 +281,7 @@ export function UploadModal({
               type="file"
               accept=".pdf,.epub,application/pdf,application/epub+zip"
               onChange={onFileChange}
+              disabled={isUploading}
               className="sr-only"
             />
 
@@ -217,7 +316,8 @@ export function UploadModal({
               <select
                 value={provider}
                 onChange={(event) => onProviderChange(event.target.value)}
-                className="h-10 rounded-[6px] border border-[#d7dbe5] bg-white px-4 text-[15px] font-black outline-none"
+                disabled={isUploading}
+                className="h-10 rounded-[6px] border border-[#d7dbe5] bg-white px-4 text-[15px] font-black outline-none disabled:cursor-not-allowed disabled:bg-[#f3f5f9] disabled:text-[#8d929c]"
               >
                 <option value="gemini">Gemini</option>
                 <option value="openai">OpenAI</option>
@@ -226,7 +326,9 @@ export function UploadModal({
           </div>
 
           {uploadMessage ? (
-            <div className="mt-5 rounded-[8px] border border-[#ffc4ca] bg-[#fff0f1] px-5 py-3 text-[14px] font-bold text-[#b42335]">
+            <div
+              className={`mt-5 rounded-[8px] border px-5 py-3 text-[14px] font-bold ${uploadMessageClasses}`}
+            >
               {uploadMessage}
             </div>
           ) : null}
@@ -267,13 +369,18 @@ export function UploadModal({
                   <button
                     type="button"
                     onClick={onRemoveFile}
-                    className="grid h-[56px] w-[56px] cursor-pointer place-items-center rounded-full bg-white text-black shadow-[0_6px_10px_rgba(20,24,34,0.22)] transition hover:scale-105"
+                    disabled={isUploading}
+                    className="grid h-[56px] w-[56px] cursor-pointer place-items-center rounded-full bg-white text-black shadow-[0_6px_10px_rgba(20,24,34,0.22)] transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-45"
                     aria-label="Remove selected file"
                   >
                     <TrashIcon />
                   </button>
                 </div>
               </div>
+            ) : isUploadComplete ? (
+              <p className="text-[18px] font-black text-[#1d7b45]">
+                Your document is ready in the library.
+              </p>
             ) : (
               <p className="text-[18px] font-medium text-[#8d929c]">
                 No file selected
@@ -285,20 +392,23 @@ export function UploadModal({
             <button
               type="button"
               onClick={onClose}
-              className="h-[48px] min-w-[138px] cursor-pointer rounded-[7px] bg-[#e6e8f1] px-7 text-[15px] font-black text-black transition hover:bg-[#dfe2eb]"
+              disabled={isUploading}
+              className="h-[48px] min-w-[138px] cursor-pointer rounded-[7px] bg-[#e6e8f1] px-7 text-[15px] font-black text-black transition hover:bg-[#dfe2eb] disabled:cursor-not-allowed disabled:opacity-45"
             >
-              Cancel
+              {isUploadComplete ? "Close" : "Cancel"}
             </button>
 
             <button
               type="button"
-              onClick={onSubmit}
-              disabled={isUploadBlocked}
+              onClick={isUploadComplete ? onClose : onSubmit}
+              disabled={primaryButtonDisabled}
               className="h-[48px] min-w-[138px] cursor-pointer rounded-[7px] bg-[#245895] px-7 text-[15px] font-black text-white transition hover:bg-[#1d4d86] disabled:cursor-not-allowed disabled:bg-[#8ca5c7]"
             >
-              {isUploading ? "Uploading..." : "Upload"}
+              {isUploadComplete ? "Done" : isUploading ? "Uploading..." : "Upload"}
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </div>
