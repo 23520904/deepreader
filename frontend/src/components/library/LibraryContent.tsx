@@ -114,10 +114,10 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
     return (
       <section
         ref={ref}
-        className="min-h-[900px] bg-white pb-24 pt-12"
+        className="min-h-[900px] scroll-mt-[96px] bg-white pb-24 pt-16"
       >
-        <div className="mx-auto w-[min(1220px,calc(100%_-_42px))]">
-          <h2 className="text-[30px] font-black tracking-[0] text-black">
+        <div className="mx-auto w-[min(1220px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1220px)]">
+          <h2 className="text-[34px] font-black tracking-[-0.025em] text-[#1d355b] max-[700px]:text-[28px]">
             Your Library Collection
           </h2>
 

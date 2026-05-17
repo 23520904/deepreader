@@ -62,7 +62,7 @@ public class LlmClientService {
 		try {
 			response = client.post().uri("/chat/completions").header("Authorization", "Bearer " + apiKey).bodyValue(request).retrieve().bodyToMono(OpenAiChatResponse.class).switchIfEmpty(Mono.error(new IllegalStateException("OpenAI generation response was empty"))).block();
 		} catch (WebClientResponseException e) {
-			throw new IllegalStateException("OpenAI generation request failed: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
+			throw providerGenerationException("OpenAI", "OPENAI_API_KEY", e);
 		}
 		OpenAiChatResponse safe = Objects.requireNonNull(response, "OpenAI generation response must not be null");
 		if (safe.choices() == null || safe.choices().isEmpty() || safe.choices().getFirst().message() == null || !StringUtils.hasText(safe.choices().getFirst().message().content())) {
@@ -83,7 +83,7 @@ public class LlmClientService {
 		try {
 			response = client.post().uri(uriBuilder -> uriBuilder.path("/models/{model}:generateContent").queryParam("key", apiKey).build(modelId)).bodyValue(request).retrieve().bodyToMono(GeminiGenerateContentResponse.class).switchIfEmpty(Mono.error(new IllegalStateException("Gemini generation response was empty"))).block();
 		} catch (WebClientResponseException e) {
-			throw new IllegalStateException("Gemini generation request failed: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
+			throw providerGenerationException("Gemini", "GEMINI_API_KEY", e);
 		}
 		GeminiGenerateContentResponse safe = Objects.requireNonNull(response, "Gemini generation response must not be null");
 		if (safe.candidates() == null || safe.candidates().isEmpty() || safe.candidates().getFirst().content() == null || safe.candidates().getFirst().content().parts() == null) {
@@ -114,5 +114,47 @@ public class LlmClientService {
 		String normalized = StringUtils.hasText(configuredModel) ? configuredModel.trim() : "gemini-2.0-flash";
 		if (normalized.startsWith("models/")) normalized = normalized.substring("models/".length());
 		return normalized;
+	}
+
+	private IllegalStateException providerGenerationException(String provider, String envName, WebClientResponseException exception) {
+		int status = exception.getStatusCode().value();
+		String responseBody = exception.getResponseBodyAsString();
+
+		if (status == 401 || responseBody.contains("invalid_api_key")) {
+			return new IllegalStateException(provider + " API key is invalid or expired. Update " + envName + " or the LLM API token saved in your profile, then restart the AI service.", exception);
+		}
+
+		if (status == 429 || responseBody.contains("RESOURCE_EXHAUSTED") || responseBody.toLowerCase().contains("quota")) {
+			return new IllegalStateException(provider + " quota or rate limit was exceeded. Check the provider plan, billing, and quota settings, or retry later" + retryDelaySuffix(responseBody) + ".", exception);
+		}
+
+		if (status >= 500) {
+			return new IllegalStateException(provider + " generation service is temporarily unavailable. Retry later.", exception);
+		}
+
+		return new IllegalStateException(provider + " generation request failed with status " + status + ". Check provider credentials and model access.", exception);
+	}
+
+	private String retryDelaySuffix(String responseBody) {
+		int retryDelayIndex = responseBody.indexOf("\"retryDelay\"");
+
+		if (retryDelayIndex < 0) {
+			return "";
+		}
+
+		int secondsIndex = responseBody.indexOf("s\"", retryDelayIndex);
+		int quoteIndex = responseBody.lastIndexOf('"', Math.max(retryDelayIndex, secondsIndex - 1));
+
+		if (secondsIndex < 0 || quoteIndex < 0 || quoteIndex >= secondsIndex) {
+			return "";
+		}
+
+		String delaySeconds = responseBody.substring(quoteIndex + 1, secondsIndex).trim();
+
+		if (!StringUtils.hasText(delaySeconds)) {
+			return "";
+		}
+
+		return " after " + delaySeconds + "s";
 	}
 }

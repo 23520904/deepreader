@@ -108,32 +108,32 @@ export default function Home() {
           />
 
           <div
-            className={`absolute inset-0 z-[1] bg-[#dfeeff]/55 backdrop-blur-[1px] transition-opacity duration-700 ${
+            className={`absolute inset-0 z-[1] bg-[#dfeeff]/50 backdrop-blur-[1px] transition-opacity duration-700 ${
               heroVideoEnded ? "opacity-100" : "opacity-0"
             }`}
           />
 
           <div
-            className={`home-hero-content relative z-10 mx-auto flex w-[min(760px,calc(100%_-_32px))] flex-col items-center justify-center text-center transition-all duration-700 ${
+            className={`home-hero-content relative z-10 mx-auto flex w-[min(820px,calc(100%_-_32px))] flex-col items-center justify-center text-center transition-all duration-700 ${
               heroVideoEnded
                 ? "translate-y-0 opacity-100"
                 : "pointer-events-none translate-y-5 opacity-0"
             }`}
           >
-            <h1 className="text-[58px] font-black uppercase leading-[0.94] tracking-[0] text-[#1d355b] drop-shadow-[0_14px_30px_rgba(255,255,255,0.9)] max-[1050px]:text-[54px] max-[700px]:text-[38px]">
+            <h1 className="text-[66px] font-[1000] uppercase leading-[0.9] tracking-[-0.04em] text-[#17345d] drop-shadow-[0_16px_34px_rgba(255,255,255,0.95)] max-[1050px]:text-[58px] max-[700px]:text-[42px]">
               <span className="block whitespace-nowrap">Read Faster</span>
               <span className="block">with AI</span>
             </h1>
 
-            <p className="mt-6 max-w-[540px] text-[17px] font-semibold leading-[1.65] text-[#36485f] drop-shadow-[0_8px_22px_rgba(255,255,255,0.9)] max-[700px]:text-[15px]">
-              Summaries, flashcards, and answers from your documents in one calm
-              workspace.
+            <p className="mt-7 max-w-[680px] text-[21px] font-extrabold leading-[1.55] tracking-[-0.01em] text-[#31445d] drop-shadow-[0_10px_24px_rgba(255,255,255,0.95)] max-[700px]:max-w-[92%] max-[700px]:text-[16px]">
+              Upload your documents and let DeepReader turn long PDFs, notes, and study
+              materials into clear summaries, smart flashcards, and source-based answers.
             </p>
 
-            <div className="mt-8 flex justify-center">
+            <div className="mt-9 flex justify-center">
               <Link
-                href="/signup"
-                className="flex min-h-[54px] min-w-[150px] items-center justify-center whitespace-nowrap rounded-[8px] bg-[linear-gradient(135deg,#245895_0%,#6bc9c9_100%)] px-8 text-[15px] font-extrabold text-white shadow-[0_18px_34px_rgba(36,88,149,0.28)] transition hover:-translate-y-0.5"
+                href="#workflow"
+                className="flex min-h-[58px] min-w-[170px] items-center justify-center whitespace-nowrap rounded-[8px] bg-[linear-gradient(135deg,#245895_0%,#6bc9c9_100%)] px-9 text-[17px] font-black text-white shadow-[0_20px_38px_rgba(36,88,149,0.32)] transition hover:-translate-y-0.5"
               >
                 Get Started
               </Link>
@@ -304,14 +304,17 @@ export default function Home() {
             variant="right"
           >
             <div className="absolute right-0 top-0 h-[500px] w-[500px] rounded-[8px] bg-[linear-gradient(135deg,#e5fcff_0%,#dff6fb_48%,#d0eef5_100%)] max-[700px]:h-[420px] max-[700px]:w-full" />
+
             <div className="absolute left-[6%] top-[86px] min-h-[300px] w-[420px] rounded-[8px] bg-white/95 p-[22px] shadow-[0_24px_56px_rgba(39,65,114,0.15)] max-[700px]:left-[5%] max-[700px]:top-[58px] max-[700px]:min-h-[270px] max-[700px]:w-[82%]">
               <div className="mb-7 flex gap-2.5">
                 <span className="h-[9px] w-[9px] rounded-full bg-[#75ead7]" />
                 <span className="h-[9px] w-[9px] rounded-full bg-[#f4d559]" />
                 <span className="h-[9px] w-[9px] rounded-full bg-[#80bdf0]" />
               </div>
+
               <div className="mb-4 h-[11px] w-[88%] rounded-full bg-[#8ed5e1]" />
               <div className="mb-[46px] h-[11px] w-[66%] rounded-full bg-[#8ed5e1]" />
+
               <div className="grid grid-cols-[1fr_164px] items-end gap-7 max-[700px]:grid-cols-1">
                 <div>
                   <strong className="mb-4 block text-[29px] font-extrabold leading-[0.98] text-[#213a61]">
@@ -321,6 +324,7 @@ export default function Home() {
                   <span className="mb-3 block h-2 w-[78%] rounded-full bg-[#72cedc]" />
                   <span className="block h-2 w-[52%] rounded-full bg-[#72cedc]" />
                 </div>
+
                 <div className="flex h-[134px] items-end gap-[18px] max-[700px]:hidden">
                   <span className="h-[90px] w-[46px] rounded-t-[4px] bg-[#aceadd]" />
                   <span className="h-32 w-[46px] rounded-t-[4px] bg-[#c4d6ea]" />
@@ -330,14 +334,18 @@ export default function Home() {
             </div>
 
             <div className="absolute bottom-[92px] left-[-2%] min-h-[104px] w-40 rounded-[8px] bg-white px-5 py-[18px] shadow-[0_20px_42px_rgba(39,65,114,0.14)] max-[700px]:bottom-14 max-[700px]:left-0 max-[700px]:min-h-[84px] max-[700px]:w-[126px] max-[700px]:p-3.5">
-              <span className="block text-[12px] font-extrabold text-[#75849c]">Key Ideas</span>
+              <span className="block text-[12px] font-extrabold text-[#75849c]">
+                Key Ideas
+              </span>
               <strong className="mt-1 block text-[40px] font-extrabold leading-none text-[#213a61] max-[700px]:text-[30px]">
                 18
               </strong>
             </div>
 
             <div className="absolute right-[10%] top-[58px] min-h-[104px] w-40 rounded-[8px] bg-white px-5 py-[18px] shadow-[0_20px_42px_rgba(39,65,114,0.14)] max-[700px]:right-0 max-[700px]:top-6 max-[700px]:min-h-[84px] max-[700px]:w-[126px] max-[700px]:p-3.5">
-              <span className="block text-[12px] font-extrabold text-[#75849c]">Cards Ready</span>
+              <span className="block text-[12px] font-extrabold text-[#75849c]">
+                Cards Ready
+              </span>
               <strong className="mt-1 block text-[40px] font-extrabold leading-none text-[#213a61] max-[700px]:text-[30px]">
                 64
               </strong>

@@ -1089,3 +1089,37 @@ input::-ms-clear {
     object-fit: cover;
   }
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+.home-video-hero::before,
+.home-video-hero::after {
+  display: none;
+}
+
+.home-video-hero {
+  min-height: calc(100vh - 84px);
+  background: #dfeeff;
+}
+
+.home-hero-video {
+  pointer-events: none;
+}
+
+.home-video-hero .home-hero-content h1,
+.home-video-hero .home-hero-content p,
+.home-video-hero .home-hero-content a {
+  animation: none;
+}
+
+@media (max-width: 700px) {
+  .home-video-hero {
+    min-height: 620px;
+  }
+
+  .home-hero-video {
+    object-fit: cover;
+  }
+}

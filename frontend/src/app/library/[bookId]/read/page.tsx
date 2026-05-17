@@ -11,6 +11,12 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import {
+  AiStudyPanel,
+  type AiStudyTab,
+  type FlashcardView,
+  type SummaryView,
+} from "@/components/library/AiStudyPanel";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
 import { getAuthSessionSnapshot, subscribeAuthSession } from "@/lib/auth";
@@ -29,6 +35,40 @@ type DocumentContentResponse = {
   sections: DocumentSection[];
 };
 
+type SummaryRecord = {
+  id?: string | null;
+  chapterId?: string | null;
+  bookId?: string | null;
+  content?: string | null;
+  model?: string | null;
+  createdAt?: string | null;
+};
+
+type FlashcardRecord = {
+  id?: string | null;
+  chapterId?: string | null;
+  bookId?: string | null;
+  userId?: string | null;
+  question?: string | null;
+  answer?: string | null;
+  createdAt?: string | null;
+};
+
+type SummaryGenerationResponse = {
+  documentId?: string | null;
+  provider?: string | null;
+  summary?: string | null;
+};
+
+type FlashcardGenerationResponse = {
+  documentId?: string | null;
+  provider?: string | null;
+  flashcards?: Array<{
+    question?: string | null;
+    answer?: string | null;
+  }> | null;
+};
+
 type ReadingPage = {
   key: string;
   pageNumber: number;
@@ -45,24 +85,82 @@ async function parseErrorMessage(response: Response, fallback: string) {
       message?: string;
     };
 
-    return payload.error ?? payload.message ?? fallback;
+    return unwrapErrorMessage(payload.error ?? payload.message ?? fallback);
   } catch {
     return fallback;
   }
 }
 
-async function requestJson<T>(url: string, token: string, fallbackError: string) {
+function unwrapErrorMessage(value: string) {
+  let message = value;
+
+  for (let index = 0; index < 4; index += 1) {
+    const trimmed = message.trim();
+
+    if (!trimmed.startsWith("{")) {
+      break;
+    }
+
+    try {
+      const parsed = JSON.parse(trimmed) as { error?: string; message?: string };
+      message = parsed.error ?? parsed.message ?? message;
+    } catch {
+      break;
+    }
+  }
+
+  return friendlyProviderError(message);
+}
+
+function friendlyProviderError(message: string) {
+  if (message.includes("invalid_api_key") || message.includes("Incorrect API key")) {
+    return "The selected AI provider rejected the API key. Update your provider key or the LLM token saved in your profile, then retry.";
+  }
+
+  if (
+    message.includes("RESOURCE_EXHAUSTED") ||
+    message.toLowerCase().includes("quota") ||
+    message.includes("TOO_MANY_REQUESTS")
+  ) {
+    return "The selected AI provider quota or rate limit was exceeded. Check billing/quota settings or retry later.";
+  }
+
+  return message;
+}
+
+async function requestJson<T>(
+  url: string,
+  token: string,
+  fallbackError: string,
+  options?: RequestInit,
+) {
+  const headers = new Headers(options?.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+
+  if (options?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
   const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    ...options,
+    headers,
   });
 
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response, fallbackError));
   }
 
-  return (await response.json()) as T;
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const responseText = await response.text();
+
+  if (!responseText) {
+    return undefined as T;
+  }
+
+  return JSON.parse(responseText) as T;
 }
 
 async function requestBlob(url: string, token: string, fallbackError: string) {
@@ -159,6 +257,71 @@ function loadReadPageKeys(bookId: string) {
   }
 }
 
+function isPresent<T>(value: T | null): value is T {
+  return value !== null;
+}
+
+function createdAtTime(value: string | null) {
+  if (!value) {
+    return 0;
+  }
+
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function normalizeSummaryRecords(records: SummaryRecord[]) {
+  return records
+    .map((record, index): SummaryView | null => {
+      const content = record.content?.trim();
+
+      if (!content) {
+        return null;
+      }
+
+      return {
+        id:
+          record.id ??
+          record.chapterId ??
+          `${record.bookId ?? "summary"}-${record.createdAt ?? index}`,
+        content,
+        model: record.model?.trim() || "AI",
+        createdAt: record.createdAt ?? null,
+      };
+    })
+    .filter(isPresent)
+    .sort(
+      (left, right) =>
+        createdAtTime(right.createdAt) - createdAtTime(left.createdAt),
+    );
+}
+
+function normalizeFlashcardRecords(records: FlashcardRecord[]) {
+  return records
+    .map((record, index): FlashcardView | null => {
+      const question = record.question?.trim();
+      const answer = record.answer?.trim();
+
+      if (!question && !answer) {
+        return null;
+      }
+
+      return {
+        id:
+          record.id ??
+          `${record.bookId ?? "flashcard"}-${record.createdAt ?? index}`,
+        question: question || "Untitled question",
+        answer: answer || "No answer available.",
+        createdAt: record.createdAt ?? null,
+      };
+    })
+    .filter(isPresent)
+    .sort(
+      (left, right) =>
+        createdAtTime(right.createdAt) - createdAtTime(left.createdAt),
+    );
+}
+
 export default function ReadBookPage() {
   const router = useRouter();
   const params = useParams<{ bookId: string }>();
@@ -185,6 +348,16 @@ export default function ReadBookPage() {
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [studyTab, setStudyTab] = useState<AiStudyTab>("summary");
+  const [aiProvider, setAiProvider] = useState("gemini");
+  const [summaries, setSummaries] = useState<SummaryView[]>([]);
+  const [flashcards, setFlashcards] = useState<FlashcardView[]>([]);
+  const [flashcardCount, setFlashcardCount] = useState(8);
+  const [activeFlashcardIndex, setActiveFlashcardIndex] = useState(0);
+  const [isStudyLoading, setIsStudyLoading] = useState(false);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
+  const [studyErrorMessage, setStudyErrorMessage] = useState("");
   const readStateStorageKey = `${READ_STATE_PREFIX}${bookId}`;
 
   useEffect(() => {
@@ -344,6 +517,61 @@ export default function ReadBookPage() {
     };
   }, [bookId, router, session]);
 
+  useEffect(() => {
+    const activeSession = session;
+
+    if (!activeSession) {
+      return;
+    }
+
+    const activeToken = activeSession.token;
+    let ignore = false;
+
+    async function loadStudyAssets() {
+      setIsStudyLoading(true);
+      setStudyErrorMessage("");
+
+      try {
+        const [summaryPayload, flashcardPayload] = await Promise.all([
+          requestJson<SummaryRecord[]>(
+            `/api/v1/books/${encodeURIComponent(bookId)}/summaries`,
+            activeToken,
+            "Could not load saved summaries.",
+          ),
+          requestJson<FlashcardRecord[]>(
+            `/api/v1/books/${encodeURIComponent(bookId)}/flashcards`,
+            activeToken,
+            "Could not load saved flashcards.",
+          ),
+        ]);
+
+        if (!ignore) {
+          setSummaries(normalizeSummaryRecords(summaryPayload ?? []));
+          setFlashcards(normalizeFlashcardRecords(flashcardPayload ?? []));
+          setActiveFlashcardIndex(0);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setStudyErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Could not load AI study data.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setIsStudyLoading(false);
+        }
+      }
+    }
+
+    void loadStudyAssets();
+
+    return () => {
+      ignore = true;
+    };
+  }, [bookId, session]);
+
   const sections = useMemo(
     () => documentContent?.sections ?? [],
     [documentContent],
@@ -365,6 +593,9 @@ export default function ReadBookPage() {
     ? Math.round((readPageCount / pages.length) * 100)
     : 0;
   const isActivePageRead = activePage ? readPageKeys.has(activePage.key) : false;
+  const safeActiveFlashcardIndex = flashcards.length
+    ? Math.min(activeFlashcardIndex, flashcards.length - 1)
+    : 0;
 
   useEffect(() => {
     if (!pdfDocument || !activePage || !pdfCanvasRef.current) {
@@ -468,6 +699,126 @@ export default function ReadBookPage() {
       next.add(activePage.key);
       return next;
     });
+  }
+
+  function updateFlashcardCount(count: number) {
+    if (!Number.isFinite(count)) {
+      setFlashcardCount(1);
+      return;
+    }
+
+    setFlashcardCount(Math.min(50, Math.max(1, Math.round(count))));
+  }
+
+  function changeActiveFlashcardIndex(index: number) {
+    if (!flashcards.length) {
+      setActiveFlashcardIndex(0);
+      return;
+    }
+
+    setActiveFlashcardIndex(Math.min(Math.max(index, 0), flashcards.length - 1));
+  }
+
+  async function generateSummary() {
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+
+    setStudyTab("summary");
+    setIsGeneratingSummary(true);
+    setStudyErrorMessage("");
+
+    try {
+      const payload = await requestJson<SummaryGenerationResponse>(
+        `/api/v1/books/${encodeURIComponent(bookId)}/summary`,
+        session.token,
+        "Could not generate this summary.",
+        {
+          method: "POST",
+          body: JSON.stringify({ provider: aiProvider }),
+        },
+      );
+      const generatedSummary = payload.summary?.trim();
+
+      if (!generatedSummary) {
+        throw new Error("The AI response did not include a summary.");
+      }
+
+      const createdAt = new Date().toISOString();
+      const nextSummary: SummaryView = {
+        id: `${bookId}-summary-${createdAt}`,
+        content: generatedSummary,
+        model: payload.provider?.trim() || aiProvider,
+        createdAt,
+      };
+
+      setSummaries((currentSummaries) => [nextSummary, ...currentSummaries]);
+    } catch (error) {
+      setStudyErrorMessage(
+        error instanceof Error ? error.message : "Could not generate this summary.",
+      );
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  }
+
+  async function generateFlashcards() {
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+
+    const count = Math.min(50, Math.max(1, flashcardCount));
+    setStudyTab("flashcards");
+    setIsGeneratingFlashcards(true);
+    setStudyErrorMessage("");
+
+    try {
+      const payload = await requestJson<FlashcardGenerationResponse>(
+        `/api/v1/books/${encodeURIComponent(bookId)}/flashcards`,
+        session.token,
+        "Could not generate flashcards.",
+        {
+          method: "POST",
+          body: JSON.stringify({ provider: aiProvider, count }),
+        },
+      );
+      const generatedAt = Date.now();
+      const nextFlashcards = (payload.flashcards ?? [])
+        .map((card, index): FlashcardView | null => {
+          const question = card.question?.trim();
+          const answer = card.answer?.trim();
+
+          if (!question && !answer) {
+            return null;
+          }
+
+          return {
+            id: `${bookId}-flashcard-${generatedAt}-${index}`,
+            question: question || "Untitled question",
+            answer: answer || "No answer available.",
+            createdAt: new Date(generatedAt + index).toISOString(),
+          };
+        })
+        .filter(isPresent);
+
+      if (!nextFlashcards.length) {
+        throw new Error("The AI response did not include flashcards.");
+      }
+
+      setFlashcards((currentFlashcards) => [
+        ...nextFlashcards,
+        ...currentFlashcards,
+      ]);
+      setActiveFlashcardIndex(0);
+    } catch (error) {
+      setStudyErrorMessage(
+        error instanceof Error ? error.message : "Could not generate flashcards.",
+      );
+    } finally {
+      setIsGeneratingFlashcards(false);
+    }
   }
 
   return (
@@ -725,6 +1076,25 @@ export default function ReadBookPage() {
             </div>
           </div>
         )}
+
+        <AiStudyPanel
+          activeTab={studyTab}
+          provider={aiProvider}
+          summaries={summaries}
+          flashcards={flashcards}
+          flashcardCount={flashcardCount}
+          activeFlashcardIndex={safeActiveFlashcardIndex}
+          isLoading={isStudyLoading}
+          isGeneratingSummary={isGeneratingSummary}
+          isGeneratingFlashcards={isGeneratingFlashcards}
+          errorMessage={studyErrorMessage}
+          onActiveTabChange={setStudyTab}
+          onProviderChange={setAiProvider}
+          onFlashcardCountChange={updateFlashcardCount}
+          onActiveFlashcardIndexChange={changeActiveFlashcardIndex}
+          onGenerateSummary={generateSummary}
+          onGenerateFlashcards={generateFlashcards}
+        />
       </section>
 
       <SiteFooter />
