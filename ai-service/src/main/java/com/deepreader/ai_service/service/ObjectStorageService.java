@@ -16,12 +16,17 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.S3Configuration;
 
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.UUID;
 
 @Service
 public class ObjectStorageService {
+
+	private static final String LOCAL_KEY_PREFIX = "local:";
 
 	private final ObjectStorageProperties properties;
 
@@ -30,8 +35,10 @@ public class ObjectStorageService {
 	}
 
 	public String storeDocument(String userId, String fileName, byte[] bytes) {
+		String safeFileName = StringUtils.hasText(fileName) ? fileName.replaceAll("[^a-zA-Z0-9._-]", "_") : "uploaded.bin";
+
 		if (!properties.isEnabled()) {
-			return null;
+			return storeLocalDocument(userId, safeFileName, bytes);
 		}
 		if (!StringUtils.hasText(properties.getEndpoint())
 				|| !StringUtils.hasText(properties.getAccessKey())
@@ -39,7 +46,6 @@ public class ObjectStorageService {
 				|| !StringUtils.hasText(properties.getBucket())) {
 			throw new IllegalStateException("Object storage is enabled but configuration is incomplete");
 		}
-		String safeFileName = StringUtils.hasText(fileName) ? fileName.replaceAll("[^a-zA-Z0-9._-]", "_") : "uploaded.bin";
 		String key = userId + "/" + Instant.now().toEpochMilli() + "-" + UUID.randomUUID() + "-" + safeFileName;
 		try (S3Client s3 = buildClient()) {
 			ensureBucketExists(s3);
@@ -56,6 +62,10 @@ public class ObjectStorageService {
 	}
 
 	public byte[] loadDocument(String objectKey) {
+		if (objectKey != null && objectKey.startsWith(LOCAL_KEY_PREFIX)) {
+			return loadLocalDocument(objectKey.substring(LOCAL_KEY_PREFIX.length()));
+		}
+
 		if (!properties.isEnabled()) {
 			throw new IllegalStateException("Object storage is disabled");
 		}
@@ -67,6 +77,52 @@ public class ObjectStorageService {
 							.build()
 			).asByteArray();
 		}
+	}
+
+	private String storeLocalDocument(String userId, String safeFileName, byte[] bytes) {
+		String safeUserId = safePathSegment(userId, "anonymous");
+		String relativeKey = safeUserId + "/" + Instant.now().toEpochMilli() + "-" + UUID.randomUUID() + "-" + safeFileName;
+		Path path = resolveLocalPath(relativeKey);
+
+		try {
+			Files.createDirectories(path.getParent());
+			Files.write(path, bytes);
+			return LOCAL_KEY_PREFIX + relativeKey.replace('\\', '/');
+		} catch (IOException e) {
+			throw new IllegalStateException("Failed to store document locally", e);
+		}
+	}
+
+	private byte[] loadLocalDocument(String relativeKey) {
+		Path path = resolveLocalPath(relativeKey);
+
+		try {
+			return Files.readAllBytes(path);
+		} catch (IOException e) {
+			throw new IllegalStateException("Failed to load local document", e);
+		}
+	}
+
+	private Path resolveLocalPath(String relativeKey) {
+		String localDirectory = StringUtils.hasText(properties.getLocalDirectory())
+				? properties.getLocalDirectory()
+				: "data/documents";
+		Path root = Path.of(localDirectory).toAbsolutePath().normalize();
+		Path path = root.resolve(relativeKey.replace('\\', '/')).normalize();
+
+		if (!path.startsWith(root)) {
+			throw new IllegalArgumentException("Invalid local document path");
+		}
+
+		return path;
+	}
+
+	private String safePathSegment(String value, String fallback) {
+		String safe = StringUtils.hasText(value)
+				? value.replaceAll("[^a-zA-Z0-9._-]", "_")
+				: fallback;
+
+		return safe.isBlank() ? fallback : safe;
 	}
 
 	private S3Client buildClient() {

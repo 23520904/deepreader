@@ -3,6 +3,7 @@ package com.deepreader.business_service.client;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -46,6 +47,14 @@ public class AiServiceClient {
 				.header("X-User-Id", userId)
 				.retrieve()
 				.bodyToMono(AiDocumentContentResponse.class);
+	}
+
+	public Mono<ResponseEntity<byte[]>> getDocumentSource(String userId, String documentId) {
+		return webClient.get()
+				.uri("/internal/ai/v1/documents/{documentId}/source", documentId)
+				.header("X-User-Id", userId)
+				.retrieve()
+				.toEntity(byte[].class);
 	}
 
 	public Mono<AiSearchResponse> search(String userId, String query, Integer limit, String provider) {

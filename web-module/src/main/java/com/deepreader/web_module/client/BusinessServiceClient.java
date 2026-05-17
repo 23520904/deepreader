@@ -12,6 +12,7 @@ import com.deepreader.core.model.Flashcard;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -64,6 +65,15 @@ public class BusinessServiceClient {
 						.build(bookId))
 				.retrieve()
 				.bodyToMono(AiServiceClient.AiDocumentContentResponse.class);
+	}
+
+	public Mono<ResponseEntity<byte[]>> getBookSource(String userId, String bookId) {
+		return webClient.get()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/source")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.retrieve()
+				.toEntity(byte[].class);
 	}
 
 	public Mono<AiServiceClient.AiSearchResponse> search(String bookId, BookQueryRequest request) {

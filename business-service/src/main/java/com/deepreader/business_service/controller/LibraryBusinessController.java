@@ -11,6 +11,7 @@ import com.deepreader.core.model.ChapterSummary;
 import com.deepreader.core.model.ChatHistory;
 import com.deepreader.core.model.Flashcard;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
@@ -64,6 +65,15 @@ public class LibraryBusinessController {
 		return libraryOrchestrationService.getBookContent(userId, bookId);
 	}
 
+	@GetMapping(value = "/{bookId}/source", produces = {
+			MediaType.APPLICATION_PDF_VALUE,
+			MediaType.APPLICATION_OCTET_STREAM_VALUE,
+			"application/epub+zip"
+	})
+	public Mono<ResponseEntity<byte[]>> getBookSource(@PathVariable String bookId, @RequestParam String userId) {
+		return libraryOrchestrationService.getBookSource(userId, bookId);
+	}
+
 	@PostMapping(value = "/{bookId}/search", consumes = MediaType.APPLICATION_JSON_VALUE)
 	public Mono<AiServiceClient.AiSearchResponse> search(@PathVariable String bookId, @Valid @RequestBody BookQueryRequest request) {
 		return libraryOrchestrationService.searchBook(bookId, request);
@@ -97,6 +107,10 @@ public class LibraryBusinessController {
 	public ResponseEntity<Map<String, String>> handleUpstreamWebClientError(WebClientResponseException ex) {
 		String responseBody = ex.getResponseBodyAsString();
 		String message = StringUtils.hasText(responseBody) ? responseBody : ex.getMessage();
-		return ResponseEntity.status(ex.getStatusCode()).body(Map.of("error", message));
+		HttpStatus status = ex.getStatusCode().is2xxSuccessful()
+				? HttpStatus.BAD_GATEWAY
+				: HttpStatus.valueOf(ex.getStatusCode().value());
+
+		return ResponseEntity.status(status).body(Map.of("error", message));
 	}
 }

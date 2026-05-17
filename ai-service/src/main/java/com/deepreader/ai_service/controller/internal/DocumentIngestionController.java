@@ -24,6 +24,8 @@ import com.deepreader.ai_service.service.ObjectStorageService;
 import com.deepreader.ai_service.service.RetrievalService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
@@ -79,6 +81,42 @@ public class DocumentIngestionController {
 	) {
 		String userId = requireUserId(userIdHeader);
 		return Mono.fromCallable(() -> toContentResponse(documentIndexStoreService.requireById(userId, documentId)))
+				.subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@GetMapping(value = "/{documentId}/source", produces = {
+			MediaType.APPLICATION_PDF_VALUE,
+			MediaType.APPLICATION_OCTET_STREAM_VALUE,
+			"application/epub+zip"
+	})
+	@Operation(summary = "Return the original uploaded document")
+	public Mono<ResponseEntity<byte[]>> getDocumentSource(
+			@PathVariable String documentId,
+			@RequestHeader(name = "X-User-Id", required = false) String userIdHeader
+	) {
+		String userId = requireUserId(userIdHeader);
+		return Mono.fromCallable(() -> {
+					IndexedDocument document = documentIndexStoreService.requireById(userId, documentId);
+					String objectKey = document.objectKey();
+
+					if (objectKey == null || objectKey.isBlank()) {
+						throw new IllegalStateException("Original file is not available for this document.");
+					}
+
+					byte[] bytes = objectStorageService.loadDocument(objectKey);
+
+					return ResponseEntity.ok()
+							.contentType(mediaTypeByFileName(document.fileName()))
+							.header(
+									HttpHeaders.CONTENT_DISPOSITION,
+									ContentDisposition.inline()
+											.filename(document.fileName() == null ? "document.pdf" : document.fileName())
+											.build()
+											.toString()
+							)
+							.contentLength(bytes.length)
+							.body(bytes);
+				})
 				.subscribeOn(Schedulers.boundedElastic());
 	}
 
@@ -213,6 +251,20 @@ public class DocumentIngestionController {
 			throw new IllegalArgumentException("Missing X-User-Id header");
 		}
 		return userIdHeader.trim();
+	}
+
+	private MediaType mediaTypeByFileName(String fileName) {
+		String lower = fileName == null ? "" : fileName.toLowerCase();
+
+		if (lower.endsWith(".pdf")) {
+			return MediaType.APPLICATION_PDF;
+		}
+
+		if (lower.endsWith(".epub")) {
+			return MediaType.parseMediaType("application/epub+zip");
+		}
+
+		return MediaType.APPLICATION_OCTET_STREAM;
 	}
 
 	public record DocumentContentResponse(String documentId, String fileName, List<DocumentContentSection> sections) {}

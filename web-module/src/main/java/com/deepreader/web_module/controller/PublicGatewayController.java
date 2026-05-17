@@ -13,6 +13,7 @@ import com.deepreader.web_module.client.BusinessServiceClient;
 import com.deepreader.web_module.service.RequestUserContext;
 import com.deepreader.web_module.service.UserAccountService;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.util.StringUtils;
@@ -79,6 +80,16 @@ public class PublicGatewayController {
 		return businessServiceClient.getBookContent(userId, bookId);
 	}
 
+	@GetMapping(value = "/{bookId}/source", produces = {
+			MediaType.APPLICATION_PDF_VALUE,
+			MediaType.APPLICATION_OCTET_STREAM_VALUE,
+			"application/epub+zip"
+	})
+	public Mono<ResponseEntity<byte[]>> getBookSource(@PathVariable String bookId, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.getBookSource(userId, bookId);
+	}
+
 	@GetMapping("/admin-library")
 	public Flux<Book> listAdminBooks(ServerWebExchange exchange) {
 		RequestUserContext.requireUserId(exchange);
@@ -111,6 +122,10 @@ public class PublicGatewayController {
 	public ResponseEntity<Map<String, String>> handleUpstreamWebClientError(WebClientResponseException ex) {
 		String responseBody = ex.getResponseBodyAsString();
 		String message = StringUtils.hasText(responseBody) ? responseBody : ex.getMessage();
-		return ResponseEntity.status(ex.getStatusCode()).body(Map.of("error", message));
+		HttpStatus status = ex.getStatusCode().is2xxSuccessful()
+				? HttpStatus.BAD_GATEWAY
+				: HttpStatus.valueOf(ex.getStatusCode().value());
+
+		return ResponseEntity.status(status).body(Map.of("error", message));
 	}
 }

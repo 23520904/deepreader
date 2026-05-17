@@ -12,6 +12,7 @@ public class ObjectStorageProperties {
 	private String secretKey;
 	private String bucket = "deepreader-documents";
 	private boolean pathStyle = true;
+	private String localDirectory = "data/documents";
 
 	public boolean isEnabled() {
 		return enabled;
@@ -67,5 +68,13 @@ public class ObjectStorageProperties {
 
 	public void setPathStyle(boolean pathStyle) {
 		this.pathStyle = pathStyle;
+	}
+
+	public String getLocalDirectory() {
+		return localDirectory;
+	}
+
+	public void setLocalDirectory(String localDirectory) {
+		this.localDirectory = localDirectory;
 	}
 }

@@ -33,15 +33,15 @@ export function LibraryHero({
           </h1>
 
           <p className="mt-7 max-w-[470px] text-[17px] font-medium leading-6 text-[#989ca8]">
-            Add PDF or EPUB documents to start reading, summarizing, creating
-            flashcards, and chatting with your content using AI
+            Add PDF or EPUB documents to start reading, summarizing,
+            creating flashcards, and chatting with your content using AI
           </p>
 
           <div className="mt-7 flex flex-wrap gap-8">
             <button
               type="button"
               onClick={onUploadClick}
-              className="h-[52px] min-w-[150px] cursor-pointer rounded-[6px] bg-[#235895] px-8 text-[14px] font-black text-white shadow-[0_8px_14px_rgba(35,88,149,0.18)] transition hover:bg-[#1d4d86]"
+              className="h-[52px] min-w-[150px] cursor-pointer rounded-[6px] bg-[#245895] px-8 text-[14px] font-black text-white shadow-[0_8px_14px_rgba(35,88,149,0.18)] transition hover:bg-[#1d4d86]"
             >
               Upload
             </button>

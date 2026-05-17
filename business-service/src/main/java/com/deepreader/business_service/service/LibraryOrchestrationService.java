@@ -13,6 +13,7 @@ import com.deepreader.core.model.ChatHistory;
 import com.deepreader.core.model.Flashcard;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
@@ -97,6 +98,22 @@ public class LibraryOrchestrationService {
 					}
 
 					return aiServiceClient.getDocumentContent(userId, book.getAiDocumentId());
+				});
+	}
+
+	public Mono<ResponseEntity<byte[]>> getBookSource(String userId, String bookId) {
+		return dataServiceClient.getBook(bookId)
+				.switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found")))
+				.flatMap(book -> {
+					if (!userId.equals(book.getUserId())) {
+						return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot read this book"));
+					}
+
+					if (book.getAiDocumentId() == null || book.getAiDocumentId().isBlank()) {
+						return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Indexed document not found"));
+					}
+
+					return aiServiceClient.getDocumentSource(userId, book.getAiDocumentId());
 				});
 	}
 
