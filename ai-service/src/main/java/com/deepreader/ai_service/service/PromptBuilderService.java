@@ -33,13 +33,20 @@ public class PromptBuilderService {
 	}
 
 	public String buildSummaryPrompt(String fileName, String content) {
-		return "You are helping summarize a book for a reading application. Write a structured, reader-friendly summary with key ideas and important takeaways.\n\n"
+		return "You are helping summarize a book for a reading application. "
+				+ "Write a vivid, structured Markdown summary that is easy to scan. "
+				+ "Write the entire summary in English only. If the source content is Vietnamese or another language, translate the ideas into natural English. "
+				+ "Use Markdown headings, short paragraphs, bullet lists, **bold** for core concepts, and *italic* for subtle notes. "
+				+ "Include these sections when possible: # Overview, ## Key Ideas, ## Important Details, ## Takeaways, ## Suggested Review Questions. "
+				+ "Do not wrap the answer in a code block.\n\n"
 				+ "Document: " + nullSafe(fileName) + "\n\n"
 				+ content;
 	}
 
 	public String buildFlashcardPrompt(String fileName, String content, int count) {
-		return "Create " + count + " flashcards from the following book content. Return one flashcard per line using the exact format 'Q: ... | A: ...'.\n\n"
+		return "Create " + count + " flashcards from the following book content. "
+				+ "Write every question and answer in English only. If the source content is Vietnamese or another language, translate the concepts into natural English. "
+				+ "Return one flashcard per line using the exact format 'Q: ... | A: ...'.\n\n"
 				+ "Document: " + nullSafe(fileName) + "\n\n"
 				+ content;
 	}

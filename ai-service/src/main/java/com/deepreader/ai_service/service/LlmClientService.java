@@ -1,6 +1,7 @@
 package com.deepreader.ai_service.service;
 
 import com.deepreader.ai_service.config.GeminiProperties;
+import com.deepreader.ai_service.config.GroqProperties;
 import com.deepreader.ai_service.config.OpenAiProperties;
 import com.deepreader.ai_service.model.SupportedProvider;
 import com.deepreader.ai_service.model.provider.gemini.GeminiGenerateContentRequest;
@@ -22,12 +23,14 @@ public class LlmClientService {
 
 	private final OpenAiProperties openAiProperties;
 	private final GeminiProperties geminiProperties;
+	private final GroqProperties groqProperties;
 	private final WebClient.Builder webClientBuilder;
 	private final JdbcTemplate jdbcTemplate;
 
-	public LlmClientService(OpenAiProperties openAiProperties, GeminiProperties geminiProperties, WebClient.Builder webClientBuilder, JdbcTemplate jdbcTemplate) {
+	public LlmClientService(OpenAiProperties openAiProperties, GeminiProperties geminiProperties, GroqProperties groqProperties, WebClient.Builder webClientBuilder, JdbcTemplate jdbcTemplate) {
 		this.openAiProperties = openAiProperties;
 		this.geminiProperties = geminiProperties;
+		this.groqProperties = groqProperties;
 		this.webClientBuilder = webClientBuilder;
 		this.jdbcTemplate = jdbcTemplate;
 	}
@@ -45,9 +48,14 @@ public class LlmClientService {
 			}
 		}
 		
+		if (isGroq(provider)) {
+			return generateWithGroq(userToken, prompt);
+		}
+
 		return switch (SupportedProvider.from(provider)) {
 			case OPENAI -> generateWithOpenAi(userToken, prompt);
 			case GEMINI -> generateWithGemini(userToken, prompt);
+			case GROQ -> generateWithGroq(userToken, prompt);
 		};
 	}
 
@@ -96,6 +104,33 @@ public class LlmClientService {
 		return content;
 	}
 
+	private String generateWithGroq(String userToken, String prompt) {
+		String apiKey = isGroqApiKey(userToken) ? userToken : groqProperties.getApiKey();
+		if (!StringUtils.hasText(apiKey)) {
+			throw new IllegalStateException("Missing required property: deepreader.groq.api-key or Groq user LLM API Token");
+		}
+		WebClient client = webClientBuilder.baseUrl(normalizeUrl(groqProperties.getBaseUrl())).build();
+		OpenAiChatRequest request = new OpenAiChatRequest(groqProperties.getChatModel(), List.of(new OpenAiChatRequest.Message("user", prompt)), 0.2d);
+		OpenAiChatResponse response;
+		try {
+			response = client.post()
+					.uri("/chat/completions")
+					.header("Authorization", "Bearer " + apiKey)
+					.bodyValue(request)
+					.retrieve()
+					.bodyToMono(OpenAiChatResponse.class)
+					.switchIfEmpty(Mono.error(new IllegalStateException("Groq generation response was empty")))
+					.block();
+		} catch (WebClientResponseException e) {
+			throw providerGenerationException("Groq", "GROQ_API_KEY", e);
+		}
+		OpenAiChatResponse safe = Objects.requireNonNull(response, "Groq generation response must not be null");
+		if (safe.choices() == null || safe.choices().isEmpty() || safe.choices().getFirst().message() == null || !StringUtils.hasText(safe.choices().getFirst().message().content())) {
+			throw new IllegalStateException("Groq generation response did not contain answer text");
+		}
+		return safe.choices().getFirst().message().content().trim();
+	}
+
 	private String normalizeUrl(String url) {
 		String normalized = StringUtils.hasText(url) ? url.trim() : "https://api.openai.com/v1";
 		while (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
@@ -114,6 +149,14 @@ public class LlmClientService {
 		String normalized = StringUtils.hasText(configuredModel) ? configuredModel.trim() : "gemini-2.0-flash";
 		if (normalized.startsWith("models/")) normalized = normalized.substring("models/".length());
 		return normalized;
+	}
+
+	private boolean isGroq(String provider) {
+		return StringUtils.hasText(provider) && "groq".equalsIgnoreCase(provider.trim());
+	}
+
+	private boolean isGroqApiKey(String value) {
+		return StringUtils.hasText(value) && value.trim().startsWith("gsk_");
 	}
 
 	private IllegalStateException providerGenerationException(String provider, String envName, WebClientResponseException exception) {

@@ -53,6 +53,7 @@ public class EmbeddingService {
 		return switch (SupportedProvider.from(provider)) {
 			case OPENAI -> embedWithOpenAi(sanitized);
 			case GEMINI -> embedWithGemini(sanitized);
+			case GROQ -> throw new IllegalArgumentException("Groq does not support embeddings in DeepReader yet");
 		};
 	}
 
@@ -60,6 +61,7 @@ public class EmbeddingService {
 		return switch (SupportedProvider.from(provider)) {
 			case OPENAI -> 1536;
 			case GEMINI -> geminiProperties.getEmbeddingDimensions();
+			case GROQ -> throw new IllegalArgumentException("Groq does not support embeddings in DeepReader yet");
 		};
 	}
 

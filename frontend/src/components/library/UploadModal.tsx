@@ -320,6 +320,7 @@ export function UploadModal({
                 className="h-10 rounded-[6px] border border-[#d7dbe5] bg-white px-4 text-[15px] font-black outline-none disabled:cursor-not-allowed disabled:bg-[#f3f5f9] disabled:text-[#8d929c]"
               >
                 <option value="gemini">Gemini</option>
+                <option value="groq">Groq</option>
                 <option value="openai">OpenAI</option>
               </select>
             </label>

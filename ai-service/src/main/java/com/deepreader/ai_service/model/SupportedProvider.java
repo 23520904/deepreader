@@ -4,7 +4,8 @@ import java.util.Locale;
 
 public enum SupportedProvider {
 	OPENAI,
-	GEMINI;
+	GEMINI,
+	GROQ;
 
 	public static SupportedProvider from(String value) {
 		if (value == null || value.isBlank()) {

@@ -32,15 +32,16 @@ public class ChatService {
 	}
 
 	public Mono<ChatAskResponse> ask(String userId, String query, Integer limit, String provider) {
-		return retrievalService.search(userId, query, limit, provider)
-				.flatMap(searchResponse -> Mono.fromCallable(() -> toChatResponse(searchResponse, userId))
+		String retrievalProvider = isGroq(provider) ? null : provider;
+		return retrievalService.search(userId, query, limit, retrievalProvider)
+				.flatMap(searchResponse -> Mono.fromCallable(() -> toChatResponse(searchResponse, userId, provider))
 						.subscribeOn(Schedulers.boundedElastic()));
 	}
 
-	private ChatAskResponse toChatResponse(SearchResponse searchResponse, String userId) {
+	private ChatAskResponse toChatResponse(SearchResponse searchResponse, String userId, String provider) {
 		List<RetrievedChunk> matches = searchResponse.matches();
 		String prompt = promptBuilderService.buildAnswerPrompt(searchResponse.query(), matches);
-		String answer = llmClientService.generateAnswer(userId, searchResponse.provider(), prompt);
+		String answer = llmClientService.generateAnswer(userId, provider == null || provider.isBlank() ? searchResponse.provider() : provider, prompt);
 
 		List<SourceReference> sources = matches.stream()
 				.map(chunk -> new SourceReference(
@@ -56,5 +57,9 @@ public class ChatService {
 				.toList();
 
 		return new ChatAskResponse(searchResponse.query(), answer, sources);
+	}
+
+	private boolean isGroq(String provider) {
+		return provider != null && "groq".equalsIgnoreCase(provider.trim());
 	}
 }

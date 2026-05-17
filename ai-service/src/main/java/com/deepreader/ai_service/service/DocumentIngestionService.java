@@ -104,6 +104,12 @@ public class DocumentIngestionService {
 		if (chunks.isEmpty()) {
 			throw new IllegalStateException("No chunks produced for file: " + fileName);
 		}
+
+		if (isGroqProvider(provider)) {
+			log.info("Skipping vector embedding during Groq upload for document {}. The document remains available for reading, summary, flashcards, and lexical chat fallback.", documentId);
+			return new IngestionResult(documentId, fileName, sections.size(), chunks.size(), chunks.stream().map(DocumentChunk::chunkId).toList(), List.of("groq"));
+		}
+
 		List<String> providers = new ArrayList<>();
 		List<String> providerErrors = new ArrayList<>();
 		for (String providerToIndex : providersToIndex(provider)) {
@@ -120,6 +126,10 @@ public class DocumentIngestionService {
 			return List.of(SupportedProvider.from(provider).value());
 		}
 		return List.of("openai", "gemini");
+	}
+
+	private boolean isGroqProvider(String provider) {
+		return StringUtils.hasText(provider) && SupportedProvider.from(provider) == SupportedProvider.GROQ;
 	}
 
 	private void indexProviderSafely(String provider, List<DocumentChunk> chunks, List<String> indexedProviders, List<String> providerErrors) {
