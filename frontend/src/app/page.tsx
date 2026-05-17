@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { FeatureCardsShowcase } from "@/components/FeatureCardsShowcase";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -83,84 +86,58 @@ const whyChooseCards = [
 ];
 
 export default function Home() {
+  const [heroVideoEnded, setHeroVideoEnded] = useState(false);
+
   return (
     <main className="min-h-screen bg-[#e8e9f1] text-[#1d355b]">
       <SiteNavbar activeItem="Home" />
 
-      <section className="home-hero relative isolate overflow-hidden bg-[#dfe3e7] text-[#1d355b]">
-        <div className="relative z-10 mx-auto grid min-h-[535px] w-[min(1180px,calc(100%_-_56px))] grid-cols-[minmax(300px,0.84fr)_minmax(500px,1.16fr)] items-center gap-8 py-8 max-[1050px]:min-h-[660px] max-[1050px]:grid-cols-1 max-[1050px]:gap-6 max-[1050px]:text-center max-[700px]:min-h-[580px] max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:py-8">
-          <div className="relative z-20 max-w-[420px] self-start pt-[72px] max-[1050px]:mx-auto max-[1050px]:max-w-[620px] max-[1050px]:pt-2">
-            <h1 className="max-w-[420px] text-[58px] font-black uppercase leading-[0.94] tracking-[0] text-[#1d355b] max-[1050px]:mx-auto max-[1050px]:max-w-[620px] max-[1050px]:text-[54px] max-[700px]:text-[38px]">
+      <section className="home-hero home-video-hero relative isolate overflow-hidden bg-[#dfeeff] text-[#1d355b]">
+        <div className="relative mx-auto flex min-h-[calc(100vh-84px)] w-full items-center justify-center overflow-hidden max-[700px]:min-h-[620px]">
+          <video
+            className={`home-hero-video absolute inset-0 z-0 h-full w-full object-cover transition-all duration-700 ${
+              heroVideoEnded ? "scale-105 blur-[2px]" : "scale-100 blur-0"
+            }`}
+            src="/assets/video/hero-video.mp4"
+            autoPlay
+            muted
+            playsInline
+            preload="auto"
+            onEnded={() => setHeroVideoEnded(true)}
+            onError={() => setHeroVideoEnded(true)}
+          />
+
+          <div
+            className={`absolute inset-0 z-[1] bg-[#dfeeff]/55 backdrop-blur-[1px] transition-opacity duration-700 ${
+              heroVideoEnded ? "opacity-100" : "opacity-0"
+            }`}
+          />
+
+          <div
+            className={`home-hero-content relative z-10 mx-auto flex w-[min(760px,calc(100%_-_32px))] flex-col items-center justify-center text-center transition-all duration-700 ${
+              heroVideoEnded
+                ? "translate-y-0 opacity-100"
+                : "pointer-events-none translate-y-5 opacity-0"
+            }`}
+          >
+            <h1 className="text-[58px] font-black uppercase leading-[0.94] tracking-[0] text-[#1d355b] drop-shadow-[0_14px_30px_rgba(255,255,255,0.9)] max-[1050px]:text-[54px] max-[700px]:text-[38px]">
               <span className="block whitespace-nowrap">Read Faster</span>
               <span className="block">with AI</span>
             </h1>
-            <p className="mt-6 max-w-[390px] text-[15px] leading-[1.62] text-[#4d5967] max-[1050px]:mx-auto">
+
+            <p className="mt-6 max-w-[540px] text-[17px] font-semibold leading-[1.65] text-[#36485f] drop-shadow-[0_8px_22px_rgba(255,255,255,0.9)] max-[700px]:text-[15px]">
               Summaries, flashcards, and answers from your documents in one calm
               workspace.
             </p>
-            <div className="mt-8 flex flex-nowrap gap-[14px] max-[1050px]:justify-center max-[430px]:flex-wrap">
+
+            <div className="mt-8 flex justify-center">
               <Link
                 href="/signup"
-                className="flex min-h-[54px] min-w-[150px] items-center justify-center whitespace-nowrap rounded-[8px] bg-[linear-gradient(135deg,#245895_0%,#6bc9c9_100%)] px-8 text-[15px] font-extrabold text-white shadow-[0_18px_34px_rgba(36,88,149,0.24)] transition hover:-translate-y-0.5"
+                className="flex min-h-[54px] min-w-[150px] items-center justify-center whitespace-nowrap rounded-[8px] bg-[linear-gradient(135deg,#245895_0%,#6bc9c9_100%)] px-8 text-[15px] font-extrabold text-white shadow-[0_18px_34px_rgba(36,88,149,0.28)] transition hover:-translate-y-0.5"
               >
                 Get Started
               </Link>
-              <Link
-                href="/login"
-                className="flex min-h-[54px] min-w-[150px] items-center justify-center whitespace-nowrap rounded-[8px] border border-[#9aa4ae]/60 bg-white/[0.42] px-8 text-[15px] font-extrabold text-[#59616b] shadow-[0_12px_28px_rgba(39,50,62,0.08)] transition hover:-translate-y-0.5 hover:bg-white/[0.72]"
-              >
-                Open Library
-              </Link>
             </div>
-          </div>
-
-          <div className="home-hero-visual relative z-30 mx-auto h-[450px] w-[min(560px,100%)] -translate-x-8 -translate-y-4 max-[1050px]:order-first max-[1050px]:h-[360px] max-[1050px]:translate-x-0 max-[1050px]:translate-y-0 max-[700px]:h-[300px]">
-            <svg
-              className="home-hero-zigzag"
-              viewBox="0 0 560 300"
-              aria-hidden="true"
-              preserveAspectRatio="none"
-            >
-              <path
-                className="home-hero-zigzag-track"
-                d="M22 206 L122 118 L220 188 L324 92 L438 160 L538 74"
-                pathLength="100"
-              />
-              <path
-                className="home-hero-zigzag-flow"
-                d="M22 206 L122 118 L220 188 L324 92 L438 160 L538 74"
-                pathLength="100"
-              />
-            </svg>
-            <span className="home-float home-float-note">
-              <Image
-                src="/assets/icons/home/pdf-icon.png"
-                alt=""
-                width={86}
-                height={86}
-                className="h-full w-full object-contain"
-              />
-            </span>
-            <span className="home-float home-float-code">
-              <Image
-                src="/assets/icons/home/ai-icon.png"
-                alt=""
-                width={86}
-                height={86}
-                className="h-full w-full object-contain"
-              />
-            </span>
-            <span className="home-float home-float-ring" />
-            <Image
-              src="/assets/images/home/ai-pdf-robot.webp"
-              alt="DeepReader AI robot holding a PDF"
-              priority
-              width={760}
-              height={760}
-              sizes="(max-width: 700px) 86vw, (max-width: 1050px) 480px, 500px"
-              className="relative z-10 h-full w-full object-contain drop-shadow-[0_28px_42px_rgba(34,72,108,0.22)]"
-            />
-            <span className="absolute bottom-4 left-1/2 h-7 w-[70%] -translate-x-1/2 rounded-[999px] bg-[#245895]/14 blur-[13px]" />
           </div>
         </div>
       </section>
@@ -241,7 +218,9 @@ export default function Home() {
                 <h3 className="mb-2.5 text-[16px] font-extrabold leading-[1.35] text-[#273d64]">
                   {step.title}
                 </h3>
-                <p className="text-[15px] leading-[1.62] text-[#7f8eaa]">{step.description}</p>
+                <p className="text-[15px] leading-[1.62] text-[#7f8eaa]">
+                  {step.description}
+                </p>
               </ScrollReveal>
             ))}
           </div>
@@ -320,7 +299,10 @@ export default function Home() {
             </ul>
           </ScrollReveal>
 
-          <ScrollReveal className="relative min-h-[500px] max-w-[720px] max-[1050px]:mx-auto max-[1050px]:w-full max-[700px]:min-h-[420px]" variant="right">
+          <ScrollReveal
+            className="relative min-h-[500px] max-w-[720px] max-[1050px]:mx-auto max-[1050px]:w-full max-[700px]:min-h-[420px]"
+            variant="right"
+          >
             <div className="absolute right-0 top-0 h-[500px] w-[500px] rounded-[8px] bg-[linear-gradient(135deg,#e5fcff_0%,#dff6fb_48%,#d0eef5_100%)] max-[700px]:h-[420px] max-[700px]:w-full" />
             <div className="absolute left-[6%] top-[86px] min-h-[300px] w-[420px] rounded-[8px] bg-white/95 p-[22px] shadow-[0_24px_56px_rgba(39,65,114,0.15)] max-[700px]:left-[5%] max-[700px]:top-[58px] max-[700px]:min-h-[270px] max-[700px]:w-[82%]">
               <div className="mb-7 flex gap-2.5">
@@ -346,18 +328,21 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
             <div className="absolute bottom-[92px] left-[-2%] min-h-[104px] w-40 rounded-[8px] bg-white px-5 py-[18px] shadow-[0_20px_42px_rgba(39,65,114,0.14)] max-[700px]:bottom-14 max-[700px]:left-0 max-[700px]:min-h-[84px] max-[700px]:w-[126px] max-[700px]:p-3.5">
               <span className="block text-[12px] font-extrabold text-[#75849c]">Key Ideas</span>
               <strong className="mt-1 block text-[40px] font-extrabold leading-none text-[#213a61] max-[700px]:text-[30px]">
                 18
               </strong>
             </div>
+
             <div className="absolute right-[10%] top-[58px] min-h-[104px] w-40 rounded-[8px] bg-white px-5 py-[18px] shadow-[0_20px_42px_rgba(39,65,114,0.14)] max-[700px]:right-0 max-[700px]:top-6 max-[700px]:min-h-[84px] max-[700px]:w-[126px] max-[700px]:p-3.5">
               <span className="block text-[12px] font-extrabold text-[#75849c]">Cards Ready</span>
               <strong className="mt-1 block text-[40px] font-extrabold leading-none text-[#213a61] max-[700px]:text-[30px]">
                 64
               </strong>
             </div>
+
             <div className="absolute bottom-14 right-[4%] min-h-[72px] w-[252px] rounded-[8px] bg-white px-5 py-[18px] shadow-[0_20px_42px_rgba(39,65,114,0.14)] max-[700px]:bottom-[34px] max-[700px]:right-0 max-[700px]:w-[184px]">
               <span className="block text-[12px] font-extrabold text-[#75849c]">
                 Why did the author...
@@ -368,10 +353,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section
-        id="flashcards"
-        className="bg-white py-[90px] max-[700px]:py-[70px]"
-      >
+      <section id="flashcards" className="bg-white py-[90px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
           <ScrollReveal className="mx-auto mb-[46px] max-w-[700px] text-center">
             <h2 className="home-section-heading font-extrabold leading-[1.16] tracking-[0] text-[#1d355b]">
