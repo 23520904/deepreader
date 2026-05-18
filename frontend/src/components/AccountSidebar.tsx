@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
-import type { AuthResponse } from "@/lib/auth";
+import type { AuthResponse } from "@/types/auth";
 
 const sidebarItems = [
   {

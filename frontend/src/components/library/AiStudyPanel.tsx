@@ -1,22 +1,9 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import type { AiStudyTab, FlashcardView, SummaryView } from "@/types/study";
 
-export type AiStudyTab = "summary" | "flashcards";
-
-export type SummaryView = {
-  id: string;
-  content: string;
-  model: string;
-  createdAt: string | null;
-};
-
-export type FlashcardView = {
-  id: string;
-  question: string;
-  answer: string;
-  createdAt: string | null;
-};
+export type { AiStudyTab, FlashcardView, SummaryView } from "@/types/study";
 
 type AiStudyPanelProps = {
   activeTab: AiStudyTab;

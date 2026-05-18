@@ -12,11 +12,10 @@ import {
   type CropState,
 } from "@/lib/avatarCrop";
 import {
-  fetchUserProfile,
   getAuthSessionSnapshot,
+  syncProfileIntoSession,
   subscribeAuthSession,
-  updateUserProfile,
-} from "@/lib/auth";
+} from "@/lib/authSession";
 import {
   createProfileDraftFromProfile,
   createProfileDraftFromSession,
@@ -24,6 +23,10 @@ import {
   toUpdateProfilePayload,
   type ProfileDraft,
 } from "@/lib/profile";
+import {
+  fetchUserProfile,
+  updateUserProfile,
+} from "@/services/profileService";
 
 export function ProfileEditor() {
   const session = useSyncExternalStore(
@@ -39,23 +42,25 @@ export function ProfileEditor() {
   const [isSaving, setIsSaving] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
   const activeUserId = session?.userId ?? "";
+  const activeToken = session?.token ?? "";
   const sessionDraft = useMemo(() => createProfileDraftFromSession(session), [session]);
   const draft = profileDraft.userId === activeUserId ? profileDraft : sessionDraft;
   const previewAvatarUrl = useMemo(() => draft.avatarUrl.trim() || null, [draft.avatarUrl]);
 
   useEffect(() => {
-    if (!activeUserId) {
+    if (!activeUserId || !activeToken) {
       return;
     }
 
     let cancelled = false;
 
-    fetchUserProfile()
+    fetchUserProfile(activeToken)
       .then((profile) => {
         if (cancelled) {
           return;
         }
 
+        syncProfileIntoSession(profile);
         setProfileDraft(createProfileDraftFromProfile(profile));
       })
       .catch((caughtError) => {
@@ -69,7 +74,7 @@ export function ProfileEditor() {
     return () => {
       cancelled = true;
     };
-  }, [activeUserId]);
+  }, [activeToken, activeUserId]);
 
   function updateDraft(patch: Partial<Omit<ProfileDraft, "userId">>) {
     setMessage("");
@@ -142,10 +147,19 @@ export function ProfileEditor() {
       return;
     }
 
+    if (!session) {
+      setError("Please log in again.");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
-      const profile = await updateUserProfile(toUpdateProfilePayload(draft));
+      const profile = await updateUserProfile(
+        session.token,
+        toUpdateProfilePayload(draft),
+      );
+      syncProfileIntoSession(profile);
       setProfileDraft(createProfileDraftFromProfile(profile));
       setMessage("Profile updated.");
     } catch (caughtError) {

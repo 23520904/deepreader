@@ -1,7 +1,5 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
@@ -11,316 +9,34 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import {
-  AiStudyPanel,
-  type AiStudyTab,
-  type FlashcardView,
-  type SummaryView,
-} from "@/components/library/AiStudyPanel";
+import { AiStudyPanel } from "@/components/library/AiStudyPanel";
+import { ReadDocumentHeader } from "@/components/library/read/ReadDocumentHeader";
+import { ReadingWorkspace } from "@/components/library/read/ReadingWorkspace";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
-import { getAuthSessionSnapshot, subscribeAuthSession } from "@/lib/auth";
-
-type DocumentSection = {
-  sectionId: string;
-  title: string | null;
-  pageNumber: number | null;
-  summary: string | null;
-  content: string | null;
-};
-
-type DocumentContentResponse = {
-  documentId: string;
-  fileName: string;
-  sections: DocumentSection[];
-};
-
-type SummaryRecord = {
-  id?: string | null;
-  chapterId?: string | null;
-  bookId?: string | null;
-  content?: string | null;
-  model?: string | null;
-  createdAt?: string | null;
-};
-
-type FlashcardRecord = {
-  id?: string | null;
-  chapterId?: string | null;
-  bookId?: string | null;
-  userId?: string | null;
-  question?: string | null;
-  answer?: string | null;
-  createdAt?: string | null;
-};
-
-type SummaryGenerationResponse = {
-  documentId?: string | null;
-  provider?: string | null;
-  summary?: string | null;
-};
-
-type FlashcardGenerationResponse = {
-  documentId?: string | null;
-  provider?: string | null;
-  flashcards?: Array<{
-    question?: string | null;
-    answer?: string | null;
-  }> | null;
-};
-
-type ReadingPage = {
-  key: string;
-  pageNumber: number;
-  title: string;
-  content: string;
-};
-
-const READ_STATE_PREFIX = "deepreader:read-pages:";
-
-async function parseErrorMessage(response: Response, fallback: string) {
-  try {
-    const payload = (await response.json()) as {
-      error?: string;
-      message?: string;
-    };
-
-    return unwrapErrorMessage(payload.error ?? payload.message ?? fallback);
-  } catch {
-    return fallback;
-  }
-}
-
-function unwrapErrorMessage(value: string) {
-  let message = value;
-
-  for (let index = 0; index < 4; index += 1) {
-    const trimmed = message.trim();
-
-    if (!trimmed.startsWith("{")) {
-      break;
-    }
-
-    try {
-      const parsed = JSON.parse(trimmed) as { error?: string; message?: string };
-      message = parsed.error ?? parsed.message ?? message;
-    } catch {
-      break;
-    }
-  }
-
-  return friendlyProviderError(message);
-}
-
-function friendlyProviderError(message: string) {
-  if (message.includes("invalid_api_key") || message.includes("Incorrect API key")) {
-    return "The selected AI provider rejected the API key. Update your provider key or the LLM token saved in your profile, then retry.";
-  }
-
-  if (
-    message.includes("RESOURCE_EXHAUSTED") ||
-    message.toLowerCase().includes("quota") ||
-    message.includes("TOO_MANY_REQUESTS")
-  ) {
-    return "The selected AI provider quota or rate limit was exceeded. Check billing/quota settings or retry later.";
-  }
-
-  return message;
-}
-
-async function requestJson<T>(
-  url: string,
-  token: string,
-  fallbackError: string,
-  options?: RequestInit,
-) {
-  const headers = new Headers(options?.headers);
-  headers.set("Authorization", `Bearer ${token}`);
-
-  if (options?.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseErrorMessage(response, fallbackError));
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  const responseText = await response.text();
-
-  if (!responseText) {
-    return undefined as T;
-  }
-
-  return JSON.parse(responseText) as T;
-}
-
-async function requestBlob(url: string, token: string, fallbackError: string) {
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/pdf,application/octet-stream,*/*",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(await parseErrorMessage(response, fallbackError));
-  }
-
-  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-
-  if (contentType.includes("application/json") || contentType.startsWith("text/")) {
-    throw new Error(await parseErrorMessage(response, fallbackError));
-  }
-
-  return response.blob();
-}
-
-function cleanTitle(fileName: string | null | undefined) {
-  return (fileName?.trim() || "Untitled document").replace(/\.(pdf|epub)$/i, "");
-}
-
-function resolveFormat(fileName: string | null | undefined) {
-  const lower = fileName?.toLowerCase() ?? "";
-
-  if (lower.endsWith(".pdf")) {
-    return "PDF";
-  }
-
-  if (lower.endsWith(".epub")) {
-    return "EPUB";
-  }
-
-  return "DOC";
-}
-
-function iconForFormat(format: string) {
-  if (format === "PDF") {
-    return "/assets/images/library/pdf-icon.png";
-  }
-
-  return "/assets/images/library/document-3d.webp";
-}
-
-function buildReadingPages(sections: DocumentSection[]): ReadingPage[] {
-  const pageMap = new Map<number, DocumentSection[]>();
-
-  sections.forEach((section, index) => {
-    const pageNumber =
-      section.pageNumber && section.pageNumber > 0 ? section.pageNumber : index + 1;
-    const pageSections = pageMap.get(pageNumber) ?? [];
-    pageSections.push(section);
-    pageMap.set(pageNumber, pageSections);
-  });
-
-  return Array.from(pageMap.entries())
-    .sort(([leftPage], [rightPage]) => leftPage - rightPage)
-    .map(([pageNumber, pageSections]) => {
-      const content = pageSections
-        .map((section) => section.content?.trim())
-        .filter(Boolean)
-        .join("\n\n");
-
-      return {
-        key: `page-${pageNumber}`,
-        pageNumber,
-        title: `Page ${pageNumber}`,
-        content: content || "No readable content was found for this page.",
-      };
-    });
-}
-
-function loadReadPageKeys(bookId: string) {
-  if (typeof window === "undefined" || !bookId) {
-    return new Set<string>();
-  }
-
-  try {
-    const savedValue = window.localStorage.getItem(`${READ_STATE_PREFIX}${bookId}`);
-    const savedKeys = savedValue ? (JSON.parse(savedValue) as unknown) : [];
-
-    return new Set(
-      Array.isArray(savedKeys)
-        ? savedKeys.filter((key): key is string => typeof key === "string")
-        : [],
-    );
-  } catch {
-    return new Set<string>();
-  }
-}
-
-function isPresent<T>(value: T | null): value is T {
-  return value !== null;
-}
-
-function createdAtTime(value: string | null) {
-  if (!value) {
-    return 0;
-  }
-
-  const time = new Date(value).getTime();
-  return Number.isNaN(time) ? 0 : time;
-}
-
-function normalizeSummaryRecords(records: SummaryRecord[]) {
-  return records
-    .map((record, index): SummaryView | null => {
-      const content = record.content?.trim();
-
-      if (!content) {
-        return null;
-      }
-
-      return {
-        id:
-          record.id ??
-          record.chapterId ??
-          `${record.bookId ?? "summary"}-${record.createdAt ?? index}`,
-        content,
-        model: record.model?.trim() || "AI",
-        createdAt: record.createdAt ?? null,
-      };
-    })
-    .filter(isPresent)
-    .sort(
-      (left, right) =>
-        createdAtTime(right.createdAt) - createdAtTime(left.createdAt),
-    );
-}
-
-function normalizeFlashcardRecords(records: FlashcardRecord[]) {
-  return records
-    .map((record, index): FlashcardView | null => {
-      const question = record.question?.trim();
-      const answer = record.answer?.trim();
-
-      if (!question && !answer) {
-        return null;
-      }
-
-      return {
-        id:
-          record.id ??
-          `${record.bookId ?? "flashcard"}-${record.createdAt ?? index}`,
-        question: question || "Untitled question",
-        answer: answer || "No answer available.",
-        createdAt: record.createdAt ?? null,
-      };
-    })
-    .filter(isPresent)
-    .sort(
-      (left, right) =>
-        createdAtTime(right.createdAt) - createdAtTime(left.createdAt),
-    );
-}
+import { getAuthSessionSnapshot, subscribeAuthSession } from "@/lib/authSession";
+import {
+  buildReadingPages,
+  cleanDocumentTitle,
+  createGeneratedFlashcardViews,
+  iconForDocumentFormat,
+  loadReadPageKeys,
+  normalizeFlashcardCount,
+  normalizeFlashcardRecords,
+  normalizeSummaryRecords,
+  resolveDocumentFormat,
+  saveReadPageKeys,
+} from "@/lib/reading";
+import {
+  fetchDocumentContent,
+  fetchDocumentFlashcards,
+  fetchDocumentSource,
+  fetchDocumentSummaries,
+  generateDocumentFlashcards,
+  generateDocumentSummary,
+} from "@/services/readingService";
+import type { DocumentContentResponse } from "@/types/reading";
+import type { AiStudyTab, FlashcardView, SummaryView } from "@/types/study";
 
 export default function ReadBookPage() {
   const router = useRouter();
@@ -358,21 +74,10 @@ export default function ReadBookPage() {
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
   const [studyErrorMessage, setStudyErrorMessage] = useState("");
-  const readStateStorageKey = `${READ_STATE_PREFIX}${bookId}`;
 
   useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      !readStateStorageKey
-    ) {
-      return;
-    }
-
-    window.localStorage.setItem(
-      readStateStorageKey,
-      JSON.stringify(Array.from(readPageKeys)),
-    );
-  }, [readPageKeys, readStateStorageKey]);
+    saveReadPageKeys(bookId, readPageKeys);
+  }, [bookId, readPageKeys]);
 
   useEffect(() => {
     if (!pdfSourceUrl) {
@@ -456,11 +161,7 @@ export default function ReadBookPage() {
       setPdfRenderMessage("");
 
       try {
-        const payload = await requestJson<DocumentContentResponse>(
-          `/api/v1/books/${encodeURIComponent(bookId)}/content`,
-          activeToken,
-          "Could not load this document.",
-        );
+        const payload = await fetchDocumentContent(activeToken, bookId);
 
         if (!ignore) {
           setDocumentContent(payload);
@@ -469,17 +170,13 @@ export default function ReadBookPage() {
           setIsLoading(false);
         }
 
-        if (resolveFormat(payload.fileName) === "PDF") {
+        if (resolveDocumentFormat(payload.fileName) === "PDF") {
           if (!ignore) {
             setIsPdfSourceLoading(true);
           }
 
           try {
-            const sourceBlob = await requestBlob(
-              `/api/v1/books/${encodeURIComponent(bookId)}/source`,
-              activeToken,
-              "Could not load the original PDF preview.",
-            );
+            const sourceBlob = await fetchDocumentSource(activeToken, bookId);
             const sourceUrl = URL.createObjectURL(
               sourceBlob.type
                 ? sourceBlob
@@ -533,16 +230,8 @@ export default function ReadBookPage() {
 
       try {
         const [summaryPayload, flashcardPayload] = await Promise.all([
-          requestJson<SummaryRecord[]>(
-            `/api/v1/books/${encodeURIComponent(bookId)}/summaries`,
-            activeToken,
-            "Could not load saved summaries.",
-          ),
-          requestJson<FlashcardRecord[]>(
-            `/api/v1/books/${encodeURIComponent(bookId)}/flashcards`,
-            activeToken,
-            "Could not load saved flashcards.",
-          ),
+          fetchDocumentSummaries(activeToken, bookId),
+          fetchDocumentFlashcards(activeToken, bookId),
         ]);
 
         if (!ignore) {
@@ -577,9 +266,9 @@ export default function ReadBookPage() {
     [documentContent],
   );
   const pages = useMemo(() => buildReadingPages(sections), [sections]);
-  const title = cleanTitle(documentContent?.fileName);
-  const format = resolveFormat(documentContent?.fileName);
-  const formatIconSrc = iconForFormat(format);
+  const title = cleanDocumentTitle(documentContent?.fileName);
+  const format = resolveDocumentFormat(documentContent?.fileName);
+  const formatIconSrc = iconForDocumentFormat(format);
 
   const activePageIndex = useMemo(() => {
     const index = pages.findIndex((page) => page.key === activePageKey);
@@ -702,12 +391,7 @@ export default function ReadBookPage() {
   }
 
   function updateFlashcardCount(count: number) {
-    if (!Number.isFinite(count)) {
-      setFlashcardCount(1);
-      return;
-    }
-
-    setFlashcardCount(Math.min(50, Math.max(1, Math.round(count))));
+    setFlashcardCount(normalizeFlashcardCount(count));
   }
 
   function changeActiveFlashcardIndex(index: number) {
@@ -730,14 +414,10 @@ export default function ReadBookPage() {
     setStudyErrorMessage("");
 
     try {
-      const payload = await requestJson<SummaryGenerationResponse>(
-        `/api/v1/books/${encodeURIComponent(bookId)}/summary`,
+      const payload = await generateDocumentSummary(
         session.token,
-        "Could not generate this summary.",
-        {
-          method: "POST",
-          body: JSON.stringify({ provider: aiProvider }),
-        },
+        bookId,
+        aiProvider,
       );
       const generatedSummary = payload.summary?.trim();
 
@@ -769,39 +449,19 @@ export default function ReadBookPage() {
       return;
     }
 
-    const count = Math.min(50, Math.max(1, flashcardCount));
+    const count = normalizeFlashcardCount(flashcardCount);
     setStudyTab("flashcards");
     setIsGeneratingFlashcards(true);
     setStudyErrorMessage("");
 
     try {
-      const payload = await requestJson<FlashcardGenerationResponse>(
-        `/api/v1/books/${encodeURIComponent(bookId)}/flashcards`,
-        session.token,
-        "Could not generate flashcards.",
-        {
-          method: "POST",
-          body: JSON.stringify({ provider: aiProvider, count }),
-        },
-      );
-      const generatedAt = Date.now();
-      const nextFlashcards = (payload.flashcards ?? [])
-        .map((card, index): FlashcardView | null => {
-          const question = card.question?.trim();
-          const answer = card.answer?.trim();
-
-          if (!question && !answer) {
-            return null;
-          }
-
-          return {
-            id: `${bookId}-flashcard-${generatedAt}-${index}`,
-            question: question || "Untitled question",
-            answer: answer || "No answer available.",
-            createdAt: new Date(generatedAt + index).toISOString(),
-          };
-        })
-        .filter(isPresent);
+      const payload = await generateDocumentFlashcards({
+        token: session.token,
+        bookId,
+        provider: aiProvider,
+        count,
+      });
+      const nextFlashcards = createGeneratedFlashcardViews(bookId, payload);
 
       if (!nextFlashcards.length) {
         throw new Error("The AI response did not include flashcards.");
@@ -826,128 +486,27 @@ export default function ReadBookPage() {
       <SiteNavbar activeItem="Library" />
 
       <section className="mx-auto w-[min(1180px,calc(100%_-_48px))] py-9 max-[700px]:w-[min(100%_-_28px,1180px)]">
-        <Link
-          href="/library"
-          className="inline-flex items-center gap-3 text-[16px] font-extrabold text-[#0f2442] transition hover:text-[#245895]"
-        >
-          <span aria-hidden="true" className="text-[28px] leading-none">
-            &larr;
-          </span>
-          Back to Library
-        </Link>
-
-        <div className="mt-5 grid gap-7 rounded-[16px] bg-[#245895] px-8 py-7 text-white shadow-[0_18px_36px_rgba(36,88,149,0.22)] lg:grid-cols-[1fr_320px] max-[700px]:px-5">
-          <div className="flex items-center gap-6 max-[700px]:flex-col max-[700px]:items-start">
-            <div className="grid h-[88px] w-[88px] shrink-0 place-items-center rounded-[16px] bg-white shadow-[0_18px_28px_rgba(8,31,66,0.20)]">
-              <Image
-                src={formatIconSrc}
-                alt=""
-                width={120}
-                height={120}
-                className="h-[74px] w-[74px] object-contain"
-                priority
-              />
-            </div>
-
-            <div>
-              <h1 className="max-w-[620px] text-[34px] font-black leading-tight tracking-[0] text-white max-[700px]:text-[28px]">
-                {title}
-              </h1>
-
-              <div className="mt-4 flex flex-wrap gap-3">
-                <span className="rounded-[999px] bg-white px-5 py-2 text-[14px] font-black text-[#245895]">
-                  {format}
-                </span>
-                <span className="rounded-[999px] bg-white px-5 py-2 text-[14px] font-black text-[#245895]">
-                  {pages.length || 0} pages
-                </span>
-                <span className="rounded-[999px] bg-[#d9f8df] px-5 py-2 text-[14px] font-black text-[#2e9b55]">
-                  Ready
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[14px] border border-white/35 bg-[#6578d8]/55 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-            <p className="text-[14px] font-bold text-white/90">Reading Progress</p>
-            <p className="mt-2 text-[27px] font-black">{progress}%</p>
-            <div className="mt-3 h-4 overflow-hidden rounded-full bg-white/45">
-              <div
-                className="h-full rounded-full bg-white transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[14px] bg-white px-5 py-4 shadow-[0_12px_28px_rgba(18,24,38,0.08)] ring-1 ring-[#dce6f4]">
-          <button
-            type="button"
-            onClick={() => setIsFocusMode((value) => !value)}
-            className={`h-11 cursor-pointer rounded-[8px] px-5 text-[14px] font-black transition ${
-              isFocusMode
-                ? "bg-[#245895] text-white"
-                : "bg-[#eef5ff] text-[#245895] hover:bg-[#dfeeff]"
-            }`}
-          >
-            Focus mode
-          </button>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => goToPage(activePageIndex - 1)}
-              disabled={!pages.length || activePageIndex === 0}
-              className="grid h-12 w-12 cursor-pointer place-items-center rounded-full bg-white text-[#0f2442] shadow-[0_8px_18px_rgba(18,24,38,0.10)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0"
-              aria-label="Previous page"
-              title="Previous page"
-            >
-              <Image
-                src="/assets/images/library/previous-icon.png"
-                alt=""
-                width={32}
-                height={32}
-                className="h-8 w-8 object-contain"
-              />
-            </button>
-
-            <span className="rounded-[999px] bg-[#f4f8ff] px-5 py-2 text-[14px] font-black text-[#5f6c82]">
-              {activePage ? `Page ${activePageIndex + 1} of ${pages.length}` : "No page"}
-            </span>
-
-            <button
-              type="button"
-              onClick={() => goToPage(activePageIndex + 1)}
-              disabled={!pages.length || activePageIndex === pages.length - 1}
-              className="grid h-12 w-12 cursor-pointer place-items-center rounded-full bg-white text-[#0f2442] shadow-[0_8px_18px_rgba(18,24,38,0.10)] transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0"
-              aria-label="Next page"
-              title="Next page"
-            >
-              <Image
-                src="/assets/images/library/next-page-icon.png"
-                alt=""
-                width={32}
-                height={32}
-                className="h-8 w-8 object-contain"
-              />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={markActivePageRead}
-            disabled={!activePage}
-            className={`h-11 cursor-pointer rounded-[8px] px-5 text-[14px] font-black transition disabled:cursor-not-allowed ${
-              isActivePageRead
-                ? "bg-[#d9f8df] text-[#2e9b55] hover:bg-[#c9f1d3]"
-                : "bg-[#245895] text-white hover:bg-[#1d4d86]"
-            }`}
-          >
-            {isActivePageRead
-              ? "Page marked read"
-              : "Mark page as read"}
-          </button>
-        </div>
+        <ReadDocumentHeader
+          title={title}
+          format={format}
+          formatIconSrc={formatIconSrc}
+          pageCount={pages.length}
+          progress={progress}
+          isFocusMode={isFocusMode}
+          activePageLabel={
+            activePage
+              ? `Page ${activePageIndex + 1} of ${pages.length}`
+              : "No page"
+          }
+          canGoPrevious={pages.length > 0 && activePageIndex > 0}
+          canGoNext={pages.length > 0 && activePageIndex < pages.length - 1}
+          canMarkActivePageRead={Boolean(activePage)}
+          isActivePageRead={isActivePageRead}
+          onToggleFocusMode={() => setIsFocusMode((value) => !value)}
+          onPreviousPage={() => goToPage(activePageIndex - 1)}
+          onNextPage={() => goToPage(activePageIndex + 1)}
+          onMarkActivePageRead={markActivePageRead}
+        />
 
         {errorMessage ? (
           <div className="mt-8 rounded-[12px] border border-[#ffc4ca] bg-[#fff0f1] px-5 py-4 text-[15px] font-bold text-[#b42335]">
@@ -955,127 +514,22 @@ export default function ReadBookPage() {
           </div>
         ) : null}
 
-        {isLoading ? (
-          <div className="mt-10 grid gap-6 lg:grid-cols-[320px_1fr]">
-            <div className="h-[520px] rounded-[16px] bg-white/75" />
-            <div className="h-[520px] rounded-[16px] bg-white/75" />
-          </div>
-        ) : (
-          <div
-            className={`mt-8 grid items-start gap-6 ${
-              isFocusMode ? "lg:grid-cols-1" : "lg:grid-cols-[280px_1fr]"
-            }`}
-          >
-            {!isFocusMode ? (
-            <aside className="sticky top-[92px] overflow-hidden rounded-[14px] bg-white shadow-[0_14px_30px_rgba(18,24,38,0.08)] max-[1024px]:static">
-              <h2 className="border-b border-[#dce3ef] px-7 py-6 text-[26px] font-black leading-tight text-[#0f2442]">
-                Table of Contents
-              </h2>
-
-              <div className="max-h-[560px] overflow-y-auto py-2">
-                {pages.length ? (
-                  pages.map((page, index) => {
-                    const isActive = page.key === activePageKey;
-                    const isRead = readPageKeys.has(page.key);
-
-                    return (
-                      <button
-                        key={page.key}
-                        type="button"
-                        onClick={() => goToPage(index)}
-                        className={`flex w-full cursor-pointer items-start gap-4 px-7 py-4 text-left transition ${
-                          isActive
-                            ? "bg-[#eef5ff] text-[#245895]"
-                            : "text-[#111827] hover:bg-[#f5f8fd]"
-                        }`}
-                      >
-                        <span
-                          className={`mt-1.5 h-7 w-7 shrink-0 rounded-full ${
-                            isActive
-                              ? "bg-[#245895]"
-                              : isRead
-                                ? "bg-[#8ce5a5]"
-                                : "bg-[#d7dbe4]"
-                          }`}
-                        />
-                        <span>
-                          <span className="block text-[20px] font-black leading-tight">
-                            {page.title}
-                          </span>
-                          <span className="mt-1 block text-[14px] font-semibold text-[#6e7788]">
-                            {isRead ? "Read" : `Page ${page.pageNumber}`}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <p className="px-8 py-8 text-[16px] font-semibold text-[#778298]">
-                    No pages are available for this document yet.
-                  </p>
-                )}
-              </div>
-            </aside>
-            ) : null}
-
-            <div>
-              {activePage ? (
-                <article className="rounded-[14px] bg-white px-8 py-7 shadow-[0_14px_30px_rgba(18,24,38,0.08)] ring-2 ring-[#a8bdd9]">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h2 className="text-[34px] font-black leading-tight text-[#0f2442]">
-                      {activePage.title}
-                    </h2>
-
-                    <span className="rounded-full bg-[#eef5ff] px-5 py-2 text-[14px] font-black text-[#245895]">
-                      Page {activePage.pageNumber}
-                    </span>
-                  </div>
-
-                  {pdfSourceUrl ? (
-                    <div className="mt-7 rounded-[8px] border border-[#d6e0ee] bg-[#f8fbff] p-4">
-                      <div
-                        ref={pdfCanvasContainerRef}
-                        className="flex h-[76vh] min-h-[620px] items-start justify-center overflow-auto rounded-[6px] bg-[#edf3fb] p-4"
-                      >
-                        <canvas
-                          ref={pdfCanvasRef}
-                          aria-label={`${title} - page ${activePage.pageNumber}`}
-                          className="max-w-full bg-white shadow-[0_16px_32px_rgba(15,36,66,0.14)]"
-                        />
-                      </div>
-
-                      {isPdfPageRendering ? (
-                        <div className="mt-3 text-center text-[14px] font-black text-[#245895]">
-                          Loading page...
-                        </div>
-                      ) : null}
-
-                      {pdfRenderMessage ? (
-                        <div className="mt-3 rounded-[8px] bg-[#fff7d9] px-4 py-3 text-[14px] font-bold text-[#6c4d00]">
-                          {pdfRenderMessage}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : isPdfSourceLoading ? (
-                    <div className="mt-7 grid min-h-[520px] place-items-center rounded-[8px] bg-[#f8fbff] text-[16px] font-black text-[#245895] ring-1 ring-[#d6e0ee]">
-                      Loading PDF preview...
-                    </div>
-                  ) : (
-                    <>
-                      <pre className="mt-8 whitespace-pre-wrap font-sans text-[18px] font-medium leading-9 text-[#17213a]">
-                        {activePage.content}
-                      </pre>
-                    </>
-                  )}
-                </article>
-              ) : (
-                <div className="rounded-[14px] bg-white px-8 py-10 text-[18px] font-semibold text-[#778298] shadow-[0_14px_30px_rgba(18,24,38,0.08)]">
-                  This document has no readable pages yet.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        <ReadingWorkspace
+          isLoading={isLoading}
+          isFocusMode={isFocusMode}
+          pages={pages}
+          activePage={activePage}
+          activePageKey={activePageKey}
+          readPageKeys={readPageKeys}
+          title={title}
+          pdfSourceUrl={pdfSourceUrl}
+          isPdfSourceLoading={isPdfSourceLoading}
+          isPdfPageRendering={isPdfPageRendering}
+          pdfRenderMessage={pdfRenderMessage}
+          pdfCanvasRef={pdfCanvasRef}
+          pdfCanvasContainerRef={pdfCanvasContainerRef}
+          onPageSelect={goToPage}
+        />
 
         <AiStudyPanel
           activeTab={studyTab}

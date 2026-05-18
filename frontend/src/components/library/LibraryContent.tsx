@@ -1,20 +1,6 @@
 import { forwardRef } from "react";
 import { LibraryCard } from "./LibraryCard";
-
-type DocumentSource = "mine";
-type FormatFilter = "all" | "pdf" | "epub" | "unknown";
-type SortMode = "newest" | "oldest" | "title";
-
-type LibraryDocument = {
-  id: string;
-  title: string;
-  format: "PDF" | "EPUB" | "UNKNOWN";
-  status: "Ready" | "Processing" | "Failed";
-  chapters: number | null;
-  source: DocumentSource;
-  ownerName: string;
-  createdAt: string | null;
-};
+import type { FormatFilter, LibraryDocument, SortMode } from "@/types/library";
 
 type LibraryContentProps = {
   session: unknown;

@@ -8,11 +8,14 @@ import {
   AccountAvatar,
   AccountSidebar,
 } from "@/components/AccountSidebar";
+import { isAuthError } from "@/services/apiClient";
+import { fetchUserProfile } from "@/services/profileService";
 import {
   clearAuthSession,
   getAuthSessionSnapshot,
+  syncProfileIntoSession,
   subscribeAuthSession,
-} from "@/lib/auth";
+} from "@/lib/authSession";
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -46,19 +49,19 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
 
     let isCancelled = false;
 
-    fetch("/api/v1/users/me", {
-      headers: {
-        Authorization: `Bearer ${session.token}`,
-      },
-    })
-      .then((response) => {
-        if (!isCancelled && (response.status === 401 || response.status === 403)) {
-          clearAuthSession();
-          setIsSidebarOpen(false);
+    fetchUserProfile(session.token)
+      .then((profile) => {
+        if (!isCancelled) {
+          syncProfileIntoSession(profile);
         }
       })
-      .catch(() => {
-        // Keep the local session if the API is temporarily unreachable.
+      .catch((error) => {
+        if (isCancelled || !isAuthError(error)) {
+          return;
+        }
+
+        clearAuthSession();
+        setIsSidebarOpen(false);
       });
 
     return () => {

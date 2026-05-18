@@ -3,8 +3,8 @@
 import Image from "next/image";
 import type { ChangeEvent, FormEvent, RefObject } from "react";
 import { AccountAvatar } from "@/components/AccountSidebar";
-import type { AuthResponse } from "@/lib/auth";
 import type { ProfileDraft } from "@/lib/profile";
+import type { AuthResponse } from "@/types/auth";
 
 const EDIT_ICON = "/assets/icons/profile/edit-icon.png";
 export const PROFILE_FORM_ID = "profileForm";

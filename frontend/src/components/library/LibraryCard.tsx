@@ -1,17 +1,5 @@
 import Image from "next/image";
-
-type DocumentSource = "mine";
-
-type LibraryDocument = {
-  id: string;
-  title: string;
-  format: "PDF" | "EPUB" | "UNKNOWN";
-  status: "Ready" | "Processing" | "Failed";
-  chapters: number | null;
-  source: DocumentSource;
-  ownerName: string;
-  createdAt: string | null;
-};
+import type { LibraryDocument } from "@/types/library";
 
 type LibraryCardProps = {
   document: LibraryDocument;

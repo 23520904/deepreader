@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState, type SyntheticEvent } from "react";
 import { InputField } from "@/components/InputField";
 import { PasswordField } from "@/components/PasswordField";
-import { clearAuthSession, registerUser, type AuthCredentials } from "@/lib/auth";
+import { clearAuthSession } from "@/lib/authSession";
+import { registerUser } from "@/services/authService";
+import type { AuthCredentials } from "@/types/auth";
 
 export default function SignupPage() {
   const router = useRouter();

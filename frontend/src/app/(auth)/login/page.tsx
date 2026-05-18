@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useState, type SyntheticEvent } from "react";
 import { InputField } from "@/components/InputField";
 import { PasswordField } from "@/components/PasswordField";
-import { loginUser, saveAuthSession } from "@/lib/auth";
+import { saveAuthSession } from "@/lib/authSession";
+import { loginUser } from "@/services/authService";
 
 export default function LoginPage() {
   const router = useRouter();

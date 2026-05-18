@@ -1,4 +1,4 @@
-import type { AuthResponse, UpdateProfilePayload, UserProfile } from "@/lib/auth";
+import type { AuthResponse, UpdateProfilePayload, UserProfile } from "@/types/auth";
 
 export type ProfileDraft = {
   userId: string;
