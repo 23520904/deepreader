@@ -8,6 +8,7 @@ public class ChatHistory {
     private String id;
     private String userId;
     private String bookId;
+    private String threadId;
     private String role; // user, assistant
     private String content;
     private LocalDateTime timestamp;

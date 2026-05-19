@@ -77,6 +77,7 @@ public class DocumentIngestionService {
 	}
 
 	public IngestionResult ingestBytes(String userId, String fileName, byte[] bytes, String provider) {
+		String effectiveProvider = "groq";
 		String documentId = UUID.randomUUID().toString();
 		List<DocumentSection> extractedSections = textExtractionService.extractSections(fileName, bytes);
 		if (extractedSections.isEmpty()) {
@@ -105,14 +106,14 @@ public class DocumentIngestionService {
 			throw new IllegalStateException("No chunks produced for file: " + fileName);
 		}
 
-		if (isGroqProvider(provider)) {
+		if (isGroqProvider(effectiveProvider)) {
 			log.info("Skipping vector embedding during Groq upload for document {}. The document remains available for reading, summary, flashcards, and lexical chat fallback.", documentId);
 			return new IngestionResult(documentId, fileName, sections.size(), chunks.size(), chunks.stream().map(DocumentChunk::chunkId).toList(), List.of("groq"));
 		}
 
 		List<String> providers = new ArrayList<>();
 		List<String> providerErrors = new ArrayList<>();
-		for (String providerToIndex : providersToIndex(provider)) {
+		for (String providerToIndex : providersToIndex(effectiveProvider)) {
 			indexProviderSafely(providerToIndex, chunks, providers, providerErrors);
 		}
 		if (providers.isEmpty()) {

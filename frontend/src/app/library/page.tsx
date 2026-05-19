@@ -41,7 +41,6 @@ export default function LibraryPage() {
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [currentPage, setCurrentPage] = useState(1);
-  const [provider, setProvider] = useState("gemini");
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -293,7 +292,6 @@ export default function LibraryPage() {
     try {
       const payload = await uploadLibraryBook({
         token: session.token,
-        provider,
         formData,
         onProgress: (snapshot) => {
           uploadTargetProgressRef.current = Math.max(
@@ -429,11 +427,9 @@ export default function LibraryPage() {
         uploadEtaLabel={uploadEtaLabel}
         isDragging={isDragging}
         stagedFile={stagedFile}
-        provider={provider}
         uploadMessage={uploadMessage}
         fileInputRef={fileInputRef}
         onClose={closeUploadModal}
-        onProviderChange={setProvider}
         onFileChange={handleFileChange}
         onDragOver={() => setIsDragging(true)}
         onDragLeave={() => setIsDragging(false)}

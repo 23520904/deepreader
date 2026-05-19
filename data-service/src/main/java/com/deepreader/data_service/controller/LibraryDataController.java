@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @RestController
 @RequestMapping(path = "/internal/data/v1", produces = MediaType.APPLICATION_JSON_VALUE)
 public class LibraryDataController {
@@ -76,9 +78,20 @@ public class LibraryDataController {
 	@GetMapping("/books/{bookId}/chats")
 	public Flux<ChatHistory> listChats(@PathVariable String bookId) { return libraryDataService.findChatHistoryByBook(bookId); }
 
+	@PostMapping(value = "/books/{bookId}/chat-threads/delete", consumes = MediaType.APPLICATION_JSON_VALUE)
+	public Mono<ResponseEntity<Void>> deleteChatThread(
+			@PathVariable String bookId,
+			@RequestBody ChatThreadDeleteRequest request
+	) {
+		return libraryDataService.deleteChatThread(bookId, request.threadId(), request.messageIds())
+				.thenReturn(ResponseEntity.noContent().build());
+	}
+
 	@PostMapping("/reading-sessions")
 	public Mono<ReadingSession> saveReadingSession(@RequestBody ReadingSession readingSession) { return libraryDataService.saveReadingSession(readingSession); }
 
 	@GetMapping("/books/{bookId}/reading-sessions")
 	public Flux<ReadingSession> listReadingSessions(@PathVariable String bookId) { return libraryDataService.findReadingSessionsByBook(bookId); }
+
+	public record ChatThreadDeleteRequest(String threadId, List<String> messageIds) {}
 }

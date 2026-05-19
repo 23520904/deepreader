@@ -23,7 +23,7 @@ const footerGroups = [
     title: "Product",
     links: [
       { label: "Library", href: "/library" },
-      { label: "Flashcards", href: "/#flashcards" },
+      { label: "Flashcards", href: "/flashcards" },
       { label: "Chat AI", href: "/#workspace" },
       { label: "About product", href: "/about" },
     ],

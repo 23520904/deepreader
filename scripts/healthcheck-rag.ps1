@@ -1,7 +1,7 @@
 param(
     [string]$HaystackBaseUrl = "http://localhost:8000",
     [string]$AiServiceBaseUrl = "http://localhost:8080",
-    [string]$Provider = "gemini"
+    [string]$Provider = "groq"
 )
 
 $ErrorActionPreference = "Stop"

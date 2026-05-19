@@ -18,9 +18,15 @@ import { getAuthSessionSnapshot, subscribeAuthSession } from "@/lib/authSession"
 import {
   buildReadingPages,
   cleanDocumentTitle,
+  createAssistantChatMessage,
   createGeneratedFlashcardViews,
+  createChatThread,
+  createChatThreadId,
+  createChatThreads,
+  createUserChatMessage,
   iconForDocumentFormat,
   loadReadPageKeys,
+  normalizeChatRecords,
   normalizeFlashcardCount,
   normalizeFlashcardRecords,
   normalizeSummaryRecords,
@@ -28,15 +34,24 @@ import {
   saveReadPageKeys,
 } from "@/lib/reading";
 import {
+  deleteDocumentChatThread,
   fetchDocumentContent,
+  fetchDocumentChats,
   fetchDocumentFlashcards,
   fetchDocumentSource,
   fetchDocumentSummaries,
   generateDocumentFlashcards,
   generateDocumentSummary,
+  sendDocumentChatMessage,
 } from "@/services/readingService";
 import type { DocumentContentResponse } from "@/types/reading";
-import type { AiStudyTab, FlashcardView, SummaryView } from "@/types/study";
+import type {
+  AiStudyTab,
+  ChatMessageView,
+  ChatThreadView,
+  FlashcardView,
+  SummaryView,
+} from "@/types/study";
 
 export default function ReadBookPage() {
   const router = useRouter();
@@ -65,14 +80,19 @@ export default function ReadBookPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [studyTab, setStudyTab] = useState<AiStudyTab>("summary");
-  const [aiProvider, setAiProvider] = useState("gemini");
   const [summaries, setSummaries] = useState<SummaryView[]>([]);
   const [flashcards, setFlashcards] = useState<FlashcardView[]>([]);
+  const [chatThreads, setChatThreads] = useState<ChatThreadView[]>([]);
+  const [activeChatThreadId, setActiveChatThreadId] = useState<string | null>(
+    null,
+  );
   const [flashcardCount, setFlashcardCount] = useState(8);
   const [activeFlashcardIndex, setActiveFlashcardIndex] = useState(0);
   const [isStudyLoading, setIsStudyLoading] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
+  const [isSendingChatMessage, setIsSendingChatMessage] = useState(false);
+  const [deletingChatThreadId, setDeletingChatThreadId] = useState("");
   const [studyErrorMessage, setStudyErrorMessage] = useState("");
 
   useEffect(() => {
@@ -229,14 +249,19 @@ export default function ReadBookPage() {
       setStudyErrorMessage("");
 
       try {
-        const [summaryPayload, flashcardPayload] = await Promise.all([
+        const [summaryPayload, flashcardPayload, chatPayload] = await Promise.all([
           fetchDocumentSummaries(activeToken, bookId),
           fetchDocumentFlashcards(activeToken, bookId),
+          fetchDocumentChats(activeToken, bookId),
         ]);
 
         if (!ignore) {
           setSummaries(normalizeSummaryRecords(summaryPayload ?? []));
           setFlashcards(normalizeFlashcardRecords(flashcardPayload ?? []));
+          setChatThreads(
+            createChatThreads(bookId, normalizeChatRecords(chatPayload ?? [])),
+          );
+          setActiveChatThreadId(null);
           setActiveFlashcardIndex(0);
         }
       } catch (error) {
@@ -285,6 +310,14 @@ export default function ReadBookPage() {
   const safeActiveFlashcardIndex = flashcards.length
     ? Math.min(activeFlashcardIndex, flashcards.length - 1)
     : 0;
+  const activeChatMessages = useMemo(
+    () =>
+      activeChatThreadId
+        ? chatThreads.find((thread) => thread.id === activeChatThreadId)
+            ?.messages ?? []
+        : [],
+    [activeChatThreadId, chatThreads],
+  );
 
   useEffect(() => {
     if (!pdfDocument || !activePage || !pdfCanvasRef.current) {
@@ -403,6 +436,71 @@ export default function ReadBookPage() {
     setActiveFlashcardIndex(Math.min(Math.max(index, 0), flashcards.length - 1));
   }
 
+  function upsertChatThread(
+    currentThreads: ChatThreadView[],
+    threadId: string,
+    nextMessages: ChatMessageView[],
+  ) {
+    const existingThread = currentThreads.find((thread) => thread.id === threadId);
+    const messages = existingThread
+      ? [...existingThread.messages, ...nextMessages]
+      : nextMessages;
+    const nextThread = createChatThread(threadId, messages);
+
+    return [
+      nextThread,
+      ...currentThreads.filter((thread) => thread.id !== threadId),
+    ];
+  }
+
+  function startNewChat() {
+    setStudyTab("chat");
+    setActiveChatThreadId(null);
+  }
+
+  function selectChatThread(threadId: string) {
+    setStudyTab("chat");
+    setActiveChatThreadId(threadId);
+  }
+
+  async function deleteChatThread(threadId: string) {
+    if (!session || deletingChatThreadId) {
+      return;
+    }
+
+    const thread = chatThreads.find((item) => item.id === threadId);
+
+    if (!thread) {
+      return;
+    }
+
+    setDeletingChatThreadId(threadId);
+    setStudyErrorMessage("");
+
+    try {
+      await deleteDocumentChatThread({
+        token: session.token,
+        bookId,
+        threadId,
+        messageIds: thread.messages.map((message) => message.id),
+      });
+
+      setChatThreads((currentThreads) =>
+        currentThreads.filter((item) => item.id !== threadId),
+      );
+
+      if (activeChatThreadId === threadId) {
+        setActiveChatThreadId(null);
+      }
+    } catch (error) {
+      setStudyErrorMessage(
+        error instanceof Error ? error.message : "Could not delete this chat.",
+      );
+    } finally {
+      setDeletingChatThreadId("");
+    }
+  }
+
   async function generateSummary() {
     if (!session) {
       router.push("/login");
@@ -417,7 +515,6 @@ export default function ReadBookPage() {
       const payload = await generateDocumentSummary(
         session.token,
         bookId,
-        aiProvider,
       );
       const generatedSummary = payload.summary?.trim();
 
@@ -429,7 +526,7 @@ export default function ReadBookPage() {
       const nextSummary: SummaryView = {
         id: `${bookId}-summary-${createdAt}`,
         content: generatedSummary,
-        model: payload.provider?.trim() || aiProvider,
+        model: payload.provider?.trim() || "groq",
         createdAt,
       };
 
@@ -458,7 +555,6 @@ export default function ReadBookPage() {
       const payload = await generateDocumentFlashcards({
         token: session.token,
         bookId,
-        provider: aiProvider,
         count,
       });
       const nextFlashcards = createGeneratedFlashcardViews(bookId, payload);
@@ -478,6 +574,57 @@ export default function ReadBookPage() {
       );
     } finally {
       setIsGeneratingFlashcards(false);
+    }
+  }
+
+  async function sendChatMessage(message: string) {
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage) {
+      return;
+    }
+
+    setStudyTab("chat");
+    setStudyErrorMessage("");
+    setIsSendingChatMessage(true);
+    const threadId = activeChatThreadId ?? createChatThreadId(bookId);
+    const userMessage = createUserChatMessage(bookId, trimmedMessage, threadId);
+
+    setActiveChatThreadId(threadId);
+    setChatThreads((currentThreads) =>
+      upsertChatThread(currentThreads, threadId, [userMessage]),
+    );
+
+    try {
+      const payload = await sendDocumentChatMessage({
+        token: session.token,
+        bookId,
+        query: trimmedMessage,
+        threadId,
+        limit: 4,
+      });
+      const responseThreadId = payload.threadId?.trim() || threadId;
+      const assistantMessage = createAssistantChatMessage(
+        bookId,
+        payload,
+        responseThreadId,
+      );
+
+      setActiveChatThreadId(responseThreadId);
+      setChatThreads((currentThreads) =>
+        upsertChatThread(currentThreads, responseThreadId, [assistantMessage]),
+      );
+    } catch (error) {
+      setStudyErrorMessage(
+        error instanceof Error ? error.message : "Could not answer this question.",
+      );
+    } finally {
+      setIsSendingChatMessage(false);
     }
   }
 
@@ -533,21 +680,29 @@ export default function ReadBookPage() {
 
         <AiStudyPanel
           activeTab={studyTab}
-          provider={aiProvider}
           summaries={summaries}
           flashcards={flashcards}
+          chatMessages={activeChatMessages}
+          chatThreads={chatThreads}
+          activeChatThreadId={activeChatThreadId}
           flashcardCount={flashcardCount}
           activeFlashcardIndex={safeActiveFlashcardIndex}
           isLoading={isStudyLoading}
           isGeneratingSummary={isGeneratingSummary}
           isGeneratingFlashcards={isGeneratingFlashcards}
+          isSendingChatMessage={isSendingChatMessage}
+          deletingChatThreadId={deletingChatThreadId}
           errorMessage={studyErrorMessage}
+          userAvatarUrl={session?.avatarUrl}
           onActiveTabChange={setStudyTab}
-          onProviderChange={setAiProvider}
           onFlashcardCountChange={updateFlashcardCount}
           onActiveFlashcardIndexChange={changeActiveFlashcardIndex}
+          onNewChat={startNewChat}
+          onSelectChatThread={selectChatThread}
+          onDeleteChatThread={deleteChatThread}
           onGenerateSummary={generateSummary}
           onGenerateFlashcards={generateFlashcards}
+          onSendChatMessage={sendChatMessage}
         />
       </section>
 

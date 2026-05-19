@@ -6,6 +6,7 @@ export type BackendBook = {
   status?: string | null;
   totalChapters?: number | null;
   format?: string | null;
+  provider?: string | null;
   createdAt?: string | null;
 };
 
@@ -26,6 +27,7 @@ export type LibraryDocument = {
   format: "PDF" | "EPUB" | "UNKNOWN";
   status: "Ready" | "Processing" | "Failed";
   chapters: number | null;
+  provider: string | null;
   source: DocumentSource;
   ownerName: string;
   createdAt: string | null;

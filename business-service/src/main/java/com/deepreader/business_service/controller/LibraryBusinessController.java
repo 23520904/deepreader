@@ -1,6 +1,7 @@
 package com.deepreader.business_service.controller;
 
 import com.deepreader.business_service.client.AiServiceClient;
+import com.deepreader.business_service.model.BookChatThreadDeleteCommand;
 import com.deepreader.business_service.model.BookFlashcardCommand;
 import com.deepreader.business_service.model.BookQueryRequest;
 import com.deepreader.business_service.model.BookSummaryCommand;
@@ -102,6 +103,16 @@ public class LibraryBusinessController {
 
 	@GetMapping("/{bookId}/chats")
 	public Flux<ChatHistory> listChats(@PathVariable String bookId) { return libraryOrchestrationService.listChats(bookId); }
+
+	@PostMapping(value = "/{bookId}/chat-threads/delete", consumes = MediaType.APPLICATION_JSON_VALUE)
+	public Mono<ResponseEntity<Void>> deleteChatThread(
+			@PathVariable String bookId,
+			@RequestParam String userId,
+			@RequestBody BookChatThreadDeleteCommand command
+	) {
+		return libraryOrchestrationService.deleteChatThread(userId, bookId, command)
+				.thenReturn(ResponseEntity.noContent().build());
+	}
 
 	@ExceptionHandler(WebClientResponseException.class)
 	public ResponseEntity<Map<String, String>> handleUpstreamWebClientError(WebClientResponseException ex) {

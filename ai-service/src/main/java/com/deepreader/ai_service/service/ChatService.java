@@ -13,6 +13,11 @@ import java.util.List;
 @Service
 public class ChatService {
 
+	private static final int GROQ_MAX_MATCHES = 4;
+	private static final int GROQ_MAX_CONTEXT_CHARS = 10_000;
+	private static final int GROQ_MAX_CHUNK_CHARS = 2_200;
+	private static final String STUDY_PROVIDER = "groq";
+
 	private final RetrievalService retrievalService;
 	private final PromptBuilderService promptBuilderService;
 	private final LlmClientService llmClientService;
@@ -28,20 +33,25 @@ public class ChatService {
 	}
 
 	public Mono<ChatAskResponse> ask(String userId, String query, Integer limit) {
-		return ask(userId, query, limit, null);
+		return ask(userId, null, query, limit, null);
 	}
 
-	public Mono<ChatAskResponse> ask(String userId, String query, Integer limit, String provider) {
-		String retrievalProvider = isGroq(provider) ? null : provider;
-		return retrievalService.search(userId, query, limit, retrievalProvider)
-				.flatMap(searchResponse -> Mono.fromCallable(() -> toChatResponse(searchResponse, userId, provider))
+	public Mono<ChatAskResponse> ask(String userId, String documentId, String query, Integer limit, String provider) {
+		Integer safeLimit = Math.min(normalizeLimit(limit), GROQ_MAX_MATCHES);
+		return retrievalService.search(userId, documentId, query, safeLimit, STUDY_PROVIDER)
+				.flatMap(searchResponse -> Mono.fromCallable(() -> toChatResponse(searchResponse, userId))
 						.subscribeOn(Schedulers.boundedElastic()));
 	}
 
-	private ChatAskResponse toChatResponse(SearchResponse searchResponse, String userId, String provider) {
+	private ChatAskResponse toChatResponse(SearchResponse searchResponse, String userId) {
 		List<RetrievedChunk> matches = searchResponse.matches();
-		String prompt = promptBuilderService.buildAnswerPrompt(searchResponse.query(), matches);
-		String answer = llmClientService.generateAnswer(userId, provider == null || provider.isBlank() ? searchResponse.provider() : provider, prompt);
+		String prompt = promptBuilderService.buildAnswerPrompt(
+				searchResponse.query(),
+				matches,
+				GROQ_MAX_CONTEXT_CHARS,
+				GROQ_MAX_CHUNK_CHARS
+		);
+		String answer = llmClientService.generateAnswer(userId, STUDY_PROVIDER, prompt);
 
 		List<SourceReference> sources = matches.stream()
 				.map(chunk -> new SourceReference(
@@ -59,7 +69,11 @@ public class ChatService {
 		return new ChatAskResponse(searchResponse.query(), answer, sources);
 	}
 
-	private boolean isGroq(String provider) {
-		return provider != null && "groq".equalsIgnoreCase(provider.trim());
+	private int normalizeLimit(Integer limit) {
+		if (limit == null || limit <= 0) {
+			return GROQ_MAX_MATCHES;
+		}
+
+		return limit;
 	}
 }

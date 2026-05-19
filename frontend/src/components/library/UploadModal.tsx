@@ -12,11 +12,9 @@ type UploadModalProps = {
   uploadEtaLabel: string;
   isDragging: boolean;
   stagedFile: File | null;
-  provider: string;
   uploadMessage: string;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onClose: () => void;
-  onProviderChange: (value: string) => void;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onDragOver: () => void;
   onDragLeave: () => void;
@@ -125,11 +123,9 @@ export function UploadModal({
   uploadEtaLabel,
   isDragging,
   stagedFile,
-  provider,
   uploadMessage,
   fileInputRef,
   onClose,
-  onProviderChange,
   onFileChange,
   onDragOver,
   onDragLeave,
@@ -167,7 +163,7 @@ export function UploadModal({
       : safeUploadProgress >= 100
         ? "Your file was uploaded. DeepReader is extracting and indexing it now."
         : "Please wait while DeepReader uploads your file."
-    : "Choose PDF or EPUB file format and provider if needed.";
+    : "Choose a PDF or EPUB file to add to your library.";
 
   return (
     <div
@@ -305,25 +301,10 @@ export function UploadModal({
             </div>
           </label>
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-5">
+          <div className="mt-5">
             <p className="text-[16px] font-medium text-[#8f939e]">
               Supported formats: PDF and EPUB
             </p>
-
-            <label className="flex items-center gap-3 text-[15px] font-black text-[#17213a]">
-              Provider
-
-              <select
-                value={provider}
-                onChange={(event) => onProviderChange(event.target.value)}
-                disabled={isUploading}
-                className="h-10 rounded-[6px] border border-[#d7dbe5] bg-white px-4 text-[15px] font-black outline-none disabled:cursor-not-allowed disabled:bg-[#f3f5f9] disabled:text-[#8d929c]"
-              >
-                <option value="gemini">Gemini</option>
-                <option value="groq">Groq</option>
-                <option value="openai">OpenAI</option>
-              </select>
-            </label>
           </div>
 
           {uploadMessage ? (

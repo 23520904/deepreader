@@ -21,6 +21,8 @@ import java.util.Objects;
 @Service
 public class LlmClientService {
 
+	private static final int GROQ_MAX_PROMPT_CHARS = 16_000;
+
 	private final OpenAiProperties openAiProperties;
 	private final GeminiProperties geminiProperties;
 	private final GroqProperties groqProperties;
@@ -48,15 +50,7 @@ public class LlmClientService {
 			}
 		}
 		
-		if (isGroq(provider)) {
-			return generateWithGroq(userToken, prompt);
-		}
-
-		return switch (SupportedProvider.from(provider)) {
-			case OPENAI -> generateWithOpenAi(userToken, prompt);
-			case GEMINI -> generateWithGemini(userToken, prompt);
-			case GROQ -> generateWithGroq(userToken, prompt);
-		};
+		return generateWithGroq(userToken, prompt);
 	}
 
 	private String generateWithOpenAi(String userToken, String prompt) {
@@ -110,7 +104,7 @@ public class LlmClientService {
 			throw new IllegalStateException("Missing required property: deepreader.groq.api-key or Groq user LLM API Token");
 		}
 		WebClient client = webClientBuilder.baseUrl(normalizeUrl(groqProperties.getBaseUrl())).build();
-		OpenAiChatRequest request = new OpenAiChatRequest(groqProperties.getChatModel(), List.of(new OpenAiChatRequest.Message("user", prompt)), 0.2d);
+		OpenAiChatRequest request = new OpenAiChatRequest(groqProperties.getChatModel(), List.of(new OpenAiChatRequest.Message("user", fitGroqPrompt(prompt))), 0.2d);
 		OpenAiChatResponse response;
 		try {
 			response = client.post()
@@ -129,6 +123,15 @@ public class LlmClientService {
 			throw new IllegalStateException("Groq generation response did not contain answer text");
 		}
 		return safe.choices().getFirst().message().content().trim();
+	}
+
+	private String fitGroqPrompt(String prompt) {
+		if (prompt == null || prompt.length() <= GROQ_MAX_PROMPT_CHARS) {
+			return prompt;
+		}
+
+		return prompt.substring(0, GROQ_MAX_PROMPT_CHARS).trim()
+				+ "\n\n[Prompt truncated because Groq rejected overly large requests.]";
 	}
 
 	private String normalizeUrl(String url) {
@@ -169,6 +172,10 @@ public class LlmClientService {
 
 		if (status == 429 || responseBody.contains("RESOURCE_EXHAUSTED") || responseBody.toLowerCase().contains("quota")) {
 			return new IllegalStateException(provider + " quota or rate limit was exceeded. Check the provider plan, billing, and quota settings, or retry later" + retryDelaySuffix(responseBody) + ".", exception);
+		}
+
+		if (status == 413) {
+			return new IllegalStateException(provider + " rejected this request because the prompt was too large. Try again with fewer sources, a shorter question, or a smaller document section.", exception);
 		}
 
 		if (status >= 500) {

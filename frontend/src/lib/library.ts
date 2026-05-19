@@ -78,6 +78,7 @@ export function mapBackendBook(
     format: resolveLibraryFormat(book),
     status: normalizeLibraryStatus(book.status),
     chapters: book.totalChapters ?? null,
+    provider: book.provider?.trim() || null,
     source,
     ownerName,
     createdAt: book.createdAt ?? null,

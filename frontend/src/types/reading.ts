@@ -9,6 +9,7 @@ export type DocumentSection = {
 export type DocumentContentResponse = {
   documentId: string;
   fileName: string;
+  provider?: string | null;
   sections: DocumentSection[];
 };
 
@@ -29,6 +30,33 @@ export type FlashcardRecord = {
   question?: string | null;
   answer?: string | null;
   createdAt?: string | null;
+};
+
+export type ChatHistoryRecord = {
+  id?: string | null;
+  userId?: string | null;
+  bookId?: string | null;
+  role?: string | null;
+  content?: string | null;
+  threadId?: string | null;
+  timestamp?: string | null;
+  createdAt?: string | null;
+};
+
+export type ChatGenerationResponse = {
+  query?: string | null;
+  answer?: string | null;
+  threadId?: string | null;
+  sources?: Array<{
+    documentId?: string | null;
+    chunkId?: string | null;
+    fileName?: string | null;
+    sectionId?: string | null;
+    title?: string | null;
+    chunkIndex?: number | null;
+    content?: string | null;
+    score?: number | null;
+  }> | null;
 };
 
 export type SummaryGenerationResponse = {

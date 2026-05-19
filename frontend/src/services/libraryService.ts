@@ -14,17 +14,15 @@ export function fetchLibraryBooks(token: string) {
 
 export function uploadLibraryBook({
   token,
-  provider,
   formData,
   onProgress,
 }: {
   token: string;
-  provider: string;
   formData: FormData;
   onProgress: (snapshot: UploadProgressSnapshot) => void;
 }) {
   return requestUploadWithProgress<BookUploadResponse>({
-    path: `/api/v1/books/upload?provider=${encodeURIComponent(provider)}`,
+    path: "/api/v1/books/upload",
     token,
     formData,
     fallbackError: "Upload failed.",
