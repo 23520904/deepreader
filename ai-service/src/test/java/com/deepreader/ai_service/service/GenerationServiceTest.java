@@ -101,4 +101,15 @@ class GenerationServiceTest {
 		assertEquals(1, flashcards.size());
 		assertEquals("What is a class?", flashcards.getFirst().question());
 	}
+
+	@Test
+	void filtersVietnameseAnswers() {
+		List<Flashcard> flashcards = generationService.filterStudyFlashcards(List.of(
+				new Flashcard("What is a conditional loop?", "Là một cấu trúc điều khiển dùng để lặp lại một hành động một số lần."),
+				new Flashcard("What is a conditional loop?", "A conditional loop repeats an action while a condition remains true.")
+		), 8);
+
+		assertEquals(1, flashcards.size());
+		assertEquals("A conditional loop repeats an action while a condition remains true.", flashcards.getFirst().answer());
+	}
 }

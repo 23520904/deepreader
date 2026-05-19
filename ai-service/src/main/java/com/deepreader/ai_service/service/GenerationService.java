@@ -75,7 +75,15 @@ public class GenerationService {
 			List<Flashcard> flashcards = filterStudyFlashcards(parseFlashcards(response, count), count);
 
 			if (flashcards.size() < count) {
-				appendFlashcards(flashcards, createFallbackFlashcards(document, count), count);
+				String repairPrompt = promptBuilderService.buildFlashcardRepairPrompt(
+					document.fileName(),
+					combinedStudyContent(document, contentBudget(STUDY_PROVIDER)),
+					response,
+					count
+				);
+
+				String repairedResponse = llmClientService.generateAnswer(userId, STUDY_PROVIDER, repairPrompt);
+				flashcards = filterStudyFlashcards(parseFlashcards(repairedResponse, count), count);
 			}
 
 			return new FlashcardResponse(documentId, STUDY_PROVIDER, flashcards);
@@ -641,13 +649,34 @@ public class GenerationService {
 			return;
 		}
 
-		String dedupeKey = safeQuestion.toLowerCase();
+		if (isWeakFlashcardQuestion(safeQuestion) || isWeakFlashcardAnswer(safeAnswer)) {
+			return;
+		}
+
+		String dedupeKey = safeQuestion.toLowerCase(Locale.ROOT);
 
 		if (!seenQuestions.add(dedupeKey)) {
 			return;
 		}
 
 		flashcards.add(new Flashcard(safeQuestion, safeAnswer));
+	}
+
+	private boolean isWeakFlashcardAnswer(String answer) {
+		String cleanAnswer = cleanFlashcardText(answer);
+		String normalized = cleanAnswer.toLowerCase(Locale.ROOT);
+
+		return cleanAnswer.length() < 20
+				|| normalized.contains("slide ")
+				|| normalized.contains("page ")
+				|| normalized.contains("the document says")
+				|| normalized.contains("this section")
+				|| normalized.contains("this slide")
+				|| containsVietnameseCharacters(cleanAnswer);
+	}
+
+	private boolean containsVietnameseCharacters(String value) {
+		return value != null && value.matches(".*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ].*");
 	}
 
 	private String extractJsonCandidate(String response) {

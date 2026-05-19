@@ -68,20 +68,42 @@ public class PromptBuilderService {
 	}
 
 	public String buildFlashcardPrompt(String fileName, String content, int count) {
-		return "Create exactly " + count + " high-quality study flashcards from the following document content. "
-				+ "Choose the most important concepts, definitions, rules, processes, comparisons, and examples across the whole document. "
-				+ "Use only facts from the document. Write every question and answer in English only. "
-				+ "If the source content is Vietnamese or another language, translate the concepts into natural English. "
-				+ "Each question must be standalone, specific, and useful for active recall by naming the concept directly. "
-				+ "Each answer must be concise, correct, and 1 to 3 sentences. "
-				+ "Do not make page-based or slide-based cards. Never ask vague questions like \"What is one important point from page 1?\", "
-				+ "\"What is the key idea from slide 2?\", or questions about a page, slide, section, or part number. "
-				+ "Return only valid JSON with this exact shape and no Markdown, code block, commentary, or extra keys: "
-				+ "{\"flashcards\":[{\"question\":\"...\",\"answer\":\"...\"}]}.\n\n"
-				+ "Document: " + nullSafe(fileName) + "\n\n"
-				+ content;
+		return "You are an expert study-card generator for a learning application. "
+			+ "Create exactly " + count + " high-quality flashcards from the document content below. "
+			+ "The flashcards must help students review the most important concepts, definitions, syntax rules, processes, comparisons, examples, and common mistakes. "
+			+ "Use only facts that appear in the document. Do not invent information. "
+			+ "Write ALL questions and ALL answers in English only. "
+			+ "If the source content is Vietnamese or another language, translate the meaning into natural English. "
+			+ "Do not copy Vietnamese text into the answer. "
+			+ "Each question must be specific, standalone, and name the exact concept being tested. "
+			+ "Avoid vague questions such as: \"What is this?\", \"What is one important point?\", \"What does the slide say?\", or \"What is cha / class / class?\". "
+			+ "Each answer must be clear, useful, and 1 to 3 sentences long. "
+			+ "Prefer cards like: \"What is a conditional statement in Java?\", \"How does switch-case work in Java?\", \"What is the purpose of Scanner?\". "
+			+ "Do not create page-based, slide-based, section-based, or file-name-based cards. "
+			+ "Return only valid JSON with this exact shape and no Markdown, no code block, no commentary, and no extra keys: "
+			+ "{\"flashcards\":[{\"question\":\"...\",\"answer\":\"...\"}]}.\n\n"
+			+ "Document: " + nullSafe(fileName) + "\n\n"
+			+ content;
 	}
 
+	public String buildFlashcardRepairPrompt(String fileName, String content, String previousResponse, int count) {
+		return "The previous flashcard generation result was invalid, incomplete, vague, or not fully in English. "
+			+ "Regenerate the flashcards from scratch. "
+			+ "Create exactly " + count + " high-quality study flashcards from the document content below. "
+			+ "Use only facts from the document. "
+			+ "Write ALL questions and ALL answers in English only. "
+			+ "If the source is Vietnamese, translate the ideas into natural English. "
+			+ "Do not include Vietnamese text in the final JSON. "
+			+ "Each question must be specific and name the concept directly. "
+			+ "Each answer must be concise, correct, and useful for studying. "
+			+ "Reject vague cards, broken keyword cards, duplicated cards, and cards about pages/slides/sections. "
+			+ "Return only valid JSON with this exact shape: "
+			+ "{\"flashcards\":[{\"question\":\"...\",\"answer\":\"...\"}]}.\n\n"
+			+ "Document: " + nullSafe(fileName) + "\n\n"
+			+ "Document content:\n" + content + "\n\n"
+			+ "Previous bad response:\n" + nullSafe(previousResponse);
+	}
+	
 	public String truncate(String value, int maxChars) {
 		if (value == null || maxChars <= 0 || value.length() <= maxChars) {
 			return nullSafe(value);
