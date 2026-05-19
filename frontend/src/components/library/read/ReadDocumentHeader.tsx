@@ -153,13 +153,13 @@ export function ReadDocumentHeader({
           type="button"
           onClick={onMarkActivePageRead}
           disabled={!canMarkActivePageRead}
-          className={`h-11 cursor-pointer rounded-[8px] px-5 text-[14px] font-black transition disabled:cursor-not-allowed ${
+          className={`h-11 cursor-pointer rounded-[8px] px-5 text-[14px] font-black transition disabled:cursor-not-allowed disabled:opacity-35 ${
             isActivePageRead
-              ? "bg-[#d9f8df] text-[#2e9b55] hover:bg-[#c9f1d3]"
+              ? "bg-[#fff0f1] text-[#b42335] hover:bg-[#ffe1e5]"
               : "bg-[#245895] text-white hover:bg-[#1d4d86]"
           }`}
         >
-          {isActivePageRead ? "Page marked read" : "Mark page as read"}
+          {isActivePageRead ? "Unmark as read" : "Mark page as read"}
         </button>
       </div>
     </>

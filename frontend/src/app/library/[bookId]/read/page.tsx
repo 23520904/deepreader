@@ -41,13 +41,15 @@ import type { AiStudyTab, FlashcardView, SummaryView } from "@/types/study";
 export default function ReadBookPage() {
   const router = useRouter();
   const params = useParams<{ bookId: string }>();
-  const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const pdfCanvasContainerRef = useRef<HTMLDivElement | null>(null);
+  const pdfPagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const pdfPageCanvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
+
   const session = useSyncExternalStore(
     subscribeAuthSession,
     getAuthSessionSnapshot,
     () => null,
   );
+
   const bookId = Array.isArray(params.bookId) ? params.bookId[0] : params.bookId;
 
   const [documentContent, setDocumentContent] =
@@ -103,10 +105,9 @@ export default function ReadBookPage() {
 
       try {
         const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-          "pdfjs-dist/build/pdf.worker.min.mjs",
-          import.meta.url,
-        ).toString();
+
+        pdfjs.GlobalWorkerOptions.workerSrc =
+          "https://unpkg.com/pdfjs-dist@4.10.38/build/pdf.worker.mjs";
 
         const loadingTask = pdfjs.getDocument(pdfSourceUrl);
         const nextPdfDocument = await loadingTask.promise;
@@ -118,10 +119,12 @@ export default function ReadBookPage() {
         }
 
         setPdfDocument(nextPdfDocument);
-      } catch {
+      } catch (error) {
+        console.error("Failed to load PDF document:", error);
+
         if (!ignore) {
           setPdfDocument(null);
-          setPdfRenderMessage("Could not render this PDF page.");
+          setPdfRenderMessage("Could not render this PDF file.");
         }
       } finally {
         if (!ignore) {
@@ -134,6 +137,7 @@ export default function ReadBookPage() {
 
     return () => {
       ignore = true;
+      pdfPageCanvasRefs.current.clear();
 
       if (loadedPdf) {
         void loadedPdf.destroy();
@@ -159,6 +163,7 @@ export default function ReadBookPage() {
       setPdfSourceUrl("");
       setPdfDocument(null);
       setPdfRenderMessage("");
+      pdfPageCanvasRefs.current.clear();
 
       try {
         const payload = await fetchDocumentContent(activeToken, bookId);
@@ -190,7 +195,7 @@ export default function ReadBookPage() {
 
             setPdfSourceUrl(sourceUrl);
           } catch (error) {
-            void error;
+            console.error("Failed to fetch PDF source:", error);
           } finally {
             if (!ignore) {
               setIsPdfSourceLoading(false);
@@ -265,10 +270,12 @@ export default function ReadBookPage() {
     () => documentContent?.sections ?? [],
     [documentContent],
   );
+
   const pages = useMemo(() => buildReadingPages(sections), [sections]);
   const title = cleanDocumentTitle(documentContent?.fileName);
   const format = resolveDocumentFormat(documentContent?.fileName);
   const formatIconSrc = iconForDocumentFormat(format);
+  const pdfPageCount = pdfDocument?.numPages ?? pages.length;
 
   const activePageIndex = useMemo(() => {
     const index = pages.findIndex((page) => page.key === activePageKey);
@@ -287,71 +294,81 @@ export default function ReadBookPage() {
     : 0;
 
   useEffect(() => {
-    if (!pdfDocument || !activePage || !pdfCanvasRef.current) {
+    if (!pdfDocument || !pdfPagesContainerRef.current || pdfPageCount <= 0) {
       return;
     }
 
     const activePdfDocument = pdfDocument;
-    const activeReadingPage = activePage;
     let cancelled = false;
-    let renderTask: RenderTask | null = null;
+    const renderTasks: RenderTask[] = [];
 
-    async function renderPdfPage() {
-      const canvas = pdfCanvasRef.current;
-
-      if (!canvas) {
-        return;
-      }
-
+    async function renderAllPdfPages() {
       setIsPdfPageRendering(true);
       setPdfRenderMessage("");
 
       try {
-        const pageNumber = Math.min(
-          Math.max(activeReadingPage.pageNumber, 1),
-          activePdfDocument.numPages,
-        );
-        const page = await activePdfDocument.getPage(pageNumber);
-
-        if (cancelled) {
-          return;
-        }
-
-        const baseViewport = page.getViewport({ scale: 1 });
         const containerWidth =
-          pdfCanvasContainerRef.current?.clientWidth ?? baseViewport.width;
-        const viewportScale = Math.min(
-          2,
-          Math.max(0.8, (containerWidth - 32) / baseViewport.width),
-        );
-        const viewport = page.getViewport({ scale: viewportScale });
-        const pixelRatio = window.devicePixelRatio || 1;
-        const context = canvas.getContext("2d");
+          pdfPagesContainerRef.current?.clientWidth ?? 900;
 
-        if (!context) {
-          throw new Error("Canvas context is unavailable.");
+        for (
+          let pageNumber = 1;
+          pageNumber <= activePdfDocument.numPages;
+          pageNumber += 1
+        ) {
+          if (cancelled) {
+            return;
+          }
+
+          const canvas = pdfPageCanvasRefs.current.get(pageNumber);
+
+          if (!canvas) {
+            continue;
+          }
+
+          const page = await activePdfDocument.getPage(pageNumber);
+
+          if (cancelled) {
+            return;
+          }
+
+          const baseViewport = page.getViewport({ scale: 1 });
+          const viewportScale = Math.min(
+            2,
+            Math.max(0.75, (containerWidth - 56) / baseViewport.width),
+          );
+          const viewport = page.getViewport({ scale: viewportScale });
+          const pixelRatio = window.devicePixelRatio || 1;
+          const context = canvas.getContext("2d");
+
+          if (!context) {
+            throw new Error("Canvas context is unavailable.");
+          }
+
+          canvas.width = Math.floor(viewport.width * pixelRatio);
+          canvas.height = Math.floor(viewport.height * pixelRatio);
+          canvas.style.width = `${Math.floor(viewport.width)}px`;
+          canvas.style.height = `${Math.floor(viewport.height)}px`;
+
+          context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+          context.clearRect(0, 0, viewport.width, viewport.height);
+
+          const renderTask = page.render({
+            canvas,
+            canvasContext: context,
+            viewport,
+          });
+
+          renderTasks.push(renderTask);
+          await renderTask.promise;
         }
-
-        canvas.width = Math.floor(viewport.width * pixelRatio);
-        canvas.height = Math.floor(viewport.height * pixelRatio);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
-
-        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-        context.clearRect(0, 0, viewport.width, viewport.height);
-
-        renderTask = page.render({
-          canvas,
-          canvasContext: context,
-          viewport,
-        });
-        await renderTask.promise;
       } catch (error) {
+        console.error("Failed to render PDF pages:", error);
+
         if (
           !cancelled &&
           !(error instanceof Error && error.name === "RenderingCancelledException")
         ) {
-          setPdfRenderMessage("Could not render this PDF page.");
+          setPdfRenderMessage("Could not render this PDF file.");
         }
       } finally {
         if (!cancelled) {
@@ -360,13 +377,32 @@ export default function ReadBookPage() {
       }
     }
 
-    void renderPdfPage();
+    void renderAllPdfPages();
 
     return () => {
       cancelled = true;
-      renderTask?.cancel();
+
+      renderTasks.forEach((task) => {
+        try {
+          task.cancel();
+        } catch {
+          // Ignore render task cancellation errors.
+        }
+      });
     };
-  }, [activePage, isFocusMode, pdfDocument]);
+  }, [isFocusMode, pdfDocument, pdfPageCount]);
+
+  function setPdfPageCanvasRef(
+    pageNumber: number,
+    canvas: HTMLCanvasElement | null,
+  ) {
+    if (canvas) {
+      pdfPageCanvasRefs.current.set(pageNumber, canvas);
+      return;
+    }
+
+    pdfPageCanvasRefs.current.delete(pageNumber);
+  }
 
   function goToPage(index: number) {
     const nextPage = pages[Math.min(Math.max(index, 0), pages.length - 1)];
@@ -376,16 +412,45 @@ export default function ReadBookPage() {
     }
 
     setActivePageKey(nextPage.key);
+
+    if (pdfSourceUrl) {
+      window.requestAnimationFrame(() => {
+        const container = pdfPagesContainerRef.current;
+        const targetPage = document.getElementById(
+          `pdf-page-${nextPage.pageNumber}`,
+        );
+
+        if (!container || !targetPage) {
+          return;
+        }
+
+        const containerRect = container.getBoundingClientRect();
+        const targetRect = targetPage.getBoundingClientRect();
+        const nextScrollTop =
+          container.scrollTop + targetRect.top - containerRect.top;
+
+        container.scrollTo({
+          top: Math.max(nextScrollTop - 16, 0),
+          behavior: "smooth",
+        });
+      });
+    }
   }
 
-  function markActivePageRead() {
+  function toggleActivePageRead() {
     if (!activePage) {
       return;
     }
 
     setReadPageKeys((current) => {
       const next = new Set(current);
-      next.add(activePage.key);
+
+      if (next.has(activePage.key)) {
+        next.delete(activePage.key);
+      } else {
+        next.add(activePage.key);
+      }
+
       return next;
     });
   }
@@ -505,7 +570,7 @@ export default function ReadBookPage() {
           onToggleFocusMode={() => setIsFocusMode((value) => !value)}
           onPreviousPage={() => goToPage(activePageIndex - 1)}
           onNextPage={() => goToPage(activePageIndex + 1)}
-          onMarkActivePageRead={markActivePageRead}
+          onMarkActivePageRead={toggleActivePageRead}
         />
 
         {errorMessage ? (
@@ -523,11 +588,12 @@ export default function ReadBookPage() {
           readPageKeys={readPageKeys}
           title={title}
           pdfSourceUrl={pdfSourceUrl}
+          pdfPageCount={pdfPageCount}
           isPdfSourceLoading={isPdfSourceLoading}
           isPdfPageRendering={isPdfPageRendering}
           pdfRenderMessage={pdfRenderMessage}
-          pdfCanvasRef={pdfCanvasRef}
-          pdfCanvasContainerRef={pdfCanvasContainerRef}
+          pdfPagesContainerRef={pdfPagesContainerRef}
+          setPdfPageCanvasRef={setPdfPageCanvasRef}
           onPageSelect={goToPage}
         />
 

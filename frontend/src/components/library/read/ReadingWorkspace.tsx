@@ -12,11 +12,15 @@ type ReadingWorkspaceProps = {
   readPageKeys: Set<string>;
   title: string;
   pdfSourceUrl: string;
+  pdfPageCount: number;
   isPdfSourceLoading: boolean;
   isPdfPageRendering: boolean;
   pdfRenderMessage: string;
-  pdfCanvasRef: RefObject<HTMLCanvasElement | null>;
-  pdfCanvasContainerRef: RefObject<HTMLDivElement | null>;
+  pdfPagesContainerRef: RefObject<HTMLDivElement | null>;
+  setPdfPageCanvasRef: (
+    pageNumber: number,
+    canvas: HTMLCanvasElement | null,
+  ) => void;
   onPageSelect: (index: number) => void;
 };
 
@@ -29,11 +33,12 @@ export function ReadingWorkspace({
   readPageKeys,
   title,
   pdfSourceUrl,
+  pdfPageCount,
   isPdfSourceLoading,
   isPdfPageRendering,
   pdfRenderMessage,
-  pdfCanvasRef,
-  pdfCanvasContainerRef,
+  pdfPagesContainerRef,
+  setPdfPageCanvasRef,
   onPageSelect,
 }: ReadingWorkspaceProps) {
   if (isLoading) {
@@ -45,6 +50,11 @@ export function ReadingWorkspace({
     );
   }
 
+  const pdfPageNumbers = Array.from(
+    { length: Math.max(pdfPageCount, 0) },
+    (_, index) => index + 1,
+  );
+
   return (
     <div
       className={`mt-8 grid items-start gap-6 ${
@@ -52,12 +62,12 @@ export function ReadingWorkspace({
       }`}
     >
       {!isFocusMode ? (
-        <aside className="sticky top-[92px] overflow-hidden rounded-[14px] bg-white shadow-[0_14px_30px_rgba(18,24,38,0.08)] max-[1024px]:static">
+        <aside className="sticky top-[92px] h-[calc(76vh+98px)] min-h-[718px] overflow-hidden rounded-[14px] bg-white shadow-[0_14px_30px_rgba(18,24,38,0.08)] max-[1024px]:static max-[1024px]:h-auto max-[1024px]:min-h-0">
           <h2 className="border-b border-[#dce3ef] px-7 py-6 text-[26px] font-black leading-tight text-[#0f2442]">
             Table of Contents
           </h2>
 
-          <div className="max-h-[560px] overflow-y-auto py-2">
+          <div className="h-[calc(100%-88px)] overflow-y-auto py-2">
             {pages.length ? (
               pages.map((page, index) => {
                 const isActive = page.key === activePageKey;
@@ -108,30 +118,50 @@ export function ReadingWorkspace({
           <article className="rounded-[14px] bg-white px-8 py-7 shadow-[0_14px_30px_rgba(18,24,38,0.08)] ring-2 ring-[#a8bdd9]">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <h2 className="text-[34px] font-black leading-tight text-[#0f2442]">
-                {activePage.title}
+                {pdfSourceUrl ? title : activePage.title}
               </h2>
 
               <span className="rounded-full bg-[#eef5ff] px-5 py-2 text-[14px] font-black text-[#245895]">
-                Page {activePage.pageNumber}
+                {pdfSourceUrl
+                  ? `${pdfPageNumbers.length || pages.length} pages`
+                  : `Page ${activePage.pageNumber}`}
               </span>
             </div>
 
             {pdfSourceUrl ? (
               <div className="mt-7 rounded-[8px] border border-[#d6e0ee] bg-[#f8fbff] p-4">
                 <div
-                  ref={pdfCanvasContainerRef}
-                  className="flex h-[76vh] min-h-[620px] items-start justify-center overflow-auto rounded-[6px] bg-[#edf3fb] p-4"
+                  ref={pdfPagesContainerRef}
+                  className="flex h-[76vh] min-h-[620px] flex-col items-center gap-8 overflow-y-auto overscroll-contain rounded-[6px] bg-[#edf3fb] p-6"
                 >
-                  <canvas
-                    ref={pdfCanvasRef}
-                    aria-label={`${title} - page ${activePage.pageNumber}`}
-                    className="max-w-full bg-white shadow-[0_16px_32px_rgba(15,36,66,0.14)]"
-                  />
+                  {pdfPageNumbers.length ? (
+                    pdfPageNumbers.map((pageNumber) => (
+                      <section
+                        key={pageNumber}
+                        id={`pdf-page-${pageNumber}`}
+                        className="flex w-full scroll-mt-6 flex-col items-center gap-3"
+                      >
+                        <div className="rounded-full bg-white px-4 py-1 text-[13px] font-black text-[#245895] shadow-sm">
+                          Page {pageNumber}
+                        </div>
+
+                        <canvas
+                          ref={(canvas) => setPdfPageCanvasRef(pageNumber, canvas)}
+                          aria-label={`${title} - page ${pageNumber}`}
+                          className="max-w-full bg-white shadow-[0_16px_32px_rgba(15,36,66,0.14)]"
+                        />
+                      </section>
+                    ))
+                  ) : (
+                    <div className="grid min-h-[480px] place-items-center text-[16px] font-black text-[#245895]">
+                      Preparing PDF preview...
+                    </div>
+                  )}
                 </div>
 
                 {isPdfPageRendering ? (
                   <div className="mt-3 text-center text-[14px] font-black text-[#245895]">
-                    Loading page...
+                    Rendering PDF pages...
                   </div>
                 ) : null}
 
