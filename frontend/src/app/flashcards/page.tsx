@@ -104,6 +104,7 @@ export default function FlashcardsPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [quizIndex, setQuizIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
   const [answeredCount, setAnsweredCount] = useState(0);
 
@@ -159,6 +160,7 @@ export default function FlashcardsPage() {
         setActiveCardIndex(0);
         setQuizIndex(0);
         setSelectedAnswer(null);
+        setIsAnswerSubmitted(false);
       } catch (error) {
         if (!ignore) {
           setDocuments([]);
@@ -213,9 +215,17 @@ export default function FlashcardsPage() {
     visibleFlashcards[Math.min(activeCardIndex, visibleFlashcards.length - 1)] ??
     null;
   const quizCards = visibleFlashcards;
-  const currentQuizCard = quizCards.length
-    ? quizCards[quizIndex % quizCards.length]
-    : null;
+  const quizTotal = quizCards.length;
+  const quizProgress = Math.min(answeredCount, quizTotal);
+  const isQuizFinished = quizTotal > 0 && quizIndex >= quizTotal;
+  const isLastQuizQuestion = quizTotal > 0 && quizIndex === quizTotal - 1;
+  const quizScorePercent = quizTotal
+    ? Math.round((quizScore / quizTotal) * 100)
+    : 0;
+
+  const currentQuizCard =
+    quizTotal > 0 && quizIndex < quizTotal ? quizCards[quizIndex] : null;
+
   const quizOptions = useMemo(
     () => makeQuizOptions(currentQuizCard, quizCards),
     [currentQuizCard, quizCards],
@@ -245,30 +255,45 @@ export default function FlashcardsPage() {
   }
 
   function answerQuiz(option: string) {
-    if (selectedAnswer || !currentQuizCard) {
+    if (!currentQuizCard || isAnswerSubmitted || isQuizFinished) {
       return;
     }
 
     setSelectedAnswer(option);
-    setAnsweredCount((count) => count + 1);
+  }
 
-    if (option === currentQuizCard.answer) {
+  function submitQuizAnswer() {
+    if (!selectedAnswer || !currentQuizCard || isAnswerSubmitted) {
+      return;
+    }
+
+    setIsAnswerSubmitted(true);
+    setAnsweredCount((count) => Math.min(count + 1, quizTotal));
+
+    if (selectedAnswer === currentQuizCard.answer) {
       setQuizScore((score) => score + 1);
     }
   }
 
   function nextQuizQuestion() {
-    if (!quizCards.length) {
+    if (!quizCards.length || !isAnswerSubmitted) {
       return;
     }
 
-    setQuizIndex((index) => (index + 1) % quizCards.length);
+    if (isLastQuizQuestion) {
+      setQuizIndex(quizTotal);
+    } else {
+      setQuizIndex((index) => Math.min(index + 1, quizCards.length - 1));
+    }
+
     setSelectedAnswer(null);
+    setIsAnswerSubmitted(false);
   }
 
   function resetQuiz() {
     setQuizIndex(0);
     setSelectedAnswer(null);
+    setIsAnswerSubmitted(false);
     setQuizScore(0);
     setAnsweredCount(0);
   }
@@ -279,6 +304,7 @@ export default function FlashcardsPage() {
     setIsAnswerVisible(false);
     setQuizIndex(0);
     setSelectedAnswer(null);
+    setIsAnswerSubmitted(false);
   }
 
   function changeSelectedBook(bookId: string) {
@@ -287,6 +313,7 @@ export default function FlashcardsPage() {
     setIsAnswerVisible(false);
     setQuizIndex(0);
     setSelectedAnswer(null);
+    setIsAnswerSubmitted(false);
   }
 
   return (
@@ -346,7 +373,7 @@ export default function FlashcardsPage() {
                   Score
                 </p>
                 <p className="mt-2 text-[34px] font-black leading-none">
-                  {quizScore}
+                  {quizScore}/{quizTotal}
                 </p>
               </div>
             </div>
@@ -597,7 +624,68 @@ export default function FlashcardsPage() {
               </>
             ) : (
               <article className="rounded-[8px] bg-white p-6 shadow-[0_12px_26px_rgba(18,31,65,0.08)] ring-1 ring-[#dce6f4]">
-                {currentQuizCard ? (
+                {isQuizFinished ? (
+                  <div className="grid min-h-[430px] place-items-center text-center">
+                    <div className="max-w-[560px]">
+                      <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#245895]">
+                        Quiz Completed
+                      </p>
+
+                      <h2 className="mt-3 text-[38px] font-black leading-tight text-[#0f2442]">
+                        Your score: {quizScore}/{quizTotal}
+                      </h2>
+
+                      <div className="mt-5 overflow-hidden rounded-full bg-[#eef5ff]">
+                        <div
+                          className="h-4 rounded-full bg-[#245895] transition-all duration-500"
+                          style={{ width: `${quizScorePercent}%` }}
+                        />
+                      </div>
+
+                      <p className="mt-4 text-[17px] font-bold leading-7 text-[#748195]">
+                        You answered {quizProgress} of {quizTotal} cards and got{" "}
+                        {quizScorePercent}% correct.
+                      </p>
+
+                      <div className="mt-7 grid gap-3 rounded-[8px] bg-[#f8fbff] p-5 text-left ring-1 ring-[#dce6f4]">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-[14px] font-black text-[#6c778b]">
+                            Total cards
+                          </span>
+                          <span className="text-[18px] font-black text-[#102744]">
+                            {quizTotal}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-[14px] font-black text-[#6c778b]">
+                            Correct answers
+                          </span>
+                          <span className="text-[18px] font-black text-[#2e9b55]">
+                            {quizScore}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="text-[14px] font-black text-[#6c778b]">
+                            Wrong answers
+                          </span>
+                          <span className="text-[18px] font-black text-[#b42335]">
+                            {quizTotal - quizScore}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={resetQuiz}
+                        className="mt-7 h-12 cursor-pointer rounded-[8px] bg-[#245895] px-7 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86]"
+                      >
+                        Retake Quiz
+                      </button>
+                    </div>
+                  </div>
+                ) : currentQuizCard ? (
                   <>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
@@ -605,17 +693,29 @@ export default function FlashcardsPage() {
                           Multiple Choice
                         </p>
                         <h2 className="mt-1 text-[24px] font-black text-[#0f2442]">
-                          Question {quizIndex + 1}
+                          Question {quizIndex + 1} of {quizTotal}
                         </h2>
                       </div>
+
                       <div className="flex flex-wrap gap-2">
                         <span className="rounded-full bg-[#e7fbf8] px-4 py-2 text-[13px] font-black text-[#0f6f67]">
                           {quizScore} correct
                         </span>
                         <span className="rounded-full bg-[#fff4d7] px-4 py-2 text-[13px] font-black text-[#735215]">
-                          {answeredCount} answered
+                          {quizProgress}/{quizTotal} answered
                         </span>
                       </div>
+                    </div>
+
+                    <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#eef5ff]">
+                      <div
+                        className="h-full rounded-full bg-[#245895] transition-all duration-500"
+                        style={{
+                          width: quizTotal
+                            ? `${Math.round((quizProgress / quizTotal) * 100)}%`
+                            : "0%",
+                        }}
+                      />
                     </div>
 
                     <div className="mt-6 rounded-[8px] bg-[#f8fbff] px-6 py-6 ring-1 ring-[#dce6f4]">
@@ -631,20 +731,22 @@ export default function FlashcardsPage() {
                       {quizOptions.map((option, index) => {
                         const isSelected = selectedAnswer === option;
                         const isCorrect = option === currentQuizCard.answer;
-                        const showResult = Boolean(selectedAnswer);
+                        const showResult = isAnswerSubmitted;
 
                         return (
                           <button
                             key={`${currentQuizCard.id}-option-${index}`}
                             type="button"
                             onClick={() => answerQuiz(option)}
-                            disabled={Boolean(selectedAnswer)}
+                            disabled={isAnswerSubmitted}
                             className={`min-h-[64px] cursor-pointer rounded-[8px] px-5 py-4 text-left text-[15px] font-bold leading-7 transition disabled:cursor-not-allowed ${
                               showResult && isCorrect
                                 ? "bg-[#dff8e7] text-[#1d7b45] ring-1 ring-[#93d8a8]"
                                 : showResult && isSelected
                                   ? "bg-[#fff0f1] text-[#b42335] ring-1 ring-[#ffc4ca]"
-                                  : "bg-white text-[#102744] ring-1 ring-[#dce6f4] hover:bg-[#eef5ff]"
+                                  : isSelected
+                                    ? "bg-[#eef5ff] text-[#245895] ring-2 ring-[#245895]"
+                                    : "bg-white text-[#102744] ring-1 ring-[#dce6f4] hover:bg-[#eef5ff]"
                             }`}
                           >
                             <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-[#eef5ff] text-[13px] font-black text-[#245895]">
@@ -656,7 +758,7 @@ export default function FlashcardsPage() {
                       })}
                     </div>
 
-                    {selectedAnswer ? (
+                    {isAnswerSubmitted ? (
                       <div
                         className={`mt-5 rounded-[8px] px-5 py-4 text-[15px] font-bold leading-7 ${
                           selectedIsCorrect
@@ -678,13 +780,25 @@ export default function FlashcardsPage() {
                       >
                         Reset
                       </button>
-                      <button
-                        type="button"
-                        onClick={nextQuizQuestion}
-                        className="h-11 cursor-pointer rounded-[8px] bg-[#245895] px-5 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86]"
-                      >
-                        Next Question
-                      </button>
+
+                      {isAnswerSubmitted ? (
+                        <button
+                          type="button"
+                          onClick={nextQuizQuestion}
+                          className="h-11 cursor-pointer rounded-[8px] bg-[#245895] px-5 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86]"
+                        >
+                          {isLastQuizQuestion ? "View Score" : "Next Question"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={submitQuizAnswer}
+                          disabled={!selectedAnswer}
+                          className="h-11 cursor-pointer rounded-[8px] bg-[#245895] px-5 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86] disabled:cursor-not-allowed disabled:bg-[#9ab0ca] disabled:shadow-none"
+                        >
+                          Submit Answer
+                        </button>
+                      )}
                     </div>
                   </>
                 ) : (

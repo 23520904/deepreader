@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 
 type ReadDocumentHeaderProps = {
   title: string;
@@ -18,6 +20,7 @@ type ReadDocumentHeaderProps = {
   onToggleFocusMode: () => void;
   onPreviousPage: () => void;
   onNextPage: () => void;
+  onJumpToPage: (pageNumber: number) => void;
   onMarkActivePageRead: () => void;
 };
 
@@ -36,8 +39,34 @@ export function ReadDocumentHeader({
   onToggleFocusMode,
   onPreviousPage,
   onNextPage,
+  onJumpToPage,
   onMarkActivePageRead,
 }: ReadDocumentHeaderProps) {
+  const [jumpPageValue, setJumpPageValue] = useState("");
+
+  useEffect(() => {
+    const match = /Page\s+(\d+)/i.exec(activePageLabel);
+    setJumpPageValue(match?.[1] ?? "");
+  }, [activePageLabel]);
+
+  function handleJumpToPage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const pageNumber = Number(jumpPageValue);
+
+    if (!Number.isFinite(pageNumber)) {
+      return;
+    }
+
+    const safePageNumber = Math.min(Math.max(pageNumber, 1), pageCount);
+
+    if (!safePageNumber) {
+      return;
+    }
+
+    onJumpToPage(safePageNumber);
+  }
+
   return (
     <>
       <Link
@@ -109,7 +138,7 @@ export function ReadDocumentHeader({
           Focus mode
         </button>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
             onClick={onPreviousPage}
@@ -130,6 +159,34 @@ export function ReadDocumentHeader({
           <span className="rounded-[999px] bg-[#f4f8ff] px-5 py-2 text-[14px] font-black text-[#5f6c82]">
             {activePageLabel}
           </span>
+
+          <form
+            onSubmit={handleJumpToPage}
+            className="flex items-center gap-2 rounded-[999px] bg-[#f4f8ff] px-3 py-2"
+          >
+            <span className="text-[13px] font-black text-[#5f6c82]">
+              Go to
+            </span>
+
+            <input
+              type="number"
+              min={1}
+              max={pageCount || 1}
+              value={jumpPageValue}
+              onChange={(event) => setJumpPageValue(event.target.value)}
+              disabled={!pageCount}
+              className="h-8 w-20 rounded-[999px] border border-[#cad6e6] bg-white px-3 text-center text-[14px] font-black text-[#102744] outline-none transition focus:border-[#245895] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Go to page"
+            />
+
+            <button
+              type="submit"
+              disabled={!pageCount}
+              className="h-8 cursor-pointer rounded-[999px] bg-[#245895] px-4 text-[12px] font-black text-white transition hover:bg-[#1d4d86] disabled:cursor-not-allowed disabled:bg-[#9ab0ca]"
+            >
+              Go
+            </button>
+          </form>
 
           <button
             type="button"

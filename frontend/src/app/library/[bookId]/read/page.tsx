@@ -717,6 +717,7 @@ export default function ReadBookPage() {
           onToggleFocusMode={() => setIsFocusMode((value) => !value)}
           onPreviousPage={() => goToPage(activePageIndex - 1)}
           onNextPage={() => goToPage(activePageIndex + 1)}
+          onJumpToPage={(pageNumber) => goToPage(pageNumber - 1)}
           onMarkActivePageRead={toggleActivePageRead}
         />
 

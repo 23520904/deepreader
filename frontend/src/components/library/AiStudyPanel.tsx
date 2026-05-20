@@ -172,7 +172,12 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > lastIndex) {
-      nodes.push(renderLabelledText(text.slice(lastIndex, match.index), `${keyPrefix}-t${lastIndex}`));
+      nodes.push(
+        renderLabelledText(
+          text.slice(lastIndex, match.index),
+          `${keyPrefix}-t${lastIndex}`,
+        ),
+      );
     }
 
     const token = match[0];
@@ -211,14 +216,18 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   }
 
   if (lastIndex < text.length) {
-    nodes.push(renderLabelledText(text.slice(lastIndex), `${keyPrefix}-t${lastIndex}`));
+    nodes.push(
+      renderLabelledText(text.slice(lastIndex), `${keyPrefix}-t${lastIndex}`),
+    );
   }
 
   return nodes;
 }
 
 function renderLabelledText(text: string, key: string) {
-  const labelMatch = /^([A-Za-zÀ-ỹ0-9][A-Za-zÀ-ỹ0-9\s/,-]{1,34}):\s+(.+)$/.exec(text);
+  const labelMatch = /^([A-Za-zÀ-ỹ0-9][A-Za-zÀ-ỹ0-9\s/,-]{1,34}):\s+(.+)$/.exec(
+    text,
+  );
 
   if (!labelMatch) {
     return <span key={key}>{text}</span>;
@@ -395,7 +404,12 @@ export function AiStudyPanel({
   const [visibleAnswerCardId, setVisibleAnswerCardId] = useState<string | null>(
     null,
   );
-  const [selectedSummaryId, setSelectedSummaryId] = useState<string | null>(null);
+  const [completedFlashcardIds, setCompletedFlashcardIds] = useState<
+    Set<string>
+  >(() => new Set());
+  const [selectedSummaryId, setSelectedSummaryId] = useState<string | null>(
+    null,
+  );
   const latestSummary = summaries[0] ?? null;
   const activeSummary =
     summaries.find((summary) => summary.id === selectedSummaryId) ??
@@ -403,6 +417,12 @@ export function AiStudyPanel({
   const activeFlashcard = flashcards[activeFlashcardIndex] ?? null;
   const isAnswerVisible = activeFlashcard
     ? visibleAnswerCardId === activeFlashcard.id
+    : false;
+  const completedFlashcardCount = flashcards.filter((card) =>
+    completedFlashcardIds.has(card.id),
+  ).length;
+  const isActiveFlashcardCompleted = activeFlashcard
+    ? completedFlashcardIds.has(activeFlashcard.id)
     : false;
 
   const boundedFlashcardCount = useMemo(
@@ -413,6 +433,30 @@ export function AiStudyPanel({
   function generateSummaryAndShowLatest() {
     setSelectedSummaryId(null);
     onGenerateSummary();
+  }
+
+  function markActiveFlashcardCompleted() {
+    if (!activeFlashcard) {
+      return;
+    }
+
+    setCompletedFlashcardIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.add(activeFlashcard.id);
+      return nextIds;
+    });
+  }
+
+  function markActiveFlashcardUncompleted() {
+    if (!activeFlashcard) {
+      return;
+    }
+
+    setCompletedFlashcardIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      nextIds.delete(activeFlashcard.id);
+      return nextIds;
+    });
   }
 
   return (
@@ -559,12 +603,29 @@ export function AiStudyPanel({
             {activeFlashcard ? (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-[24px] font-black text-[#0f2442]">
-                    Card {activeFlashcardIndex + 1} of {flashcards.length}
-                  </h3>
-                  <span className="rounded-full bg-white px-4 py-2 text-[13px] font-black text-[#5f6c82] ring-1 ring-[#dce6f4]">
-                    {formatCreatedAt(activeFlashcard.createdAt)}
-                  </span>
+                  <div>
+                    <h3 className="text-[24px] font-black text-[#0f2442]">
+                      Card {activeFlashcardIndex + 1} of {flashcards.length}
+                    </h3>
+
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span
+                        className={`rounded-full px-4 py-2 text-[13px] font-black ring-1 ${
+                          isActiveFlashcardCompleted
+                            ? "bg-[#d9f8df] text-[#2e9b55] ring-[#b8ecc5]"
+                            : "bg-[#fff7df] text-[#a66a00] ring-[#f3d487]"
+                        }`}
+                      >
+                        {isActiveFlashcardCompleted
+                          ? "Completed"
+                          : "Not completed"}
+                      </span>
+
+                      <span className="rounded-full bg-white px-4 py-2 text-[13px] font-black text-[#5f6c82] ring-1 ring-[#dce6f4]">
+                        {formatCreatedAt(activeFlashcard.createdAt)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-5 grid min-h-[300px] rounded-[12px] bg-white p-6 shadow-[inset_0_0_0_1px_#e4ebf5]">
@@ -625,15 +686,35 @@ export function AiStudyPanel({
                     </button>
                   </div>
 
-                  {isAnswerVisible ? (
-                    <button
-                      type="button"
-                      onClick={() => setVisibleAnswerCardId(null)}
-                      className="h-11 cursor-pointer rounded-[8px] bg-[#d9f8df] px-5 text-[14px] font-black text-[#2e9b55] transition hover:bg-[#c9f1d3]"
-                    >
-                      Hide Answer
-                    </button>
-                  ) : null}
+                  <div className="flex flex-wrap gap-3">
+                    {isActiveFlashcardCompleted ? (
+                      <button
+                        type="button"
+                        onClick={markActiveFlashcardUncompleted}
+                        className="h-11 cursor-pointer rounded-[8px] bg-[#fff0f1] px-5 text-[14px] font-black text-[#b42335] transition hover:bg-[#ffe1e5]"
+                      >
+                        Mark not done
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={markActiveFlashcardCompleted}
+                        className="h-11 cursor-pointer rounded-[8px] bg-[#d9f8df] px-5 text-[14px] font-black text-[#2e9b55] transition hover:bg-[#c9f1d3]"
+                      >
+                        Mark done
+                      </button>
+                    )}
+
+                    {isAnswerVisible ? (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleAnswerCardId(null)}
+                        className="h-11 cursor-pointer rounded-[8px] bg-[#eef5ff] px-5 text-[14px] font-black text-[#245895] transition hover:bg-[#dfeeff]"
+                      >
+                        Hide Answer
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </>
             ) : (
@@ -655,11 +736,22 @@ export function AiStudyPanel({
               Saved Cards
             </p>
             <p className="mt-2 text-[40px] font-black leading-none text-[#0f2442]">
-              {flashcards.length}
+              {completedFlashcardCount}/{flashcards.length}
             </p>
             <p className="mt-2 text-[14px] font-bold text-[#7a879a]">
-              cards stored
+              cards completed
             </p>
+
+            <div className="mt-4 h-3 overflow-hidden rounded-full bg-[#eef5ff]">
+              <div
+                className="h-full rounded-full bg-[#2e9b55] transition-all duration-500"
+                style={{
+                  width: flashcards.length
+                    ? `${Math.round((completedFlashcardCount / flashcards.length) * 100)}%`
+                    : "0%",
+                }}
+              />
+            </div>
 
             <label className="mt-6 block text-[14px] font-black text-[#102744]">
               New cards
@@ -687,21 +779,40 @@ export function AiStudyPanel({
 
             {flashcards.length ? (
               <div className="mt-6 flex max-h-[148px] flex-wrap gap-2 overflow-y-auto">
-                {flashcards.map((card, index) => (
-                  <button
-                    key={card.id}
-                    type="button"
-                    onClick={() => onActiveFlashcardIndexChange(index)}
-                    className={`grid h-9 w-9 cursor-pointer place-items-center rounded-[7px] text-[13px] font-black transition ${
-                      index === activeFlashcardIndex
-                        ? "bg-[#245895] text-white"
-                        : "bg-[#eef5ff] text-[#245895] hover:bg-[#dfeeff]"
-                    }`}
-                    aria-label={`Open card ${index + 1}`}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
+                {flashcards.map((card, index) => {
+                  const isActive = index === activeFlashcardIndex;
+                  const isCompleted = completedFlashcardIds.has(card.id);
+
+                  return (
+                    <button
+                      key={card.id}
+                      type="button"
+                      onClick={() => onActiveFlashcardIndexChange(index)}
+                      className={`relative grid h-9 w-9 cursor-pointer place-items-center rounded-[7px] text-[13px] font-black transition ${
+                        isActive
+                          ? "bg-[#245895] text-white shadow-[0_8px_18px_rgba(36,88,149,0.18)]"
+                          : isCompleted
+                            ? "bg-[#d9f8df] text-[#2e9b55] hover:bg-[#c9f1d3]"
+                            : "bg-[#fff7df] text-[#a66a00] hover:bg-[#ffefbf]"
+                      }`}
+                      aria-label={`Open card ${index + 1}`}
+                      title={isCompleted ? "Completed" : "Not completed"}
+                    >
+                      {index + 1}
+
+                      {/* <span
+                        className={`absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full text-[10px] font-black ring-2 ring-white ${
+                          isCompleted
+                            ? "bg-[#2e9b55] text-white"
+                            : "bg-[#f0b429] text-white"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {isCompleted ? "✓" : "!"}
+                      </span> */}
+                    </button>
+                  );
+                })}
               </div>
             ) : null}
           </aside>

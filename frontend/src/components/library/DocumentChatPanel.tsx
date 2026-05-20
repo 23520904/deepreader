@@ -101,7 +101,13 @@ function formatHistoryTime(value: string | null) {
   }).format(date);
 }
 
-function SourceLabel({ source, index }: { source: ChatSourceReference; index: number }) {
+function SourceLabel({
+  source,
+  index,
+}: {
+  source: ChatSourceReference;
+  index: number;
+}) {
   const label =
     source.title?.trim() ||
     source.fileName?.trim() ||
@@ -141,14 +147,8 @@ function ChatBubble({
   const visibleSources = message.sources?.slice(0, 3) ?? [];
 
   return (
-    <div
-      className={`flex gap-4 ${
-        isUser ? "justify-end" : "justify-start"
-      }`}
-    >
-      {!isUser ? (
-        <CatAvatar />
-      ) : null}
+    <div className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
+      {!isUser ? <CatAvatar /> : null}
 
       <div
         className={`max-w-[min(78%,760px)] ${
@@ -160,6 +160,7 @@ function ChatBubble({
             Astronaut Cat
           </span>
         ) : null}
+
         <div
           className={`rounded-[18px] px-5 py-4 shadow-[0_10px_24px_rgba(18,24,38,0.08)] ${
             isUser
@@ -210,13 +211,27 @@ export function DocumentChatPanel({
   onSendMessage,
 }: DocumentChatPanelProps) {
   const [draft, setDraft] = useState("");
+  const messagesViewportRef = useRef<HTMLDivElement | null>(null);
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
   const isSendBlocked = isSending || !draft.trim();
   const historyItems = useMemo(() => chatThreads, [chatThreads]);
 
   useEffect(() => {
-    scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [isSending, messages]);
+    const viewport = messagesViewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: "smooth",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [messages.length, isSending]);
 
   function submitMessage(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
@@ -241,8 +256,8 @@ export function DocumentChatPanel({
 
   return (
     <div className="p-6">
-      <div className="grid min-h-[640px] overflow-hidden rounded-[14px] border border-[#dce6f4] bg-white md:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="hidden border-r border-[#dce6f4] bg-[#f4f8ff] p-4 md:flex md:flex-col">
+      <div className="grid h-[74vh] min-h-[560px] max-h-[760px] overflow-hidden rounded-[14px] border border-[#dce6f4] bg-white md:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="hidden min-h-0 border-r border-[#dce6f4] bg-[#f4f8ff] p-4 md:flex md:flex-col">
           <div className="flex items-center gap-3 rounded-[10px] bg-white px-3 py-3 ring-1 ring-[#dce6f4]">
             <CatAvatar />
             <div className="min-w-0">
@@ -277,73 +292,75 @@ export function DocumentChatPanel({
             New chat
           </button>
 
-          <div className="mt-3 grid flex-1 content-start gap-2 overflow-y-auto pr-1">
+          <div className="mt-3 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto pr-1">
             {historyItems.length ? (
               historyItems.map((thread, index) => {
                 const isActive = activeThreadId === thread.id;
                 const isDeleting = deletingThreadId === thread.id;
 
                 return (
-                <div
-                  key={`history-${thread.id}`}
-                  className={`min-h-[76px] cursor-pointer rounded-[9px] px-3 py-3 text-left transition ${
-                    isActive
-                      ? "bg-[#245895] text-white shadow-[0_10px_20px_rgba(36,88,149,0.18)]"
-                      : "bg-white text-[#102744] hover:bg-[#eef5ff] hover:shadow-[0_8px_18px_rgba(36,88,149,0.08)]"
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onSelectThread(thread.id)}
-                      className="min-w-0 flex-1 cursor-pointer text-left"
-                    >
-                      <span className="block truncate text-[13px] font-black">
-                        {thread.title || `Chat ${index + 1}`}
-                      </span>
-                      <span
-                        className={`mt-1 block text-[11px] font-bold ${
-                          isActive ? "text-white/75" : "text-[#8a96aa]"
-                        }`}
+                  <div
+                    key={`history-${thread.id}`}
+                    className={`min-h-[76px] cursor-pointer rounded-[9px] px-3 py-3 text-left transition ${
+                      isActive
+                        ? "bg-[#245895] text-white shadow-[0_10px_20px_rgba(36,88,149,0.18)]"
+                        : "bg-white text-[#102744] hover:bg-[#eef5ff] hover:shadow-[0_8px_18px_rgba(36,88,149,0.08)]"
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onSelectThread(thread.id)}
+                        className="min-w-0 flex-1 cursor-pointer text-left"
                       >
-                        {formatHistoryTime(thread.updatedAt)}
-                      </span>
-                      <span
-                        className={`mt-1 block text-[11px] font-black ${
-                          isActive ? "text-white/70" : "text-[#245895]"
-                        }`}
-                      >
-                        {thread.messages.length} messages
-                      </span>
-                    </button>
+                        <span className="block truncate text-[13px] font-black">
+                          {thread.title || `Chat ${index + 1}`}
+                        </span>
+                        <span
+                          className={`mt-1 block text-[11px] font-bold ${
+                            isActive ? "text-white/75" : "text-[#8a96aa]"
+                          }`}
+                        >
+                          {formatHistoryTime(thread.updatedAt)}
+                        </span>
+                        <span
+                          className={`mt-1 block text-[11px] font-black ${
+                            isActive ? "text-white/70" : "text-[#245895]"
+                          }`}
+                        >
+                          {thread.messages.length} messages
+                        </span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => onDeleteThread(thread.id)}
-                      disabled={isDeleting || (isSending && isActive)}
-                      className={`grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-[7px] transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                        isActive
-                          ? "bg-white/15 hover:bg-white/25"
-                          : "bg-[#fff0f1] hover:bg-[#ffe1e4]"
-                      }`}
-                      aria-label={`Delete ${thread.title || `chat ${index + 1}`}`}
-                      title="Delete chat"
-                    >
-                      <Image
-                        src={TRASH_ICON}
-                        alt=""
-                        width={16}
-                        height={16}
-                        className="h-4 w-4 object-contain"
-                        style={
+                      <button
+                        type="button"
+                        onClick={() => onDeleteThread(thread.id)}
+                        disabled={isDeleting || (isSending && isActive)}
+                        className={`grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-[7px] transition disabled:cursor-not-allowed disabled:opacity-50 ${
                           isActive
-                            ? { filter: "brightness(0) invert(1)" }
-                            : undefined
-                        }
-                      />
-                    </button>
+                            ? "bg-white/15 hover:bg-white/25"
+                            : "bg-[#fff0f1] hover:bg-[#ffe1e4]"
+                        }`}
+                        aria-label={`Delete ${
+                          thread.title || `chat ${index + 1}`
+                        }`}
+                        title="Delete chat"
+                      >
+                        <Image
+                          src={TRASH_ICON}
+                          alt=""
+                          width={16}
+                          height={16}
+                          className="h-4 w-4 object-contain"
+                          style={
+                            isActive
+                              ? { filter: "brightness(0) invert(1)" }
+                              : undefined
+                          }
+                        />
+                      </button>
+                    </div>
                   </div>
-                </div>
                 );
               })
             ) : (
@@ -356,8 +373,11 @@ export function DocumentChatPanel({
           </div>
         </aside>
 
-        <div className="flex min-h-[640px] flex-col bg-[#f8fbff]">
-          <div className="flex-1 overflow-y-auto px-5 py-6">
+        <div className="flex min-h-0 flex-col bg-[#f8fbff]">
+          <div
+            ref={messagesViewportRef}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6"
+          >
             <div className="mx-auto grid max-w-[880px] gap-6">
               {messages.length ? (
                 messages.map((message) => (
@@ -378,7 +398,8 @@ export function DocumentChatPanel({
                       Chat with Astronaut Cat
                     </h3>
                     <p className="mt-3 text-[15px] font-semibold leading-7 text-[#748195]">
-                      Ask Astronaut Cat to understand the document you are reading.
+                      Ask Astronaut Cat to understand the document you are
+                      reading.
                     </p>
                   </div>
                 </div>
@@ -399,12 +420,13 @@ export function DocumentChatPanel({
 
           <form
             onSubmit={submitMessage}
-            className="border-t border-[#dce6f4] bg-white p-4"
+            className="shrink-0 border-t border-[#dce6f4] bg-white p-4"
           >
             <div className="mx-auto flex max-w-[880px] items-end gap-3 rounded-[12px] bg-[#f4f8ff] p-3 ring-1 ring-[#dce6f4] focus-within:ring-[#245895]/35">
               <label className="sr-only" htmlFor="documentChatMessage">
                 Message
               </label>
+
               <textarea
                 id="documentChatMessage"
                 value={draft}
