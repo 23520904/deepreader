@@ -3,7 +3,6 @@ package com.deepreader.ai_service.service;
 import com.deepreader.ai_service.model.DocumentSection;
 import com.deepreader.ai_service.model.IndexedDocument;
 import com.deepreader.ai_service.model.RetrievedChunk;
-import com.deepreader.ai_service.model.SupportedProvider;
 import com.deepreader.ai_service.model.api.internal.SearchResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +22,7 @@ public class RetrievalService {
 
 	private static final int DEFAULT_LIMIT = 5;
 	private static final int MAX_LIMIT = 20;
+	private static final String STUDY_PROVIDER = "groq";
 
 	private final DocumentIndexStoreService documentIndexStoreService;
 	private final EmbeddingService embeddingService;
@@ -40,30 +40,27 @@ public class RetrievalService {
 	}
 
 	public Mono<SearchResponse> search(String userId, String query, Integer requestedLimit, String provider) {
-		return Mono.fromCallable(() -> doSearch(userId, query, requestedLimit, provider)).subscribeOn(Schedulers.boundedElastic());
+		return search(userId, null, query, requestedLimit, provider);
 	}
 
-	private SearchResponse doSearch(String userId, String query, Integer requestedLimit, String provider) {
+	public Mono<SearchResponse> search(String userId, String documentId, String query, Integer requestedLimit, String provider) {
+		return Mono.fromCallable(() -> doSearch(userId, documentId, query, requestedLimit, provider)).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	private SearchResponse doSearch(String userId, String documentId, String query, Integer requestedLimit, String provider) {
 		if (!StringUtils.hasText(query)) {
 			throw new IllegalArgumentException("Query must not be blank");
 		}
 		int limit = normalizeLimit(requestedLimit);
-		String normalizedProvider = SupportedProvider.from(provider).value();
-		List<IndexedDocument> documents = documentIndexStoreService.findAll(userId);
+		String normalizedProvider = STUDY_PROVIDER;
+		List<IndexedDocument> documents = StringUtils.hasText(documentId)
+				? List.of(documentIndexStoreService.requireById(userId, documentId))
+				: documentIndexStoreService.findAll(userId);
 		if (documents.isEmpty()) {
 			throw new IllegalStateException("No indexed documents available. Upload a PDF first.");
 		}
 
 		List<RetrievedChunk> lexicalMatches = lexicalFallback(query, documents, limit);
-		try {
-			List<Float> queryVector = embeddingService.embed(normalizedProvider, query);
-			List<RetrievedChunk> semanticMatches = searchViaHaystack(normalizedProvider, queryVector, limit);
-			if (!semanticMatches.isEmpty()) {
-				return new SearchResponse(query, limit, normalizedProvider, semanticMatches);
-			}
-		} catch (RuntimeException ex) {
-			return new SearchResponse(query, limit, normalizedProvider, lexicalMatches);
-		}
 		return new SearchResponse(query, limit, normalizedProvider, lexicalMatches);
 	}
 

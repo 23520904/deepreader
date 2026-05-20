@@ -4,6 +4,7 @@ import com.deepreader.core.model.Book;
 import com.deepreader.core.model.ChapterSummary;
 import com.deepreader.core.model.ChatHistory;
 import com.deepreader.core.model.Flashcard;
+import com.deepreader.business_service.model.BookChatThreadDeleteCommand;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -63,5 +64,13 @@ public class DataServiceClient {
 
 	public Flux<ChatHistory> listChats(String bookId) {
 		return webClient.get().uri("/internal/data/v1/books/{bookId}/chats", bookId).retrieve().bodyToFlux(ChatHistory.class);
+	}
+
+	public Mono<Void> deleteChatThread(String bookId, BookChatThreadDeleteCommand command) {
+		return webClient.post()
+				.uri("/internal/data/v1/books/{bookId}/chat-threads/delete", bookId)
+				.bodyValue(command)
+				.retrieve()
+				.bodyToMono(Void.class);
 	}
 }

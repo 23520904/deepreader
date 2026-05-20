@@ -57,22 +57,22 @@ public class AiServiceClient {
 				.toEntity(byte[].class);
 	}
 
-	public Mono<AiSearchResponse> search(String userId, String query, Integer limit, String provider) {
+	public Mono<AiSearchResponse> search(String userId, String documentId, String query, Integer limit, String provider) {
 		return webClient.post()
 				.uri("/internal/ai/v1/documents/search")
 				.header("X-User-Id", userId)
 				.contentType(MediaType.APPLICATION_JSON)
-				.bodyValue(new AiSearchRequest(query, limit, provider))
+				.bodyValue(new AiSearchRequest(documentId, query, limit, provider))
 				.retrieve()
 				.bodyToMono(AiSearchResponse.class);
 	}
 
-	public Mono<AiChatResponse> chat(String userId, String query, Integer limit, String provider) {
+	public Mono<AiChatResponse> chat(String userId, String documentId, String query, Integer limit, String provider) {
 		return webClient.post()
 				.uri("/internal/ai/v1/documents/chat/ask")
 				.header("X-User-Id", userId)
 				.contentType(MediaType.APPLICATION_JSON)
-				.bodyValue(new AiChatRequest(query, limit, provider))
+				.bodyValue(new AiChatRequest(documentId, query, limit, provider))
 				.retrieve()
 				.bodyToMono(AiChatResponse.class);
 	}
@@ -147,13 +147,13 @@ public class AiServiceClient {
 	}
 
 	public record AiUploadResponse(String documentId, String fileName, int sectionCount, int chunkCount, java.util.List<String> chunkIds, java.util.List<String> indexedProviders) {}
-	public record AiDocumentContentResponse(String documentId, String fileName, java.util.List<AiDocumentSection> sections) {}
+	public record AiDocumentContentResponse(String documentId, String fileName, String provider, java.util.List<AiDocumentSection> sections) {}
 	public record AiDocumentSection(String sectionId, String title, Integer pageNumber, String summary, String content) {}
-	public record AiSearchRequest(String query, Integer limit, String provider) {}
+	public record AiSearchRequest(String documentId, String query, Integer limit, String provider) {}
 	public record AiSearchResponse(String query, int limit, String provider, java.util.List<AiRetrievedChunk> matches) {}
 	public record AiRetrievedChunk(String documentId, String chunkId, String fileName, String sectionId, String title, Integer chunkIndex, String content, float score) {}
-	public record AiChatRequest(String query, Integer limit, String provider) {}
-	public record AiChatResponse(String query, String answer, java.util.List<AiSourceReference> sources) {}
+	public record AiChatRequest(String documentId, String query, Integer limit, String provider) {}
+	public record AiChatResponse(String query, String answer, java.util.List<AiSourceReference> sources, String threadId) {}
 	public record AiSourceReference(String documentId, String chunkId, String fileName, String sectionId, String title, Integer chunkIndex, String content, float score) {}
 	public record AiSummaryRequest(String documentId, String provider) {}
 	public record AiSummaryResponse(String documentId, String provider, String summary) {}

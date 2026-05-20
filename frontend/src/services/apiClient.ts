@@ -61,7 +61,7 @@ export function unwrapErrorMessage(value: string, maxDepth = 4) {
 
 export function friendlyProviderError(message: string) {
   if (message.includes("invalid_api_key") || message.includes("Incorrect API key")) {
-    return "The selected AI provider rejected the API key. Update your provider key or the LLM token saved in your profile, then retry.";
+    return "Groq rejected the API key. Update the Groq key or the LLM token saved in your profile, then retry.";
   }
 
   if (
@@ -69,7 +69,7 @@ export function friendlyProviderError(message: string) {
     message.toLowerCase().includes("quota") ||
     message.includes("TOO_MANY_REQUESTS")
   ) {
-    return "The selected AI provider quota or rate limit was exceeded. Check billing/quota settings or retry later.";
+    return "Groq quota or rate limit was exceeded. Check billing/quota settings or retry later.";
   }
 
   return message;

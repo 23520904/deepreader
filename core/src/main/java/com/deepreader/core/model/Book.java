@@ -12,5 +12,6 @@ public class Book {
     private String status; // PROCESSING, READY
     private Integer totalChapters;
     private String format; // PDF, EPUB
+    private String provider; // groq
     private LocalDateTime createdAt;
 }

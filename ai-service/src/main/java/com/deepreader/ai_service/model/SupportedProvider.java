@@ -9,7 +9,7 @@ public enum SupportedProvider {
 
 	public static SupportedProvider from(String value) {
 		if (value == null || value.isBlank()) {
-			return GEMINI;
+			return GROQ;
 		}
 		return SupportedProvider.valueOf(value.trim().toUpperCase(Locale.ROOT));
 	}

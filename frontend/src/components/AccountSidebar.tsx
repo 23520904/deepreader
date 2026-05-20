@@ -18,7 +18,7 @@ const sidebarItems = [
   },
   {
     label: "FLASHCARDS",
-    href: "/#flashcards",
+    href: "/flashcards",
     icon: "/assets/icons/sidebar/flashcard-icon.png",
   },
 ] as const;

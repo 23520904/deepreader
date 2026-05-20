@@ -45,7 +45,7 @@ export const quickLinks = [
   },
   {
     title: "Eager to review smarter with AI?",
-    href: "/#flashcards",
+    href: "/flashcards",
     label: "Explore Flashcards",
   },
   {

@@ -18,6 +18,10 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 @Service
 public class LibraryDataService {
 
@@ -73,6 +77,36 @@ public class LibraryDataService {
 
 	public Mono<ChatHistory> saveChatHistory(ChatHistory chatHistory) { return chatHistoryRepository.save(chatHistory); }
 	public Flux<ChatHistory> findChatHistoryByBook(String bookId) { return chatHistoryRepository.findByBookIdOrderByTimestampAsc(bookId); }
+	public Mono<Void> deleteChatThread(String bookId, String threadId, List<String> messageIds) {
+		String normalizedThreadId = threadId == null ? "" : threadId.trim();
+		Set<String> normalizedMessageIds = new HashSet<>();
+
+		if (messageIds != null) {
+			for (String messageId : messageIds) {
+				if (messageId != null && !messageId.isBlank()) {
+					normalizedMessageIds.add(messageId.trim());
+				}
+			}
+		}
+
+		if (normalizedThreadId.isBlank() && normalizedMessageIds.isEmpty()) {
+			return Mono.empty();
+		}
+
+		return findChatHistoryByBook(bookId)
+				.filter(chatHistory -> {
+					boolean matchesThread = !normalizedThreadId.isBlank()
+							&& normalizedThreadId.equals(chatHistory.getThreadId());
+					boolean matchesMessage = chatHistory.getId() != null
+							&& normalizedMessageIds.contains(chatHistory.getId());
+
+					return matchesThread || matchesMessage;
+				})
+				.collectList()
+				.flatMap(chatHistories -> chatHistories.isEmpty()
+						? Mono.empty()
+						: chatHistoryRepository.deleteAll(chatHistories));
+	}
 
 	public Mono<ReadingSession> saveReadingSession(ReadingSession readingSession) { return readingSessionRepository.save(readingSession); }
 	public Flux<ReadingSession> findReadingSessionsByBook(String bookId) { return readingSessionRepository.findByBookId(bookId); }

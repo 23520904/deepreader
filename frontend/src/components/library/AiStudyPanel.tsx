@@ -1,27 +1,49 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState, type ReactNode } from "react";
-import type { AiStudyTab, FlashcardView, SummaryView } from "@/types/study";
+import { DocumentChatPanel } from "@/components/library/DocumentChatPanel";
+import type {
+  AiStudyTab,
+  ChatMessageView,
+  ChatThreadView,
+  FlashcardView,
+  SummaryView,
+} from "@/types/study";
 
-export type { AiStudyTab, FlashcardView, SummaryView } from "@/types/study";
+export type {
+  AiStudyTab,
+  ChatMessageView,
+  ChatThreadView,
+  FlashcardView,
+  SummaryView,
+} from "@/types/study";
 
 type AiStudyPanelProps = {
   activeTab: AiStudyTab;
-  provider: string;
   summaries: SummaryView[];
   flashcards: FlashcardView[];
+  chatMessages: ChatMessageView[];
+  chatThreads: ChatThreadView[];
+  activeChatThreadId: string | null;
   flashcardCount: number;
   activeFlashcardIndex: number;
   isLoading: boolean;
   isGeneratingSummary: boolean;
   isGeneratingFlashcards: boolean;
+  isSendingChatMessage: boolean;
+  deletingChatThreadId: string;
   errorMessage: string;
+  userAvatarUrl?: string | null;
   onActiveTabChange: (tab: AiStudyTab) => void;
-  onProviderChange: (provider: string) => void;
   onFlashcardCountChange: (count: number) => void;
   onActiveFlashcardIndexChange: (index: number) => void;
+  onNewChat: () => void;
+  onSelectChatThread: (threadId: string) => void;
+  onDeleteChatThread: (threadId: string) => void;
   onGenerateSummary: () => void;
   onGenerateFlashcards: () => void;
+  onSendChatMessage: (message: string) => void;
 };
 
 type SummaryBlock =
@@ -46,18 +68,6 @@ function formatCreatedAt(value: string | null) {
     day: "numeric",
     year: "numeric",
   }).format(date);
-}
-
-function providerLabel(provider: string) {
-  if (provider.toLowerCase() === "groq") {
-    return "Groq";
-  }
-
-  if (provider.toLowerCase() === "openai") {
-    return "OpenAI";
-  }
-
-  return "Gemini";
 }
 
 function parseSummaryBlocks(content: string) {
@@ -296,57 +306,91 @@ function SummaryRenderer({ content }: { content: string }) {
   );
 }
 
-function SparkIcon() {
+const studyToolIcons = {
+  summary: "/assets/icons/home/magic-icon.png",
+  flashcards: "/assets/icons/home/stack-icon.png",
+  chat: "/assets/icons/home/chat-icon.png",
+} satisfies Record<AiStudyTab, string>;
+
+const studyIconTint = {
+  filter:
+    "invert(26%) sepia(89%) saturate(1558%) hue-rotate(222deg) brightness(91%) contrast(88%)",
+};
+
+function StudyToolIcon({
+  tab,
+  active = false,
+}: {
+  tab: AiStudyTab;
+  active?: boolean;
+}) {
   return (
-    <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
-      <path
-        d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3ZM18 15l.9 2.6 2.6.9-2.6.9L18 21l-.9-2.6-2.6-.9 2.6-.9L18 15Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      />
-    </svg>
+    <Image
+      src={studyToolIcons[tab]}
+      alt=""
+      width={20}
+      height={20}
+      unoptimized
+      className="h-5 w-5 shrink-0 object-contain"
+      style={active ? { filter: "brightness(0) invert(1)" } : studyIconTint}
+    />
   );
 }
 
-function CardsIcon() {
+function StudyTabButton({
+  tab,
+  activeTab,
+  label,
+  onClick,
+}: {
+  tab: AiStudyTab;
+  activeTab: AiStudyTab;
+  label: string;
+  onClick: () => void;
+}) {
+  const isActive = activeTab === tab;
+
   return (
-    <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
-      <path
-        d="M7 7.5h10M7 12h7M6 4h12a2 2 0 0 1 2 2v10.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      />
-      <path
-        d="M8 20h8"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="2"
-      />
-    </svg>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-11 cursor-pointer items-center gap-2 rounded-[8px] px-5 text-[14px] font-black transition ${
+        isActive
+          ? "bg-[#245895] text-white shadow-[0_10px_20px_rgba(36,88,149,0.18)]"
+          : "bg-[#eef5ff] text-[#245895] hover:bg-[#dfeeff]"
+      }`}
+    >
+      <StudyToolIcon tab={tab} active={isActive} />
+      {label}
+    </button>
   );
 }
 
 export function AiStudyPanel({
   activeTab,
-  provider,
   summaries,
   flashcards,
+  chatMessages,
+  chatThreads,
+  activeChatThreadId,
   flashcardCount,
   activeFlashcardIndex,
   isLoading,
   isGeneratingSummary,
   isGeneratingFlashcards,
+  isSendingChatMessage,
+  deletingChatThreadId,
   errorMessage,
+  userAvatarUrl,
   onActiveTabChange,
-  onProviderChange,
   onFlashcardCountChange,
   onActiveFlashcardIndexChange,
+  onNewChat,
+  onSelectChatThread,
+  onDeleteChatThread,
   onGenerateSummary,
   onGenerateFlashcards,
+  onSendChatMessage,
 }: AiStudyPanelProps) {
   const [visibleAnswerCardId, setVisibleAnswerCardId] = useState<string | null>(
     null,
@@ -373,66 +417,36 @@ export function AiStudyPanel({
 
   return (
     <section className="mt-6 overflow-hidden rounded-[14px] bg-white shadow-[0_14px_30px_rgba(18,24,38,0.08)] ring-1 ring-[#dce6f4]">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#dce6f4] px-6 py-5">
+      <div className="border-b border-[#dce6f4] px-6 py-5">
         <div>
           <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#5f6c82]">
             AI Study
           </p>
           <h2 className="mt-1 text-[28px] font-black leading-tight text-[#0f2442]">
-            Summary & Flashcards
+            Summary, Flashcards & Chat
           </h2>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="text-[13px] font-black uppercase tracking-[0.12em] text-[#6c778b]">
-            Provider
-          </label>
-          <select
-            value={provider}
-            onChange={(event) => onProviderChange(event.target.value)}
-            className="h-11 rounded-[8px] border border-[#cad6e6] bg-[#f8fbff] px-4 text-[14px] font-black text-[#102744] outline-none transition focus:border-[#245895]"
-          >
-            <option value="gemini">Gemini</option>
-            <option value="groq">Groq</option>
-            <option value="openai">OpenAI</option>
-          </select>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-3 px-6 pt-5">
-        <button
-          type="button"
+        <StudyTabButton
+          tab="summary"
+          activeTab={activeTab}
+          label="Summary"
           onClick={() => onActiveTabChange("summary")}
-          className={`inline-flex h-11 cursor-pointer items-center gap-2 rounded-[8px] px-5 text-[14px] font-black transition ${
-            activeTab === "summary"
-              ? "bg-[#245895] text-white shadow-[0_10px_20px_rgba(36,88,149,0.18)]"
-              : "bg-[#eef5ff] text-[#245895] hover:bg-[#dfeeff]"
-          }`}
-        >
-          <SparkIcon />
-          Summary
-        </button>
-
-        <button
-          type="button"
+        />
+        <StudyTabButton
+          tab="flashcards"
+          activeTab={activeTab}
+          label="Flashcards"
           onClick={() => onActiveTabChange("flashcards")}
-          className={`inline-flex h-11 cursor-pointer items-center gap-2 rounded-[8px] px-5 text-[14px] font-black transition ${
-            activeTab === "flashcards"
-              ? "bg-[#245895] text-white shadow-[0_10px_20px_rgba(36,88,149,0.18)]"
-              : "bg-[#eef5ff] text-[#245895] hover:bg-[#dfeeff]"
-          }`}
-        >
-          <CardsIcon />
-          Flashcards
-        </button>
-
-        <button
-          type="button"
-          disabled
-          className="h-11 cursor-not-allowed rounded-[8px] bg-[#f2f4f8] px-5 text-[14px] font-black text-[#98a2b3]"
-        >
-          Chat Soon
-        </button>
+        />
+        <StudyTabButton
+          tab="chat"
+          activeTab={activeTab}
+          label="Chat"
+          onClick={() => onActiveTabChange("chat")}
+        />
       </div>
 
       {errorMessage ? (
@@ -456,9 +470,6 @@ export function AiStudyPanel({
                     {selectedSummaryId ? "Saved Summary" : "Latest Summary"}
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-white px-4 py-2 text-[13px] font-black text-[#245895] ring-1 ring-[#dce6f4]">
-                      {providerLabel(activeSummary.model)}
-                    </span>
                     <span className="rounded-full bg-white px-4 py-2 text-[13px] font-black text-[#5f6c82] ring-1 ring-[#dce6f4]">
                       {formatCreatedAt(activeSummary.createdAt)}
                     </span>
@@ -500,7 +511,7 @@ export function AiStudyPanel({
               disabled={isGeneratingSummary}
               className="mt-7 inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] bg-[#245895] px-5 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86] disabled:cursor-not-allowed disabled:bg-[#9ab0ca] disabled:shadow-none"
             >
-              <SparkIcon />
+              <StudyToolIcon tab="summary" active />
               {isGeneratingSummary ? "Generating..." : "Generate Summary"}
             </button>
 
@@ -532,7 +543,6 @@ export function AiStudyPanel({
                             isActive ? "text-white/75" : "text-[#7a879a]"
                           }`}
                         >
-                          {providerLabel(summary.model)} ·{" "}
                           {formatCreatedAt(summary.createdAt)}
                         </span>
                       </button>
@@ -543,7 +553,7 @@ export function AiStudyPanel({
             ) : null}
           </aside>
         </div>
-      ) : (
+      ) : activeTab === "flashcards" ? (
         <div className="grid gap-5 p-6 lg:grid-cols-[minmax(0,1fr)_300px]">
           <article className="rounded-[12px] border border-[#dce6f4] bg-[#f8fbff] p-6">
             {activeFlashcard ? (
@@ -671,7 +681,7 @@ export function AiStudyPanel({
               disabled={isGeneratingFlashcards}
               className="mt-5 inline-flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[8px] bg-[#245895] px-5 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86] disabled:cursor-not-allowed disabled:bg-[#9ab0ca] disabled:shadow-none"
             >
-              <CardsIcon />
+              <StudyToolIcon tab="flashcards" active />
               {isGeneratingFlashcards ? "Generating..." : "Generate Cards"}
             </button>
 
@@ -696,6 +706,19 @@ export function AiStudyPanel({
             ) : null}
           </aside>
         </div>
+      ) : (
+        <DocumentChatPanel
+          messages={chatMessages}
+          chatThreads={chatThreads}
+          activeThreadId={activeChatThreadId}
+          isSending={isSendingChatMessage}
+          deletingThreadId={deletingChatThreadId}
+          userAvatarUrl={userAvatarUrl}
+          onNewChat={onNewChat}
+          onSelectThread={onSelectChatThread}
+          onDeleteThread={onDeleteChatThread}
+          onSendMessage={onSendChatMessage}
+        />
       )}
     </section>
   );

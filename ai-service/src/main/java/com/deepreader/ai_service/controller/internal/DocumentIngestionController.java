@@ -184,7 +184,7 @@ public class DocumentIngestionController {
 	) {
 		String userId = requireUserId(userIdHeader);
 		guardrailService.enforceDailyLimit(userId, "LLM_REQUESTS", 1, guardrailProperties.getMaxLlmRequestsPerDay());
-		return retrievalService.search(userId, request.query(), request.limit(), request.provider());
+		return retrievalService.search(userId, request.documentId(), request.query(), request.limit(), request.provider());
 	}
 
 	@PostMapping(value = "/chat/ask", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -195,7 +195,7 @@ public class DocumentIngestionController {
 	) {
 		String userId = requireUserId(userIdHeader);
 		guardrailService.enforceDailyLimit(userId, "LLM_REQUESTS", 1, guardrailProperties.getMaxLlmRequestsPerDay());
-		return chatService.ask(userId, request.query(), request.limit(), request.provider());
+		return chatService.ask(userId, request.documentId(), request.query(), request.limit(), request.provider());
 	}
 
 	@PostMapping(value = "/summary", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)

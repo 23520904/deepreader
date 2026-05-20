@@ -4,12 +4,16 @@ import {
   friendlyProviderError,
 } from "@/services/apiClient";
 import type {
+  ChatGenerationResponse,
+  ChatHistoryRecord,
   DocumentContentResponse,
   FlashcardGenerationResponse,
   FlashcardRecord,
   SummaryGenerationResponse,
   SummaryRecord,
 } from "@/types/reading";
+
+const STUDY_PROVIDER = "groq";
 
 export function fetchDocumentContent(token: string, bookId: string) {
   return apiRequestJson<DocumentContentResponse>(
@@ -52,17 +56,72 @@ export function fetchDocumentFlashcards(token: string, bookId: string) {
   );
 }
 
-export function generateDocumentSummary(
-  token: string,
-  bookId: string,
-  provider: string,
-) {
+export function fetchDocumentChats(token: string, bookId: string) {
+  return apiRequestJson<ChatHistoryRecord[]>(
+    `/api/v1/books/${encodeURIComponent(bookId)}/chats`,
+    {
+      token,
+      fallbackError: "Could not load saved chat history.",
+      transformErrorMessage: friendlyProviderError,
+    },
+  );
+}
+
+export function deleteDocumentChatThread({
+  token,
+  bookId,
+  threadId,
+  messageIds,
+}: {
+  token: string;
+  bookId: string;
+  threadId: string;
+  messageIds: string[];
+}) {
+  return apiRequestJson<unknown>(
+    `/api/v1/books/${encodeURIComponent(bookId)}/chat-threads/delete`,
+    {
+      token,
+      method: "POST",
+      body: JSON.stringify({ threadId, messageIds }),
+      fallbackError: "Could not delete this chat.",
+      transformErrorMessage: friendlyProviderError,
+    },
+  );
+}
+
+export function sendDocumentChatMessage({
+  token,
+  bookId,
+  query,
+  threadId,
+  limit = 4,
+}: {
+  token: string;
+  bookId: string;
+  query: string;
+  threadId: string;
+  limit?: number;
+}) {
+  return apiRequestJson<ChatGenerationResponse>(
+    `/api/v1/books/${encodeURIComponent(bookId)}/chat`,
+    {
+      token,
+      method: "POST",
+      body: JSON.stringify({ provider: STUDY_PROVIDER, query, limit, threadId }),
+      fallbackError: "Could not answer this question.",
+      transformErrorMessage: friendlyProviderError,
+    },
+  );
+}
+
+export function generateDocumentSummary(token: string, bookId: string) {
   return apiRequestJson<SummaryGenerationResponse>(
     `/api/v1/books/${encodeURIComponent(bookId)}/summary`,
     {
       token,
       method: "POST",
-      body: JSON.stringify({ provider }),
+      body: JSON.stringify({ provider: STUDY_PROVIDER }),
       fallbackError: "Could not generate this summary.",
       transformErrorMessage: friendlyProviderError,
     },
@@ -72,12 +131,10 @@ export function generateDocumentSummary(
 export function generateDocumentFlashcards({
   token,
   bookId,
-  provider,
   count,
 }: {
   token: string;
   bookId: string;
-  provider: string;
   count: number;
 }) {
   return apiRequestJson<FlashcardGenerationResponse>(
@@ -85,7 +142,7 @@ export function generateDocumentFlashcards({
     {
       token,
       method: "POST",
-      body: JSON.stringify({ provider, count }),
+      body: JSON.stringify({ provider: STUDY_PROVIDER, count }),
       fallbackError: "Could not generate flashcards.",
       transformErrorMessage: friendlyProviderError,
     },

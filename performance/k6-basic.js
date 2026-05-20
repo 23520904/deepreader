@@ -28,7 +28,7 @@ export const options = {
 const baseUrl = __ENV.BASE_URL || "http://localhost:8083";
 const email = __ENV.TEST_EMAIL || "k6@example.com";
 const password = __ENV.TEST_PASSWORD || "password123";
-const provider = __ENV.PROVIDER || "gemini";
+const provider = __ENV.PROVIDER || "groq";
 const bookId = __ENV.TEST_BOOK_ID || "book-id-required";
 
 function getToken() {

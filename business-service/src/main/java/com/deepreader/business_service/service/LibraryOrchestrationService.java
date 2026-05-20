@@ -2,6 +2,7 @@ package com.deepreader.business_service.service;
 
 import com.deepreader.business_service.client.AiServiceClient;
 import com.deepreader.business_service.client.DataServiceClient;
+import com.deepreader.business_service.model.BookChatThreadDeleteCommand;
 import com.deepreader.business_service.model.BookFlashcardCommand;
 import com.deepreader.business_service.model.BookQueryRequest;
 import com.deepreader.business_service.model.BookSummaryCommand;
@@ -22,9 +23,12 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 public class LibraryOrchestrationService {
+
+	private static final String STUDY_PROVIDER = "groq";
 
 	private final AiServiceClient aiServiceClient;
 	private final DataServiceClient dataServiceClient;
@@ -45,8 +49,9 @@ public class LibraryOrchestrationService {
 			org.springframework.core.io.buffer.DataBufferUtils.release(dataBuffer);
 			out.write(bytes, 0, bytes.length);
 			return out;
-		}).flatMap(out -> aiServiceClient.uploadDocument(userId, provider, filePart.filename(), out.toByteArray()))
+		}).flatMap(out -> aiServiceClient.uploadDocument(userId, STUDY_PROVIDER, filePart.filename(), out.toByteArray()))
 				.flatMap(upload -> {
+					String documentProvider = STUDY_PROVIDER;
 					Book book = new Book();
 					book.setUserId(userId);
 					book.setAiDocumentId(upload.documentId());
@@ -54,13 +59,14 @@ public class LibraryOrchestrationService {
 					book.setStatus("READY");
 					book.setTotalChapters(upload.sectionCount());
 					book.setFormat(resolveFormat(upload.fileName()));
+					book.setProvider(documentProvider);
 					book.setCreatedAt(LocalDateTime.now());
 					return dataServiceClient.saveBook(book)
 							.map(saved -> {
 								bookEventPublisher.publish("BOOK_UPLOADED", userId, saved.getId(),
-										Map.of("provider", provider == null ? "gemini" : provider,
+										Map.of("provider", documentProvider,
 												"chunkCount", upload.chunkCount()));
-								return new BookUploadResponse(saved, provider == null ? "gemini" : provider, upload.documentId(), upload.sectionCount(), upload.chunkCount());
+								return new BookUploadResponse(saved, documentProvider, upload.documentId(), upload.sectionCount(), upload.chunkCount());
 							});
 				});
 	}
@@ -97,7 +103,13 @@ public class LibraryOrchestrationService {
 						return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Indexed document not found"));
 					}
 
-					return aiServiceClient.getDocumentContent(userId, book.getAiDocumentId());
+					return aiServiceClient.getDocumentContent(userId, book.getAiDocumentId())
+							.map(content -> new AiServiceClient.AiDocumentContentResponse(
+									content.documentId(),
+									content.fileName(),
+									STUDY_PROVIDER,
+									content.sections()
+							));
 				});
 	}
 
@@ -119,34 +131,50 @@ public class LibraryOrchestrationService {
 
 	public Mono<AiServiceClient.AiSearchResponse> searchBook(String bookId, BookQueryRequest request) {
 		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.search(book.getUserId(), request.query(), request.limit(), request.provider()));
+				.flatMap(book -> {
+					if (book.getAiDocumentId() == null || book.getAiDocumentId().isBlank()) {
+						return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Indexed document not found"));
+					}
+
+					return aiServiceClient.search(book.getUserId(), book.getAiDocumentId(), request.query(), request.limit(), STUDY_PROVIDER);
+				});
 	}
 
 	public Mono<AiServiceClient.AiChatResponse> chatWithBook(String bookId, BookQueryRequest request) {
 		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.chat(book.getUserId(), request.query(), request.limit(), request.provider())
+				.flatMap(book -> {
+					if (book.getAiDocumentId() == null || book.getAiDocumentId().isBlank()) {
+						return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Indexed document not found"));
+					}
+
+					String threadId = normalizeThreadId(request.threadId());
+					String documentProvider = STUDY_PROVIDER;
+					return aiServiceClient.chat(book.getUserId(), book.getAiDocumentId(), request.query(), request.limit(), documentProvider)
 						.flatMap(response -> {
 							ChatHistory userMessage = new ChatHistory();
 							userMessage.setBookId(bookId);
 							userMessage.setUserId(book.getUserId());
+							userMessage.setThreadId(threadId);
 							userMessage.setRole("user");
 							userMessage.setContent(request.query());
 							userMessage.setTimestamp(LocalDateTime.now());
 							ChatHistory assistantMessage = new ChatHistory();
 							assistantMessage.setBookId(bookId);
 							assistantMessage.setUserId(book.getUserId());
+							assistantMessage.setThreadId(threadId);
 							assistantMessage.setRole("assistant");
 							assistantMessage.setContent(response.answer());
 							assistantMessage.setTimestamp(LocalDateTime.now());
 							return dataServiceClient.saveChat(userMessage)
 									.then(dataServiceClient.saveChat(assistantMessage))
-									.thenReturn(response);
-						}));
+									.thenReturn(new AiServiceClient.AiChatResponse(response.query(), response.answer(), response.sources(), threadId));
+						});
+				});
 	}
 
 	public Mono<AiServiceClient.AiSummaryResponse> summarizeBook(String bookId, BookSummaryCommand command) {
 		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.summarize(book.getUserId(), book.getAiDocumentId(), command.provider())
+				.flatMap(book -> aiServiceClient.summarize(book.getUserId(), book.getAiDocumentId(), STUDY_PROVIDER)
 						.flatMap(summary -> {
 							ChapterSummary entity = new ChapterSummary();
 							entity.setBookId(bookId);
@@ -165,7 +193,7 @@ public class LibraryOrchestrationService {
 
 	public Mono<AiServiceClient.AiFlashcardResponse> generateFlashcards(String bookId, BookFlashcardCommand command) {
 		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.flashcards(book.getUserId(), book.getAiDocumentId(), command.provider(), command.count())
+				.flatMap(book -> aiServiceClient.flashcards(book.getUserId(), book.getAiDocumentId(), STUDY_PROVIDER, command.count())
 						.flatMap(response -> dataServiceClient.saveFlashcards(response.flashcards().stream().map(card -> {
 									Flashcard flashcard = new Flashcard();
 									flashcard.setBookId(bookId);
@@ -195,11 +223,43 @@ public class LibraryOrchestrationService {
 		return dataServiceClient.listChats(bookId);
 	}
 
+	public Mono<Void> deleteChatThread(String userId, String bookId, BookChatThreadDeleteCommand command) {
+		return dataServiceClient.getBook(bookId)
+				.switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found")))
+				.flatMap(book -> {
+					if (!userId.equals(book.getUserId())) {
+						return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot edit this book"));
+					}
+
+					return dataServiceClient.deleteChatThread(bookId, command);
+				});
+	}
+
 	private String resolveFormat(String fileName) {
 		if (fileName == null) return "UNKNOWN";
 		String lower = fileName.toLowerCase(Locale.ROOT);
 		if (lower.endsWith(".pdf")) return "PDF";
 		if (lower.endsWith(".epub")) return "EPUB";
 		return "UNKNOWN";
+	}
+
+	private String resolveProvider(String primaryProvider, String fallbackProvider) {
+		return STUDY_PROVIDER;
+	}
+
+	private String resolveProvider(String requestedProvider, java.util.List<String> indexedProviders) {
+		return STUDY_PROVIDER;
+	}
+
+	private String normalizeProvider(String provider) {
+		return STUDY_PROVIDER;
+	}
+
+	private String normalizeThreadId(String threadId) {
+		if (threadId != null && !threadId.isBlank()) {
+			return threadId.trim();
+		}
+
+		return UUID.randomUUID().toString();
 	}
 }

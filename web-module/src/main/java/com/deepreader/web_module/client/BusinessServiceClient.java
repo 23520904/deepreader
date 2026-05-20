@@ -4,6 +4,7 @@ import com.deepreader.business_service.model.BookFlashcardCommand;
 import com.deepreader.business_service.model.BookQueryRequest;
 import com.deepreader.business_service.model.BookSummaryCommand;
 import com.deepreader.business_service.model.BookUploadResponse;
+import com.deepreader.business_service.model.BookChatThreadDeleteCommand;
 import com.deepreader.business_service.client.AiServiceClient;
 import com.deepreader.core.model.Book;
 import com.deepreader.core.model.ChapterSummary;
@@ -95,6 +96,15 @@ public class BusinessServiceClient {
 	public Flux<ChapterSummary> listSummaries(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/summaries", bookId).retrieve().bodyToFlux(ChapterSummary.class); }
 	public Flux<Flashcard> listFlashcards(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/flashcards", bookId).retrieve().bodyToFlux(Flashcard.class); }
 	public Flux<ChatHistory> listChats(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/chats", bookId).retrieve().bodyToFlux(ChatHistory.class); }
+	public Mono<Void> deleteChatThread(String userId, String bookId, BookChatThreadDeleteCommand command) {
+		return webClient.post()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/chat-threads/delete")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.bodyValue(command)
+				.retrieve()
+				.bodyToMono(Void.class);
+	}
 
 	public Mono<java.util.Map> analyzeImage(String userId, String provider, String prompt, byte[] content, String mimeType) {
 		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();

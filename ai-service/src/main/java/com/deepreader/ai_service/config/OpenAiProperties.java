@@ -13,7 +13,7 @@ public class OpenAiProperties {
 	@NotBlank
 	private String baseUrl = "https://api.openai.com/v1";
 	@NotBlank
-	private String chatModel = "gpt-4o-mini";
+	private String chatModel = "o4-mini";
 	@NotBlank
 	private String embeddingModel = "text-embedding-3-small";
 
