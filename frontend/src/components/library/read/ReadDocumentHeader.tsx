@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
 type ReadDocumentHeaderProps = {
@@ -42,17 +41,13 @@ export function ReadDocumentHeader({
   onJumpToPage,
   onMarkActivePageRead,
 }: ReadDocumentHeaderProps) {
-  const [jumpPageValue, setJumpPageValue] = useState("");
-
-  useEffect(() => {
-    const match = /Page\s+(\d+)/i.exec(activePageLabel);
-    setJumpPageValue(match?.[1] ?? "");
-  }, [activePageLabel]);
+  const activePageNumber = /Page\s+(\d+)/i.exec(activePageLabel)?.[1] ?? "";
 
   function handleJumpToPage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const pageNumber = Number(jumpPageValue);
+    const formData = new FormData(event.currentTarget);
+    const pageNumber = Number(formData.get("jumpPage"));
 
     if (!Number.isFinite(pageNumber)) {
       return;
@@ -169,11 +164,12 @@ export function ReadDocumentHeader({
             </span>
 
             <input
+              key={activePageNumber}
+              name="jumpPage"
               type="number"
               min={1}
               max={pageCount || 1}
-              value={jumpPageValue}
-              onChange={(event) => setJumpPageValue(event.target.value)}
+              defaultValue={activePageNumber}
               disabled={!pageCount}
               className="h-8 w-20 rounded-[999px] border border-[#cad6e6] bg-white px-3 text-center text-[14px] font-black text-[#102744] outline-none transition focus:border-[#245895] disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Go to page"

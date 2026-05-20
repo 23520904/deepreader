@@ -6,84 +6,43 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
-import { getAuthSessionSnapshot, subscribeAuthSession } from "@/lib/authSession";
+import {
+  getAuthSessionSnapshot,
+  subscribeAuthSession,
+} from "@/lib/authSession";
+import {
+  applyCardOverrides,
+  buildStudyDecks,
+  CARD_EDITS_KEY,
+  createdAtTime,
+  DOCUMENT_ICON,
+  formatDate,
+  formatShortDate,
+  HIDDEN_CARDS_KEY,
+  safeReadStorage,
+  STACK_ICON,
+  STUDY_STATE_KEY,
+  writeStorage,
+  type CardEdit,
+  type CardProgress,
+  type DeckSortMode,
+  type StatusFilter,
+  type StudyDeck,
+  type StudyFlashcard,
+} from "@/lib/flashcardStudy";
 import { mapBackendBook } from "@/lib/library";
-import { normalizeFlashcardRecords } from "@/lib/reading";
+import {
+  createGeneratedFlashcardViews,
+  normalizeFlashcardRecords,
+} from "@/lib/reading";
 import { fetchLibraryBooks } from "@/services/libraryService";
-import { fetchDocumentFlashcards } from "@/services/readingService";
+import {
+  fetchDocumentFlashcards,
+  generateDocumentFlashcards,
+} from "@/services/readingService";
 import type { LibraryDocument } from "@/types/library";
-import type { FlashcardView } from "@/types/study";
 
-type FlashcardMode = "review" | "quiz";
-
-type StudyFlashcard = FlashcardView & {
-  bookId: string;
-  bookTitle: string;
-  bookFormat: LibraryDocument["format"];
-};
-
-const FLASHCARD_ICON = "/assets/icons/sidebar/flashcard-icon.png";
-
-function createdAtTime(value: string | null) {
-  if (!value) {
-    return 0;
-  }
-
-  const time = new Date(value).getTime();
-  return Number.isNaN(time) ? 0 : time;
-}
-
-function formatDate(value: string | null) {
-  if (!value) {
-    return "Recently";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Recently";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-}
-
-function shuffleItems<T>(items: T[]) {
-  const nextItems = [...items];
-
-  for (let index = nextItems.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [nextItems[index], nextItems[swapIndex]] = [
-      nextItems[swapIndex],
-      nextItems[index],
-    ];
-  }
-
-  return nextItems;
-}
-
-function uniqueValues(values: string[]) {
-  return Array.from(
-    new Set(values.map((value) => value.trim()).filter(Boolean)),
-  );
-}
-
-function makeQuizOptions(card: StudyFlashcard | null, cards: StudyFlashcard[]) {
-  if (!card) {
-    return [];
-  }
-
-  const distractors = uniqueValues(
-    cards
-      .filter((candidate) => candidate.id !== card.id)
-      .map((candidate) => candidate.answer),
-  ).slice(0, 12);
-
-  return shuffleItems([card.answer, ...shuffleItems(distractors).slice(0, 3)]);
-}
+type CreateStep = 1 | 2 | 3;
 
 export default function FlashcardsPage() {
   const router = useRouter();
@@ -95,18 +54,38 @@ export default function FlashcardsPage() {
 
   const [documents, setDocuments] = useState<LibraryDocument[]>([]);
   const [flashcards, setFlashcards] = useState<StudyFlashcard[]>([]);
-  const [selectedBookId, setSelectedBookId] = useState("all");
+  const [studyProgress, setStudyProgress] = useState<
+    Record<string, CardProgress>
+  >(() => safeReadStorage(STUDY_STATE_KEY, {}));
+  const [cardEdits] = useState<Record<string, CardEdit>>(() =>
+    safeReadStorage(CARD_EDITS_KEY, {}),
+  );
+  const [hiddenCardIds] = useState<string[]>(() =>
+    safeReadStorage(HIDDEN_CARDS_KEY, []),
+  );
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState<FlashcardMode>("review");
-  const [activeCardIndex, setActiveCardIndex] = useState(0);
-  const [isAnswerVisible, setIsAnswerVisible] = useState(false);
+  const [documentFilter, setDocumentFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sortMode, setSortMode] = useState<DeckSortMode>("newest");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createStep, setCreateStep] = useState<CreateStep>(1);
+  const [createBookId, setCreateBookId] = useState("");
+  const [createCount, setCreateCount] = useState(20);
+  const [createDifficulty, setCreateDifficulty] = useState("Medium");
+  const [createLanguage, setCreateLanguage] = useState("English");
+  const [createType, setCreateType] = useState("Mixed");
+  const [createScope, setCreateScope] = useState("Whole document");
+  const [createPreviewCards, setCreatePreviewCards] = useState<StudyFlashcard[]>(
+    [],
+  );
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [quizIndex, setQuizIndex] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
-  const [quizScore, setQuizScore] = useState(0);
-  const [answeredCount, setAnsweredCount] = useState(0);
+  const [createErrorMessage, setCreateErrorMessage] = useState("");
+
+  useEffect(() => {
+    writeStorage(STUDY_STATE_KEY, studyProgress);
+  }, [studyProgress]);
 
   useEffect(() => {
     if (!session) {
@@ -118,7 +97,7 @@ export default function FlashcardsPage() {
     const displayName = session.username || session.email || "You";
     let ignore = false;
 
-    async function loadFlashcards() {
+    async function loadFlashcardDecks() {
       setIsLoading(true);
       setErrorMessage("");
 
@@ -157,10 +136,7 @@ export default function FlashcardsPage() {
 
         setDocuments(libraryDocuments);
         setFlashcards(nextFlashcards);
-        setActiveCardIndex(0);
-        setQuizIndex(0);
-        setSelectedAnswer(null);
-        setIsAnswerSubmitted(false);
+        setCreateBookId((currentBookId) => currentBookId || readyDocuments[0]?.id || "");
       } catch (error) {
         if (!ignore) {
           setDocuments([]);
@@ -168,7 +144,7 @@ export default function FlashcardsPage() {
           setErrorMessage(
             error instanceof Error
               ? error.message
-              : "Could not load flashcards.",
+              : "Could not load flashcard decks.",
           );
         }
       } finally {
@@ -178,643 +154,801 @@ export default function FlashcardsPage() {
       }
     }
 
-    void loadFlashcards();
+    void loadFlashcardDecks();
 
     return () => {
       ignore = true;
     };
   }, [router, session]);
 
-  const cardCountsByBook = useMemo(() => {
-    const counts = new Map<string, number>();
+  const readyDocuments = useMemo(
+    () => documents.filter((document) => document.status === "Ready"),
+    [documents],
+  );
+  const visibleCards = useMemo(
+    () =>
+      applyCardOverrides({
+        cards: flashcards,
+        cardEdits,
+        hiddenCardIds,
+      }),
+    [cardEdits, flashcards, hiddenCardIds],
+  );
+  const decks = useMemo(
+    () =>
+      buildStudyDecks({
+        documents,
+        cards: visibleCards,
+        studyProgress,
+      }),
+    [documents, studyProgress, visibleCards],
+  );
 
-    flashcards.forEach((card) => {
-      counts.set(card.bookId, (counts.get(card.bookId) ?? 0) + 1);
-    });
-
-    return counts;
-  }, [flashcards]);
-
-  const visibleFlashcards = useMemo(() => {
+  const filteredDecks = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return flashcards.filter((card) => {
-      const matchesBook =
-        selectedBookId === "all" || card.bookId === selectedBookId;
-      const matchesQuery =
-        !normalizedQuery ||
-        card.question.toLowerCase().includes(normalizedQuery) ||
-        card.answer.toLowerCase().includes(normalizedQuery) ||
-        card.bookTitle.toLowerCase().includes(normalizedQuery);
+    return decks
+      .filter((deck) => {
+        const matchesDocument =
+          documentFilter === "all" || deck.id === documentFilter;
+        const matchesStatus =
+          statusFilter === "all" ||
+          (statusFilter === "new" && deck.newCount > 0) ||
+          (statusFilter === "learning" && deck.learningCount > 0) ||
+          (statusFilter === "mastered" && deck.masteredCount > 0) ||
+          (statusFilter === "weak" && deck.weakCount > 0);
+        const matchesQuery =
+          !normalizedQuery ||
+          deck.title.toLowerCase().includes(normalizedQuery) ||
+          deck.cards.some(
+            (card) =>
+              card.question.toLowerCase().includes(normalizedQuery) ||
+              card.answer.toLowerCase().includes(normalizedQuery),
+          );
 
-      return matchesBook && matchesQuery;
-    });
-  }, [flashcards, query, selectedBookId]);
+        return matchesDocument && matchesStatus && matchesQuery;
+      })
+      .sort((left, right) => {
+        if (sortMode === "last-studied") {
+          return createdAtTime(right.lastStudied) - createdAtTime(left.lastStudied);
+        }
 
-  const activeCard =
-    visibleFlashcards[Math.min(activeCardIndex, visibleFlashcards.length - 1)] ??
-    null;
-  const quizCards = visibleFlashcards;
-  const quizTotal = quizCards.length;
-  const quizProgress = Math.min(answeredCount, quizTotal);
-  const isQuizFinished = quizTotal > 0 && quizIndex >= quizTotal;
-  const isLastQuizQuestion = quizTotal > 0 && quizIndex === quizTotal - 1;
-  const quizScorePercent = quizTotal
-    ? Math.round((quizScore / quizTotal) * 100)
+        if (sortMode === "most-cards") {
+          return right.totalCards - left.totalCards;
+        }
+
+        if (sortMode === "lowest-accuracy") {
+          return (left.accuracy ?? 0) - (right.accuracy ?? 0);
+        }
+
+        if (sortMode === "highest-progress") {
+          return right.progress - left.progress;
+        }
+
+        return createdAtTime(right.createdAt) - createdAtTime(left.createdAt);
+      });
+  }, [decks, documentFilter, query, sortMode, statusFilter]);
+
+  const totalCards = decks.reduce((total, deck) => total + deck.totalCards, 0);
+  const masteredCards = decks.reduce(
+    (total, deck) => total + deck.masteredCount,
+    0,
+  );
+  const totalAttempts = visibleCards.reduce(
+    (total, card) => total + (studyProgress[card.id]?.attempts ?? 0),
+    0,
+  );
+  const totalCorrect = visibleCards.reduce(
+    (total, card) => total + (studyProgress[card.id]?.correct ?? 0),
+    0,
+  );
+  const overallAccuracy = totalAttempts
+    ? Math.round((totalCorrect / totalAttempts) * 100)
     : 0;
 
-  const currentQuizCard =
-    quizTotal > 0 && quizIndex < quizTotal ? quizCards[quizIndex] : null;
+  function deckRoute(deckId: string, page: "review" | "quiz" | "games" | "cards") {
+    return `/flashcards/${encodeURIComponent(deckId)}/${page}`;
+  }
 
-  const quizOptions = useMemo(
-    () => makeQuizOptions(currentQuizCard, quizCards),
-    [currentQuizCard, quizCards],
-  );
-  const selectedIsCorrect =
-    Boolean(selectedAnswer && currentQuizCard) &&
-    selectedAnswer === currentQuizCard?.answer;
+  function resetCreateModal() {
+    setCreateStep(1);
+    setCreatePreviewCards([]);
+    setCreateErrorMessage("");
+    setCreateBookId((currentBookId) => currentBookId || readyDocuments[0]?.id || "");
+  }
 
-  function goToCard(index: number) {
-    if (!visibleFlashcards.length) {
-      setActiveCardIndex(0);
+  async function generateDeckPreview() {
+    if (!session || !createBookId) {
       return;
     }
 
-    setActiveCardIndex(
-      (index + visibleFlashcards.length) % visibleFlashcards.length,
+    const selectedDocument = readyDocuments.find(
+      (document) => document.id === createBookId,
     );
-  }
 
-  function shuffleReviewDeck() {
-    if (!visibleFlashcards.length) {
+    if (!selectedDocument) {
+      setCreateErrorMessage("Select a ready document before generating cards.");
       return;
     }
 
-    setActiveCardIndex(Math.floor(Math.random() * visibleFlashcards.length));
-    setIsAnswerVisible(false);
-  }
+    setIsGenerating(true);
+    setCreateErrorMessage("");
 
-  function answerQuiz(option: string) {
-    if (!currentQuizCard || isAnswerSubmitted || isQuizFinished) {
-      return;
+    try {
+      const payload = await generateDocumentFlashcards({
+        token: session.token,
+        bookId: selectedDocument.id,
+        count: createCount,
+      });
+      const generatedCards = createGeneratedFlashcardViews(
+        selectedDocument.id,
+        payload,
+      ).map((card) => ({
+        ...card,
+        bookId: selectedDocument.id,
+        bookTitle: selectedDocument.title,
+        bookFormat: selectedDocument.format,
+      }));
+
+      if (!generatedCards.length) {
+        throw new Error("No flashcards were generated.");
+      }
+
+      setFlashcards((currentCards) => [...generatedCards, ...currentCards]);
+      setStudyProgress((currentProgress) => ({ ...currentProgress }));
+      setCreatePreviewCards(generatedCards);
+      setCreateStep(3);
+    } catch (error) {
+      setCreateErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not generate flashcards.",
+      );
+    } finally {
+      setIsGenerating(false);
     }
-
-    setSelectedAnswer(option);
-  }
-
-  function submitQuizAnswer() {
-    if (!selectedAnswer || !currentQuizCard || isAnswerSubmitted) {
-      return;
-    }
-
-    setIsAnswerSubmitted(true);
-    setAnsweredCount((count) => Math.min(count + 1, quizTotal));
-
-    if (selectedAnswer === currentQuizCard.answer) {
-      setQuizScore((score) => score + 1);
-    }
-  }
-
-  function nextQuizQuestion() {
-    if (!quizCards.length || !isAnswerSubmitted) {
-      return;
-    }
-
-    if (isLastQuizQuestion) {
-      setQuizIndex(quizTotal);
-    } else {
-      setQuizIndex((index) => Math.min(index + 1, quizCards.length - 1));
-    }
-
-    setSelectedAnswer(null);
-    setIsAnswerSubmitted(false);
-  }
-
-  function resetQuiz() {
-    setQuizIndex(0);
-    setSelectedAnswer(null);
-    setIsAnswerSubmitted(false);
-    setQuizScore(0);
-    setAnsweredCount(0);
-  }
-
-  function changeQuery(value: string) {
-    setQuery(value);
-    setActiveCardIndex(0);
-    setIsAnswerVisible(false);
-    setQuizIndex(0);
-    setSelectedAnswer(null);
-    setIsAnswerSubmitted(false);
-  }
-
-  function changeSelectedBook(bookId: string) {
-    setSelectedBookId(bookId);
-    setActiveCardIndex(0);
-    setIsAnswerVisible(false);
-    setQuizIndex(0);
-    setSelectedAnswer(null);
-    setIsAnswerSubmitted(false);
   }
 
   return (
-    <main className="min-h-screen bg-[#e8ebf4] text-[#101827]">
+    <main className="min-h-screen bg-[#f8fafc] text-[#0f172a]">
       <SiteNavbar activeItem="Flashcards" />
 
-      <section className="mx-auto w-[min(1180px,calc(100%_-_48px))] py-9 max-[700px]:w-[min(100%_-_28px,1180px)]">
-        <div className="overflow-hidden rounded-[8px] bg-[#17345d] text-white shadow-[0_18px_38px_rgba(18,31,65,0.18)]">
-          <div className="grid gap-8 px-8 py-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="flex items-start gap-5">
-              <div className="grid h-16 w-16 shrink-0 place-items-center rounded-[8px] bg-white text-[#245895]">
-                <Image
-                  src={FLASHCARD_ICON}
-                  alt=""
-                  width={34}
-                  height={34}
-                  className="h-8 w-8 object-contain"
-                  style={{
-                    filter:
-                      "invert(26%) sepia(89%) saturate(1558%) hue-rotate(222deg) brightness(91%) contrast(88%)",
-                  }}
-                />
-              </div>
-              <div>
-                <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#78e7d8]">
-                  Study Deck
-                </p>
-                <h1 className="mt-2 text-[clamp(34px,4vw,52px)] font-black leading-tight">
-                  Flashcards
-                </h1>
-                <p className="mt-4 max-w-[690px] text-[16px] font-semibold leading-7 text-[#c9d7ee]">
-                  Review cards generated from your documents and test recall with
-                  focused multiple choice sessions.
-                </p>
-              </div>
+      <section className="mx-auto w-[min(1220px,calc(100%_-_48px))] py-8 max-[700px]:w-[min(100%_-_28px,1220px)]">
+        <div className="rounded-[8px] border border-[#dbe7f5] bg-white p-6 shadow-[0_18px_42px_rgba(15,23,42,0.08)]">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_440px]">
+            <div>
+              <p className="text-[14px] font-bold text-[#2563eb]">Study Deck</p>
+              <h1 className="mt-1 text-[clamp(34px,4vw,52px)] font-black leading-tight text-[#0f172a]">
+                Flashcard Study Hub
+              </h1>
+              <p className="mt-3 max-w-[650px] text-[16px] font-semibold leading-7 text-[#64748b]">
+                Review, practice, and master flashcards generated from your
+                documents.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  resetCreateModal();
+                  setIsCreateModalOpen(true);
+                }}
+                className="mt-6 inline-flex h-12 cursor-pointer items-center justify-center gap-3 rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white shadow-[0_12px_24px_rgba(37,99,235,0.18)] transition hover:bg-[#1d4ed8]"
+              >
+                <Image src={STACK_ICON} alt="" width={22} height={22} />
+                Create from Documents
+              </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-[8px] bg-white px-4 py-4 text-[#102744]">
-                <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#6f7f96]">
-                  Cards
-                </p>
-                <p className="mt-2 text-[34px] font-black leading-none">
-                  {flashcards.length}
-                </p>
-              </div>
-              <div className="rounded-[8px] bg-[#e7fbf8] px-4 py-4 text-[#0f4f4b]">
-                <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#42756f]">
-                  Docs
-                </p>
-                <p className="mt-2 text-[34px] font-black leading-none">
-                  {cardCountsByBook.size}
-                </p>
-              </div>
-              <div className="rounded-[8px] bg-[#fff4d7] px-4 py-4 text-[#5f4211]">
-                <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#8f6c26]">
-                  Score
-                </p>
-                <p className="mt-2 text-[34px] font-black leading-none">
-                  {quizScore}/{quizTotal}
-                </p>
-              </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2">
+              {[
+                ["Cards", totalCards.toString(), "Total study cards"],
+                ["Decks", decks.length.toString(), "Document decks"],
+                ["Mastered", masteredCards.toString(), "Cards marked easy"],
+                ["Accuracy", `${overallAccuracy}%`, "Across practice"],
+              ].map(([label, value, helper]) => (
+                <div
+                  key={label}
+                  className="rounded-[8px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-4"
+                >
+                  <p className="text-[13px] font-bold text-[#64748b]">{label}</p>
+                  <p className="mt-2 text-[32px] font-black leading-none text-[#0f172a]">
+                    {value}
+                  </p>
+                  <p className="mt-2 text-[12px] font-semibold text-[#94a3b8]">
+                    {helper}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
         {errorMessage ? (
-          <div className="mt-6 rounded-[8px] border border-[#ffc4ca] bg-[#fff0f1] px-5 py-4 text-[14px] font-bold text-[#b42335]">
+          <div className="mt-5 rounded-[8px] border border-[#fecdd3] bg-[#fff1f2] px-5 py-4 text-[14px] font-bold text-[#be123c]">
             {errorMessage}
           </div>
         ) : null}
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="self-start rounded-[8px] bg-white p-5 shadow-[0_12px_26px_rgba(18,31,65,0.08)] ring-1 ring-[#dce6f4]">
-            <label className="block text-[13px] font-black uppercase tracking-[0.14em] text-[#6c778b]">
-              Search
-              <input
-                value={query}
-                onChange={(event) => changeQuery(event.target.value)}
-                placeholder="Question, answer, document"
-                className="mt-3 h-11 w-full rounded-[8px] border border-[#cad6e6] bg-[#f8fbff] px-4 text-[14px] font-bold normal-case tracking-[0] text-[#102744] outline-none transition focus:border-[#245895]"
-              />
-            </label>
+        <section className="mt-6 grid gap-5">
+          <div className="rounded-[8px] border border-[#dbe7f5] bg-white p-4 shadow-[0_10px_26px_rgba(15,23,42,0.05)]">
+            <div className="grid gap-3 lg:grid-cols-[minmax(260px,1.3fr)_minmax(180px,0.8fr)_160px_190px]">
+              <label className="grid gap-2 text-[13px] font-bold text-[#64748b]">
+                Search
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Deck, question, answer"
+                  className="h-11 rounded-[8px] border border-[#cbd5e1] bg-[#f8fafc] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition focus:border-[#2563eb]"
+                />
+              </label>
 
-            <label className="mt-5 block text-[13px] font-black uppercase tracking-[0.14em] text-[#6c778b]">
-              Document
-              <select
-                value={selectedBookId}
-                onChange={(event) => changeSelectedBook(event.target.value)}
-                className="mt-3 h-11 w-full rounded-[8px] border border-[#cad6e6] bg-[#f8fbff] px-4 text-[14px] font-bold normal-case tracking-[0] text-[#102744] outline-none transition focus:border-[#245895]"
-              >
-                <option value="all">All documents</option>
-                {documents
-                  .filter((document) => cardCountsByBook.has(document.id))
-                  .map((document) => (
-                    <option key={document.id} value={document.id}>
-                      {document.title}
+              <label className="grid gap-2 text-[13px] font-bold text-[#64748b]">
+                Document
+                <select
+                  value={documentFilter}
+                  onChange={(event) => setDocumentFilter(event.target.value)}
+                  className="h-11 rounded-[8px] border border-[#cbd5e1] bg-[#f8fafc] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition focus:border-[#2563eb]"
+                >
+                  <option value="all">All documents</option>
+                  {decks.map((deck) => (
+                    <option key={deck.id} value={deck.id}>
+                      {deck.title}
                     </option>
                   ))}
-              </select>
-            </label>
+                </select>
+              </label>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              {(["review", "quiz"] as const).map((nextMode) => (
-                <button
-                  key={nextMode}
-                  type="button"
-                  onClick={() => setMode(nextMode)}
-                  className={`h-11 cursor-pointer rounded-[8px] text-[13px] font-black capitalize transition ${
-                    mode === nextMode
-                      ? "bg-[#245895] text-white shadow-[0_10px_20px_rgba(36,88,149,0.18)]"
-                      : "bg-[#eef5ff] text-[#245895] hover:bg-[#dfeeff]"
-                  }`}
+              <label className="grid gap-2 text-[13px] font-bold text-[#64748b]">
+                Status
+                <select
+                  value={statusFilter}
+                  onChange={(event) =>
+                    setStatusFilter(event.target.value as StatusFilter)
+                  }
+                  className="h-11 rounded-[8px] border border-[#cbd5e1] bg-[#f8fafc] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition focus:border-[#2563eb]"
                 >
-                  {nextMode}
-                </button>
+                  <option value="all">All</option>
+                  <option value="new">New</option>
+                  <option value="learning">Learning</option>
+                  <option value="mastered">Mastered</option>
+                  <option value="weak">Weak</option>
+                </select>
+              </label>
+
+              <label className="grid gap-2 text-[13px] font-bold text-[#64748b]">
+                Sort
+                <select
+                  value={sortMode}
+                  onChange={(event) =>
+                    setSortMode(event.target.value as DeckSortMode)
+                  }
+                  className="h-11 rounded-[8px] border border-[#cbd5e1] bg-[#f8fafc] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition focus:border-[#2563eb]"
+                >
+                  <option value="newest">Newest</option>
+                  <option value="last-studied">Last studied</option>
+                  <option value="most-cards">Most cards</option>
+                  <option value="lowest-accuracy">Lowest accuracy</option>
+                  <option value="highest-progress">Highest progress</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="grid min-h-[430px] place-items-center rounded-[8px] border border-[#dbe7f5] bg-white">
+              <p className="text-[16px] font-black text-[#2563eb]">
+                Loading study decks...
+              </p>
+            </div>
+          ) : !decks.length ? (
+            <EmptyDecks onCreate={() => setIsCreateModalOpen(true)} />
+          ) : filteredDecks.length ? (
+            <div className="grid gap-5 lg:grid-cols-2">
+              {filteredDecks.map((deck) => (
+                <DeckCard key={deck.id} deck={deck} deckRoute={deckRoute} />
               ))}
             </div>
-
-            <div className="mt-6 border-t border-[#e5ecf6] pt-5">
-              <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[#6c778b]">
-                Documents
+          ) : (
+            <div className="rounded-[8px] border border-[#dbe7f5] bg-white px-6 py-12 text-center">
+              <h2 className="text-[24px] font-black text-[#0f172a]">
+                No decks match your filters
+              </h2>
+              <p className="mt-2 text-[15px] font-semibold text-[#64748b]">
+                Try clearing search, document, or status filters.
               </p>
-              <div className="mt-3 grid max-h-[300px] gap-2 overflow-y-auto pr-1">
-                {documents.filter((document) => cardCountsByBook.has(document.id))
-                  .length ? (
-                  documents
-                    .filter((document) => cardCountsByBook.has(document.id))
-                    .map((document) => (
-                      <button
-                        key={document.id}
-                        type="button"
-                        onClick={() => changeSelectedBook(document.id)}
-                        className={`rounded-[8px] px-3 py-3 text-left transition ${
-                          selectedBookId === document.id
-                            ? "bg-[#245895] text-white"
-                            : "bg-[#f4f8ff] text-[#102744] hover:bg-[#eaf2ff]"
-                        }`}
-                      >
-                        <span className="block truncate text-[13px] font-black">
-                          {document.title}
-                        </span>
-                        <span
-                          className={`mt-1 block text-[12px] font-bold ${
-                            selectedBookId === document.id
-                              ? "text-white/75"
-                              : "text-[#7a879a]"
-                          }`}
-                        >
-                          {cardCountsByBook.get(document.id) ?? 0} cards
-                        </span>
-                      </button>
-                    ))
-                ) : (
-                  <p className="rounded-[8px] bg-[#f8fbff] px-4 py-4 text-[13px] font-bold leading-6 text-[#7a879a]">
-                    No generated cards yet.
-                  </p>
-                )}
-              </div>
             </div>
-          </aside>
-
-          <section className="grid gap-5">
-            {isLoading ? (
-              <div className="grid min-h-[430px] place-items-center rounded-[8px] bg-white ring-1 ring-[#dce6f4]">
-                <p className="text-[16px] font-black text-[#245895]">
-                  Loading flashcards...
-                </p>
-              </div>
-            ) : !flashcards.length ? (
-              <div className="grid min-h-[430px] place-items-center rounded-[8px] bg-white px-6 text-center ring-1 ring-[#dce6f4]">
-                <div className="max-w-[460px]">
-                  <h2 className="text-[28px] font-black text-[#0f2442]">
-                    No flashcards yet
-                  </h2>
-                  <p className="mt-3 text-[15px] font-semibold leading-7 text-[#748195]">
-                    Generate cards inside any document, then they will collect
-                    here automatically.
-                  </p>
-                  <Link
-                    href="/library"
-                    className="mt-6 inline-flex h-12 items-center justify-center rounded-[8px] bg-[#245895] px-6 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86]"
-                  >
-                    Open Library
-                  </Link>
-                </div>
-              </div>
-            ) : mode === "review" ? (
-              <>
-                <article className="rounded-[8px] bg-white p-6 shadow-[0_12px_26px_rgba(18,31,65,0.08)] ring-1 ring-[#dce6f4]">
-                  {activeCard ? (
-                    <>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[#245895]">
-                            {activeCard.bookFormat} Deck
-                          </p>
-                          <h2 className="mt-1 max-w-[760px] truncate text-[24px] font-black text-[#0f2442]">
-                            {activeCard.bookTitle}
-                          </h2>
-                        </div>
-                        <span className="rounded-full bg-[#e7fbf8] px-4 py-2 text-[13px] font-black text-[#0f6f67]">
-                          {activeCardIndex + 1} / {visibleFlashcards.length}
-                        </span>
-                      </div>
-
-                      <div className="mt-5 grid min-h-[340px] overflow-hidden rounded-[8px] border border-[#dce6f4] bg-[#f8fbff]">
-                        <div className="h-2 bg-[linear-gradient(90deg,#245895_0%,#74ead4_55%,#f0d45f_100%)]" />
-                        <div className="grid gap-6 p-7">
-                          <div>
-                            <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#245895]">
-                              Question
-                            </p>
-                            <h3 className="mt-4 text-[26px] font-black leading-snug text-[#102744]">
-                              {activeCard.question}
-                            </h3>
-                          </div>
-
-                          {isAnswerVisible ? (
-                            <div className="rounded-[8px] border border-[#bfe8c9] bg-[#f0fbf3] px-5 py-5">
-                              <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#2e9b55]">
-                                Answer
-                              </p>
-                              <p className="mt-3 whitespace-pre-wrap text-[17px] font-semibold leading-8 text-[#17213a]">
-                                {activeCard.answer}
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="rounded-[8px] border border-dashed border-[#cbd8e8] bg-white px-5 py-5">
-                              <p className="text-[15px] font-bold leading-7 text-[#748195]">
-                                Recall the answer before revealing it.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex flex-wrap gap-3">
-                          <button
-                            type="button"
-                            onClick={() => goToCard(activeCardIndex - 1)}
-                            className="h-11 cursor-pointer rounded-[8px] bg-white px-5 text-[14px] font-black text-[#102744] ring-1 ring-[#dce6f4] transition hover:bg-[#f4f8ff]"
-                          >
-                            Prev
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => goToCard(activeCardIndex + 1)}
-                            className="h-11 cursor-pointer rounded-[8px] bg-white px-5 text-[14px] font-black text-[#102744] ring-1 ring-[#dce6f4] transition hover:bg-[#f4f8ff]"
-                          >
-                            Next
-                          </button>
-                          <button
-                            type="button"
-                            onClick={shuffleReviewDeck}
-                            className="h-11 cursor-pointer rounded-[8px] bg-[#fff4d7] px-5 text-[14px] font-black text-[#735215] transition hover:bg-[#ffe9ac]"
-                          >
-                            Shuffle
-                          </button>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setIsAnswerVisible((value) => !value)}
-                          className="h-11 cursor-pointer rounded-[8px] bg-[#245895] px-5 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86]"
-                        >
-                          {isAnswerVisible ? "Hide Answer" : "Show Answer"}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="grid min-h-[320px] place-items-center text-center">
-                      <p className="text-[16px] font-bold text-[#748195]">
-                        No cards match the current filter.
-                      </p>
-                    </div>
-                  )}
-                </article>
-
-                <div className="grid gap-3 md:grid-cols-2">
-                  {visibleFlashcards.map((card, index) => (
-                    <button
-                      key={card.id}
-                      type="button"
-                      onClick={() => {
-                        setActiveCardIndex(index);
-                        setIsAnswerVisible(false);
-                      }}
-                      className={`min-h-[138px] cursor-pointer rounded-[8px] px-5 py-4 text-left transition ${
-                        activeCard?.id === card.id
-                          ? "bg-[#245895] text-white shadow-[0_12px_24px_rgba(36,88,149,0.20)]"
-                          : "bg-white text-[#102744] ring-1 ring-[#dce6f4] hover:bg-[#f8fbff]"
-                      }`}
-                    >
-                      <span className="block truncate text-[12px] font-black uppercase tracking-[0.12em] opacity-75">
-                        {card.bookTitle}
-                      </span>
-                      <span className="mt-2 line-clamp-2 block text-[16px] font-black leading-6">
-                        {card.question}
-                      </span>
-                      <span className="mt-3 block text-[12px] font-bold opacity-75">
-                        {formatDate(card.createdAt)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <article className="rounded-[8px] bg-white p-6 shadow-[0_12px_26px_rgba(18,31,65,0.08)] ring-1 ring-[#dce6f4]">
-                {isQuizFinished ? (
-                  <div className="grid min-h-[430px] place-items-center text-center">
-                    <div className="max-w-[560px]">
-                      <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#245895]">
-                        Quiz Completed
-                      </p>
-
-                      <h2 className="mt-3 text-[38px] font-black leading-tight text-[#0f2442]">
-                        Your score: {quizScore}/{quizTotal}
-                      </h2>
-
-                      <div className="mt-5 overflow-hidden rounded-full bg-[#eef5ff]">
-                        <div
-                          className="h-4 rounded-full bg-[#245895] transition-all duration-500"
-                          style={{ width: `${quizScorePercent}%` }}
-                        />
-                      </div>
-
-                      <p className="mt-4 text-[17px] font-bold leading-7 text-[#748195]">
-                        You answered {quizProgress} of {quizTotal} cards and got{" "}
-                        {quizScorePercent}% correct.
-                      </p>
-
-                      <div className="mt-7 grid gap-3 rounded-[8px] bg-[#f8fbff] p-5 text-left ring-1 ring-[#dce6f4]">
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-[14px] font-black text-[#6c778b]">
-                            Total cards
-                          </span>
-                          <span className="text-[18px] font-black text-[#102744]">
-                            {quizTotal}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-[14px] font-black text-[#6c778b]">
-                            Correct answers
-                          </span>
-                          <span className="text-[18px] font-black text-[#2e9b55]">
-                            {quizScore}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="text-[14px] font-black text-[#6c778b]">
-                            Wrong answers
-                          </span>
-                          <span className="text-[18px] font-black text-[#b42335]">
-                            {quizTotal - quizScore}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={resetQuiz}
-                        className="mt-7 h-12 cursor-pointer rounded-[8px] bg-[#245895] px-7 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86]"
-                      >
-                        Retake Quiz
-                      </button>
-                    </div>
-                  </div>
-                ) : currentQuizCard ? (
-                  <>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[#6c778b]">
-                          Multiple Choice
-                        </p>
-                        <h2 className="mt-1 text-[24px] font-black text-[#0f2442]">
-                          Question {quizIndex + 1} of {quizTotal}
-                        </h2>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full bg-[#e7fbf8] px-4 py-2 text-[13px] font-black text-[#0f6f67]">
-                          {quizScore} correct
-                        </span>
-                        <span className="rounded-full bg-[#fff4d7] px-4 py-2 text-[13px] font-black text-[#735215]">
-                          {quizProgress}/{quizTotal} answered
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#eef5ff]">
-                      <div
-                        className="h-full rounded-full bg-[#245895] transition-all duration-500"
-                        style={{
-                          width: quizTotal
-                            ? `${Math.round((quizProgress / quizTotal) * 100)}%`
-                            : "0%",
-                        }}
-                      />
-                    </div>
-
-                    <div className="mt-6 rounded-[8px] bg-[#f8fbff] px-6 py-6 ring-1 ring-[#dce6f4]">
-                      <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[#245895]">
-                        {currentQuizCard.bookTitle}
-                      </p>
-                      <h3 className="mt-3 text-[25px] font-black leading-snug text-[#102744]">
-                        {currentQuizCard.question}
-                      </h3>
-                    </div>
-
-                    <div className="mt-5 grid gap-3">
-                      {quizOptions.map((option, index) => {
-                        const isSelected = selectedAnswer === option;
-                        const isCorrect = option === currentQuizCard.answer;
-                        const showResult = isAnswerSubmitted;
-
-                        return (
-                          <button
-                            key={`${currentQuizCard.id}-option-${index}`}
-                            type="button"
-                            onClick={() => answerQuiz(option)}
-                            disabled={isAnswerSubmitted}
-                            className={`min-h-[64px] cursor-pointer rounded-[8px] px-5 py-4 text-left text-[15px] font-bold leading-7 transition disabled:cursor-not-allowed ${
-                              showResult && isCorrect
-                                ? "bg-[#dff8e7] text-[#1d7b45] ring-1 ring-[#93d8a8]"
-                                : showResult && isSelected
-                                  ? "bg-[#fff0f1] text-[#b42335] ring-1 ring-[#ffc4ca]"
-                                  : isSelected
-                                    ? "bg-[#eef5ff] text-[#245895] ring-2 ring-[#245895]"
-                                    : "bg-white text-[#102744] ring-1 ring-[#dce6f4] hover:bg-[#eef5ff]"
-                            }`}
-                          >
-                            <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-[#eef5ff] text-[13px] font-black text-[#245895]">
-                              {String.fromCharCode(65 + index)}
-                            </span>
-                            {option}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {isAnswerSubmitted ? (
-                      <div
-                        className={`mt-5 rounded-[8px] px-5 py-4 text-[15px] font-bold leading-7 ${
-                          selectedIsCorrect
-                            ? "bg-[#f0fbf3] text-[#1d7b45] ring-1 ring-[#bfe8c9]"
-                            : "bg-[#fff7df] text-[#6d4b13] ring-1 ring-[#f0d45f]"
-                        }`}
-                      >
-                        {selectedIsCorrect
-                          ? "Correct."
-                          : `Correct answer: ${currentQuizCard.answer}`}
-                      </div>
-                    ) : null}
-
-                    <div className="mt-5 flex flex-wrap justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={resetQuiz}
-                        className="h-11 cursor-pointer rounded-[8px] bg-white px-5 text-[14px] font-black text-[#102744] ring-1 ring-[#dce6f4] transition hover:bg-[#f4f8ff]"
-                      >
-                        Reset
-                      </button>
-
-                      {isAnswerSubmitted ? (
-                        <button
-                          type="button"
-                          onClick={nextQuizQuestion}
-                          className="h-11 cursor-pointer rounded-[8px] bg-[#245895] px-5 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86]"
-                        >
-                          {isLastQuizQuestion ? "View Score" : "Next Question"}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={submitQuizAnswer}
-                          disabled={!selectedAnswer}
-                          className="h-11 cursor-pointer rounded-[8px] bg-[#245895] px-5 text-[14px] font-black text-white shadow-[0_10px_22px_rgba(36,88,149,0.18)] transition hover:bg-[#1d4d86] disabled:cursor-not-allowed disabled:bg-[#9ab0ca] disabled:shadow-none"
-                        >
-                          Submit Answer
-                        </button>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="grid min-h-[320px] place-items-center text-center">
-                    <p className="text-[16px] font-bold text-[#748195]">
-                      No cards match the current filter.
-                    </p>
-                  </div>
-                )}
-              </article>
-            )}
-          </section>
-        </div>
+          )}
+        </section>
       </section>
+
+      {isCreateModalOpen ? (
+        <CreateDeckModal
+          documents={documents}
+          createStep={createStep}
+          createBookId={createBookId}
+          createCount={createCount}
+          createDifficulty={createDifficulty}
+          createLanguage={createLanguage}
+          createType={createType}
+          createScope={createScope}
+          createPreviewCards={createPreviewCards}
+          createErrorMessage={createErrorMessage}
+          isGenerating={isGenerating}
+          onClose={() => setIsCreateModalOpen(false)}
+          onStepChange={setCreateStep}
+          onBookChange={setCreateBookId}
+          onCountChange={setCreateCount}
+          onDifficultyChange={setCreateDifficulty}
+          onLanguageChange={setCreateLanguage}
+          onTypeChange={setCreateType}
+          onScopeChange={setCreateScope}
+          onGenerate={generateDeckPreview}
+        />
+      ) : null}
 
       <SiteFooter />
     </main>
+  );
+}
+
+function DeckCard({
+  deck,
+  deckRoute,
+}: {
+  deck: StudyDeck;
+  deckRoute: (
+    deckId: string,
+    page: "review" | "quiz" | "games" | "cards",
+  ) => string;
+}) {
+  return (
+    <article className="rounded-[8px] border border-[#dbe7f5] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[12px] font-black text-[#1d4ed8]">
+              {deck.format}
+            </span>
+            <span className="rounded-full bg-[#f8fafc] px-3 py-1 text-[12px] font-black text-[#64748b] ring-1 ring-[#e2e8f0]">
+              {deck.reviewedCount
+                ? `Last studied: ${formatShortDate(deck.lastStudied)}`
+                : "New deck"}
+            </span>
+          </div>
+          <h2 className="mt-3 line-clamp-2 text-[22px] font-black leading-snug text-[#0f172a]">
+            {deck.title}
+          </h2>
+          <p className="mt-2 truncate text-[14px] font-semibold text-[#64748b]">
+            Source document: {deck.sourceTitle}
+          </p>
+        </div>
+        <Image
+          src={DOCUMENT_ICON}
+          alt=""
+          width={54}
+          height={54}
+          className="h-14 w-14 shrink-0 rounded-[8px] object-cover"
+        />
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {[
+          ["Cards", deck.totalCards],
+          ["Mastered", deck.masteredCount],
+          ["Learning", deck.learningCount],
+          ["Weak", deck.weakCount],
+          ["Accuracy", deck.accuracy === null ? "-" : `${deck.accuracy}%`],
+        ].map(([label, value]) => (
+          <div
+            key={label}
+            className="rounded-[8px] bg-[#f8fafc] px-3 py-3 ring-1 ring-[#e2e8f0]"
+          >
+            <p className="text-[12px] font-bold text-[#64748b]">{label}</p>
+            <p className="mt-1 text-[20px] font-black text-[#0f172a]">
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-5">
+        <div className="flex justify-between text-[13px] font-bold text-[#64748b]">
+          <span>Mastery progress</span>
+          <span>{deck.progress}%</span>
+        </div>
+        <div className="mt-2 h-3 overflow-hidden rounded-full bg-[#e2e8f0]">
+          <div
+            className="h-full rounded-full bg-[#10b981]"
+            style={{ width: `${deck.progress}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <Link
+          href={deckRoute(deck.id, "review")}
+          className="inline-flex h-11 items-center justify-center rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white transition hover:bg-[#1d4ed8]"
+        >
+          Review
+        </Link>
+        <Link
+          href={deckRoute(deck.id, "quiz")}
+          className="inline-flex h-11 items-center justify-center rounded-[8px] bg-[#eff6ff] px-5 text-[14px] font-black text-[#1d4ed8] transition hover:bg-[#dbeafe]"
+        >
+          Quiz
+        </Link>
+        <Link
+          href={deckRoute(deck.id, "games")}
+          className="inline-flex h-11 items-center justify-center rounded-[8px] bg-[#ecfdf5] px-5 text-[14px] font-black text-[#047857] transition hover:bg-[#d1fae5]"
+        >
+          Game
+        </Link>
+        <Link
+          href={deckRoute(deck.id, "cards")}
+          className="inline-flex h-11 items-center justify-center rounded-[8px] border border-[#cbd5e1] bg-white px-5 text-[14px] font-black text-[#0f172a] transition hover:bg-[#f1f5f9]"
+        >
+          View Cards
+        </Link>
+      </div>
+    </article>
+  );
+}
+
+function EmptyDecks({ onCreate }: { onCreate: () => void }) {
+  return (
+    <div className="grid min-h-[430px] place-items-center rounded-[8px] border border-[#dbe7f5] bg-white px-6 text-center">
+      <div className="max-w-[520px]">
+        <h2 className="text-[28px] font-black text-[#0f172a]">
+          No flashcard decks yet
+        </h2>
+        <p className="mt-3 text-[15px] font-semibold leading-7 text-[#64748b]">
+          Create flashcards from your uploaded documents to start studying.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            onClick={onCreate}
+            className="h-12 cursor-pointer rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white transition hover:bg-[#1d4ed8]"
+          >
+            Create from Documents
+          </button>
+          <Link
+            href="/library"
+            className="inline-flex h-12 items-center justify-center rounded-[8px] border border-[#cbd5e1] bg-white px-5 text-[14px] font-black text-[#0f172a] transition hover:bg-[#f1f5f9]"
+          >
+            Go to Documents
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreateDeckModal({
+  documents,
+  createStep,
+  createBookId,
+  createCount,
+  createDifficulty,
+  createLanguage,
+  createType,
+  createScope,
+  createPreviewCards,
+  createErrorMessage,
+  isGenerating,
+  onClose,
+  onStepChange,
+  onBookChange,
+  onCountChange,
+  onDifficultyChange,
+  onLanguageChange,
+  onTypeChange,
+  onScopeChange,
+  onGenerate,
+}: {
+  documents: LibraryDocument[];
+  createStep: CreateStep;
+  createBookId: string;
+  createCount: number;
+  createDifficulty: string;
+  createLanguage: string;
+  createType: string;
+  createScope: string;
+  createPreviewCards: StudyFlashcard[];
+  createErrorMessage: string;
+  isGenerating: boolean;
+  onClose: () => void;
+  onStepChange: (step: CreateStep) => void;
+  onBookChange: (bookId: string) => void;
+  onCountChange: (count: number) => void;
+  onDifficultyChange: (difficulty: string) => void;
+  onLanguageChange: (language: string) => void;
+  onTypeChange: (type: string) => void;
+  onScopeChange: (scope: string) => void;
+  onGenerate: () => void;
+}) {
+  const readyDocuments = documents.filter((document) => document.status === "Ready");
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#0f172a]/55 px-4 py-8">
+      <div className="max-h-[90vh] w-[min(980px,100%)] overflow-y-auto rounded-[8px] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#e2e8f0] px-6 py-5">
+          <div>
+            <p className="text-[14px] font-bold text-[#2563eb]">
+              Create from Documents
+            </p>
+            <h2 className="mt-1 text-[28px] font-black text-[#0f172a]">
+              Build a study deck
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 cursor-pointer rounded-[8px] border border-[#cbd5e1] bg-white px-4 text-[14px] font-black text-[#0f172a] transition hover:bg-[#f1f5f9]"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="grid gap-6 px-6 py-6">
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              [1, "Document"],
+              [2, "Generate"],
+              [3, "Preview"],
+            ].map(([step, label]) => (
+              <div
+                key={step}
+                className={`rounded-[8px] px-4 py-3 ring-1 ${
+                  createStep === step
+                    ? "bg-[#eff6ff] text-[#1d4ed8] ring-[#bfdbfe]"
+                    : "bg-[#f8fafc] text-[#64748b] ring-[#e2e8f0]"
+                }`}
+              >
+                <p className="text-[13px] font-black">Step {step}</p>
+                <p className="mt-1 text-[15px] font-bold">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {createErrorMessage ? (
+            <div className="rounded-[8px] border border-[#fecdd3] bg-[#fff1f2] px-4 py-3 text-[14px] font-bold text-[#be123c]">
+              {createErrorMessage}
+            </div>
+          ) : null}
+
+          {createStep === 1 ? (
+            <DocumentStep
+              documents={documents}
+              selectedBookId={createBookId}
+              onBookChange={onBookChange}
+            />
+          ) : createStep === 2 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <OptionGroup
+                label="Number of cards"
+                value={createCount.toString()}
+                options={["10", "20", "30", "40"]}
+                onChange={(value) => onCountChange(Number(value))}
+              />
+              <OptionGroup
+                label="Difficulty"
+                value={createDifficulty}
+                options={["Easy", "Medium", "Hard"]}
+                onChange={onDifficultyChange}
+              />
+              <OptionGroup
+                label="Language"
+                value={createLanguage}
+                options={["English", "Vietnamese", "Bilingual"]}
+                onChange={onLanguageChange}
+              />
+              <OptionGroup
+                label="Question type"
+                value={createType}
+                options={["Definition", "Concept", "Comparison", "Example", "Mixed"]}
+                onChange={onTypeChange}
+              />
+              <OptionGroup
+                label="Content scope"
+                value={createScope}
+                options={["Whole document", "Key sections", "Weak topics"]}
+                onChange={onScopeChange}
+              />
+              <div className="rounded-[8px] bg-[#f8fafc] p-4 ring-1 ring-[#e2e8f0]">
+                <p className="text-[14px] font-black text-[#0f172a]">
+                  Quality guard
+                </p>
+                <p className="mt-2 text-[14px] font-semibold leading-6 text-[#64748b]">
+                  Flashcards are generated with Groq and filtered so vague
+                  page-based questions do not enter the deck.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {createPreviewCards.length ? (
+                createPreviewCards.map((card, index) => (
+                  <div
+                    key={card.id}
+                    className="rounded-[8px] border border-[#e2e8f0] bg-[#f8fafc] p-4"
+                  >
+                    <p className="text-[12px] font-black text-[#2563eb]">
+                      Card {index + 1}
+                    </p>
+                    <p className="mt-2 text-[16px] font-black text-[#0f172a]">
+                      {card.question}
+                    </p>
+                    <p className="mt-2 text-[14px] font-semibold leading-6 text-[#64748b]">
+                      {card.answer}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[8px] bg-[#f8fafc] px-6 py-10 text-center ring-1 ring-[#e2e8f0]">
+                  <h3 className="text-[22px] font-black text-[#0f172a]">
+                    Ready to generate preview
+                  </h3>
+                  <p className="mt-2 text-[14px] font-semibold text-[#64748b]">
+                    Review generated cards here before using the deck in Library.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap justify-between gap-3 border-t border-[#e2e8f0] pt-5">
+            <button
+              type="button"
+              onClick={() =>
+                createStep === 1
+                  ? onClose()
+                  : onStepChange(Math.max(1, createStep - 1) as CreateStep)
+              }
+              className="h-11 cursor-pointer rounded-[8px] border border-[#cbd5e1] bg-white px-5 text-[14px] font-black text-[#0f172a] transition hover:bg-[#f1f5f9]"
+            >
+              {createStep === 1 ? "Cancel" : "Back"}
+            </button>
+            {createStep === 1 ? (
+              <button
+                type="button"
+                onClick={() => onStepChange(2)}
+                disabled={!createBookId || !readyDocuments.length}
+                className="h-11 cursor-pointer rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Continue
+              </button>
+            ) : createStep === 2 ? (
+              <button
+                type="button"
+                onClick={onGenerate}
+                disabled={isGenerating}
+                className="h-11 cursor-pointer rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isGenerating ? "Generating..." : "Generate Preview"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-11 cursor-pointer rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white transition hover:bg-[#1d4ed8]"
+              >
+                Add to Library
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DocumentStep({
+  documents,
+  selectedBookId,
+  onBookChange,
+}: {
+  documents: LibraryDocument[];
+  selectedBookId: string;
+  onBookChange: (bookId: string) => void;
+}) {
+  if (!documents.length) {
+    return (
+      <div className="rounded-[8px] bg-[#f8fafc] px-6 py-10 text-center">
+        <h3 className="text-[22px] font-black text-[#0f172a]">
+          No documents available
+        </h3>
+        <p className="mt-2 text-[14px] font-semibold text-[#64748b]">
+          Please upload a document in the Documents page first.
+        </p>
+        <Link
+          href="/library"
+          className="mt-5 inline-flex h-11 items-center justify-center rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white"
+        >
+          Go to Documents
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      {documents.map((documentItem) => {
+        const isReady = documentItem.status === "Ready";
+
+        return (
+          <button
+            key={documentItem.id}
+            type="button"
+            disabled={!isReady}
+            onClick={() => onBookChange(documentItem.id)}
+            className={`grid cursor-pointer gap-3 rounded-[8px] px-4 py-4 text-left ring-1 transition disabled:cursor-not-allowed disabled:opacity-60 md:grid-cols-[54px_minmax(0,1fr)_140px] ${
+              selectedBookId === documentItem.id
+                ? "bg-[#eff6ff] ring-[#2563eb]"
+                : "bg-[#f8fafc] ring-[#e2e8f0] hover:bg-white"
+            }`}
+          >
+            <Image
+              src={DOCUMENT_ICON}
+              alt=""
+              width={52}
+              height={52}
+              className="h-13 w-13 rounded-[8px] object-cover"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-[16px] font-black text-[#0f172a]">
+                {documentItem.title}
+              </span>
+              <span className="mt-1 block text-[13px] font-semibold text-[#64748b]">
+                {documentItem.format} - {documentItem.chapters ?? 0} sections -{" "}
+                {formatDate(documentItem.createdAt)}
+              </span>
+            </span>
+            <span
+              className={`h-fit w-fit rounded-full px-3 py-1 text-[12px] font-black ${
+                isReady
+                  ? "bg-[#ecfdf5] text-[#047857]"
+                  : "bg-[#fffbeb] text-[#b45309]"
+              }`}
+            >
+              {isReady ? "Ready" : documentItem.status}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function OptionGroup({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-[8px] bg-[#f8fafc] p-4 ring-1 ring-[#e2e8f0]">
+      <p className="text-[14px] font-black text-[#0f172a]">{label}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            className={`h-10 cursor-pointer rounded-[8px] px-4 text-[13px] font-black transition ${
+              value === option
+                ? "bg-[#2563eb] text-white"
+                : "bg-white text-[#475569] ring-1 ring-[#e2e8f0] hover:bg-[#eff6ff]"
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
