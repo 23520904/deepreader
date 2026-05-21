@@ -1,10 +1,7 @@
-"use client";
-
 import Image from "next/image";
-import Link from "next/link";
-import { useState } from "react";
+import { preload } from "react-dom";
 import { FeatureCardsShowcase } from "@/components/FeatureCardsShowcase";
-import { ScrollReveal } from "@/components/ScrollReveal";
+import { HomeHero } from "@/components/home/HomeHero";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
 
@@ -86,65 +83,21 @@ const whyChooseCards = [
 ];
 
 export default function Home() {
-  const [heroVideoEnded, setHeroVideoEnded] = useState(false);
+  preload("/assets/video/hero-video.mp4", {
+    as: "video",
+    type: "video/mp4",
+    fetchPriority: "high",
+  });
 
   return (
-    <main className="min-h-screen bg-[#e8e9f1] text-[#1d355b]">
-      <SiteNavbar activeItem="Home" />
-
-      <section className="home-hero home-video-hero relative isolate overflow-hidden bg-[#dfeeff] text-[#1d355b]">
-        <div className="relative mx-auto flex min-h-[calc(100vh-84px)] w-full items-center justify-center overflow-hidden max-[700px]:min-h-[620px]">
-          <video
-            className={`home-hero-video absolute inset-0 z-0 h-full w-full object-cover transition-all duration-700 ${
-              heroVideoEnded ? "scale-105 blur-[2px]" : "scale-100 blur-0"
-            }`}
-            src="/assets/video/hero-video.mp4"
-            autoPlay
-            muted
-            playsInline
-            preload="auto"
-            onEnded={() => setHeroVideoEnded(true)}
-            onError={() => setHeroVideoEnded(true)}
-          />
-
-          <div
-            className={`absolute inset-0 z-[1] bg-[#dfeeff]/50 backdrop-blur-[1px] transition-opacity duration-700 ${
-              heroVideoEnded ? "opacity-100" : "opacity-0"
-            }`}
-          />
-
-          <div
-            className={`home-hero-content relative z-10 mx-auto flex w-[min(820px,calc(100%_-_32px))] flex-col items-center justify-center text-center transition-all duration-700 ${
-              heroVideoEnded
-                ? "translate-y-0 opacity-100"
-                : "pointer-events-none translate-y-5 opacity-0"
-            }`}
-          >
-            <h1 className="text-[66px] font-[1000] uppercase leading-[0.9] tracking-[-0.04em] text-[#17345d] drop-shadow-[0_16px_34px_rgba(255,255,255,0.95)] max-[1050px]:text-[58px] max-[700px]:text-[42px]">
-              <span className="block whitespace-nowrap">Read Faster</span>
-              <span className="block">with AI</span>
-            </h1>
-
-            <p className="mt-7 max-w-[680px] text-[21px] font-extrabold leading-[1.55] tracking-[-0.01em] text-[#31445d] drop-shadow-[0_10px_24px_rgba(255,255,255,0.95)] max-[700px]:max-w-[92%] max-[700px]:text-[16px]">
-              Upload your documents and let DeepReader turn long PDFs, notes, and study
-              materials into clear summaries, smart flashcards, and source-based answers.
-            </p>
-
-            <div className="mt-9 flex justify-center">
-              <Link
-                href="#workflow"
-                className="flex min-h-[58px] min-w-[170px] items-center justify-center whitespace-nowrap rounded-[8px] bg-[linear-gradient(135deg,#245895_0%,#6bc9c9_100%)] px-9 text-[17px] font-black text-white shadow-[0_20px_38px_rgba(36,88,149,0.32)] transition hover:-translate-y-0.5"
-              >
-                Get Started
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+    <>
+      <main className="min-h-screen bg-[#e8e9f1] text-[#1d355b]">
+        <SiteNavbar activeItem="Home" />
+        <HomeHero />
 
       <section id="workflow" className="bg-white py-[86px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <ScrollReveal className="mx-auto mb-[46px] max-w-[780px] text-center">
+          <div className="mx-auto mb-[46px] max-w-[780px] text-center">
             <h2 className="home-section-heading font-extrabold leading-[1.16] tracking-[0] text-[#1d355b]">
               A clearer, deeper document reading workflow
             </h2>
@@ -152,7 +105,7 @@ export default function Home() {
               Each step is designed like a lightweight AI system: upload your file,
               extract the key ideas, create study cards, and ask questions based on the text.
             </p>
-          </ScrollReveal>
+          </div>
 
           <div className="workflow-v-stage">
             <svg
@@ -193,11 +146,8 @@ export default function Home() {
             </svg>
 
             {workflowSteps.map((step, index) => (
-              <ScrollReveal
-                as="article"
+              <article
                 key={step.number}
-                delay={index * 120}
-                variant={index % 2 === 0 ? "up" : "zoom"}
                 className={`workflow-step-card workflow-step-card-${
                   index + 1
                 } relative z-10 min-h-[232px] overflow-hidden rounded-[8px] border border-[#e8eef8] bg-white/95 p-6 shadow-[0_22px_50px_rgba(32,55,103,0.12)] backdrop-blur`}
@@ -221,7 +171,7 @@ export default function Home() {
                 <p className="text-[15px] leading-[1.62] text-[#7f8eaa]">
                   {step.description}
                 </p>
-              </ScrollReveal>
+              </article>
             ))}
           </div>
         </div>
@@ -229,14 +179,14 @@ export default function Home() {
 
       <section className="why-choose-section bg-[#f7f8fb] py-[92px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] text-center max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <ScrollReveal>
+          <div>
             <h2 className="home-section-heading why-choose-title font-extrabold leading-[1.08] tracking-[0] text-[#1d355b]">
               Why <span>Choose</span> DeepReader?
             </h2>
             <p className="mx-auto mt-5 max-w-[620px] text-[16px] leading-[1.65] text-[#526176]">
               Here&apos;s why readers choose DeepReader to study long documents faster.
             </p>
-          </ScrollReveal>
+          </div>
 
           <div className="why-choose-stage">
             <svg
@@ -251,12 +201,9 @@ export default function Home() {
             </svg>
 
             {whyChooseCards.map((card, index) => (
-              <ScrollReveal
-                as="article"
+              <article
                 className={`why-card why-card-${index + 1} ${card.tone}`}
                 key={card.title}
-                delay={index * 130}
-                variant={index % 2 === 0 ? "left" : "right"}
               >
                 <div className="why-card-pin">
                   <Image
@@ -271,7 +218,7 @@ export default function Home() {
                   <h3>{card.title}</h3>
                   <p>{card.description}</p>
                 </div>
-              </ScrollReveal>
+              </article>
             ))}
           </div>
         </div>
@@ -279,7 +226,7 @@ export default function Home() {
 
       <section id="workspace" className="bg-[#e8e9f1] py-[82px] max-[700px]:py-[70px]">
         <div className="mx-auto grid min-h-[520px] w-[min(1180px,calc(100%_-_48px))] grid-cols-[minmax(0,500px)_minmax(520px,1fr)] items-center gap-[100px] max-[1050px]:grid-cols-1 max-[1050px]:gap-12 max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <ScrollReveal className="max-w-[500px] max-[1050px]:max-w-[720px]" variant="left">
+          <div className="max-w-[500px] max-[1050px]:max-w-[720px]">
             <h2 className="max-w-[520px] text-[38px] font-extrabold leading-[1.16] tracking-[0] text-[#1d355b] max-[700px]:text-[29px]">
               A calm dashboard for focused study
             </h2>
@@ -297,11 +244,10 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-          </ScrollReveal>
+          </div>
 
-          <ScrollReveal
+          <div
             className="relative min-h-[500px] max-w-[720px] max-[1050px]:mx-auto max-[1050px]:w-full max-[700px]:min-h-[420px]"
-            variant="right"
           >
             <div className="absolute right-0 top-0 h-[500px] w-[500px] rounded-[8px] bg-[linear-gradient(135deg,#e5fcff_0%,#dff6fb_48%,#d0eef5_100%)] max-[700px]:h-[420px] max-[700px]:w-full" />
 
@@ -357,13 +303,13 @@ export default function Home() {
               </span>
               <i className="mt-3.5 block h-2 w-[76%] rounded-full bg-[#78d8df]" />
             </div>
-          </ScrollReveal>
+          </div>
         </div>
       </section>
 
       <section id="flashcards" className="bg-white py-[90px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <ScrollReveal className="mx-auto mb-[46px] max-w-[700px] text-center">
+          <div className="mx-auto mb-[46px] max-w-[700px] text-center">
             <h2 className="home-section-heading font-extrabold leading-[1.16] tracking-[0] text-[#1d355b]">
               Smart reading tools for focused study
             </h2>
@@ -371,13 +317,14 @@ export default function Home() {
               DeepReader brings summaries, document organization, and study progress
               into one workspace so every reading session has a clear next step.
             </p>
-          </ScrollReveal>
+          </div>
 
           <FeatureCardsShowcase features={featureCards} />
         </div>
       </section>
 
       <SiteFooter />
-    </main>
+      </main>
+    </>
   );
 }

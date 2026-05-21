@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { FloatingHelpChat } from "@/components/FloatingHelpChat";
+import { LazyFloatingHelpChat } from "@/components/LazyFloatingHelpChat";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,7 +30,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <FloatingHelpChat />
+        <LazyFloatingHelpChat />
       </body>
     </html>
   );
