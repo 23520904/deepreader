@@ -9,7 +9,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { AccountAvatar } from "@/components/AccountSidebar";
+import { AccountAvatar } from "@/components/AccountAvatar";
 import type {
   ChatMessageView,
   ChatSourceReference,

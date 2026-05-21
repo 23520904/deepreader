@@ -6,13 +6,14 @@ import { useEffect, useRef, useState } from "react";
 const heroVideoMarkup = `
   <video
     class="home-hero-video absolute inset-0 z-0 h-full w-full scale-105 object-cover"
+    poster="/assets/video/hero-video-poster.webp"
+    fetchpriority="high"
     src="/assets/video/hero-video.mp4"
     autoplay
     muted
     playsinline
     preload="auto"
     aria-hidden="true"
-    fetchpriority="high"
   ></video>
 `;
 
@@ -21,36 +22,44 @@ export function HomeHero() {
   const videoHostRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const showCopy = () => {
+    const revealCopyOnFinalFrame = () => {
       const video = videoHostRef.current?.querySelector("video");
 
-      if (video && !video.paused) {
+      if (video) {
         video.pause();
       }
 
       setIsCopyVisible(true);
     };
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const timer = window.setTimeout(showCopy, 0);
-      return () => window.clearTimeout(timer);
+    const video = videoHostRef.current?.querySelector("video");
+
+    if (!video) {
+      return;
+    }
+
+    if (video.ended) {
+      revealCopyOnFinalFrame();
+      return;
+    }
+
+    video.addEventListener("ended", revealCopyOnFinalFrame, { once: true });
+    video.addEventListener("error", revealCopyOnFinalFrame, { once: true });
+
+    return () => {
+      video.removeEventListener("ended", revealCopyOnFinalFrame);
+      video.removeEventListener("error", revealCopyOnFinalFrame);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isCopyVisible) {
+      return;
     }
 
     const video = videoHostRef.current?.querySelector("video");
-
-    if (!video || video.ended || video.error) {
-      const timer = window.setTimeout(showCopy, 0);
-      return () => window.clearTimeout(timer);
-    }
-
-    video.addEventListener("ended", showCopy, { once: true });
-    video.addEventListener("error", showCopy, { once: true });
-
-    return () => {
-      video.removeEventListener("ended", showCopy);
-      video.removeEventListener("error", showCopy);
-    };
-  }, []);
+    video?.pause();
+  }, [isCopyVisible]);
 
   return (
     <section className="home-video-hero relative isolate overflow-hidden bg-[#dfeeff] text-[#1d355b]">
@@ -61,7 +70,11 @@ export function HomeHero() {
           dangerouslySetInnerHTML={{ __html: heroVideoMarkup }}
         />
 
-        <div className="absolute inset-0 z-[1] bg-[#dfeeff]/50 backdrop-blur-[1px]" />
+        <div
+          className={`absolute inset-0 z-[1] bg-[#dfeeff]/50 transition-opacity duration-700 ${
+            isCopyVisible ? "opacity-100" : "opacity-0"
+          }`}
+        />
 
         <div
           className={`home-hero-content relative z-10 mx-auto flex w-[min(820px,calc(100%_-_32px))] flex-col items-center justify-center text-center transition duration-700 ${

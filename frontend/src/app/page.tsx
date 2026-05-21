@@ -1,4 +1,4 @@
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
 import { preload } from "react-dom";
 import { FeatureCardsShowcase } from "@/components/FeatureCardsShowcase";
 import { HomeHero } from "@/components/home/HomeHero";
@@ -83,6 +83,11 @@ const whyChooseCards = [
 ];
 
 export default function Home() {
+  preload("/assets/video/hero-video-poster.webp", {
+    as: "image",
+    fetchPriority: "high",
+  });
+
   preload("/assets/video/hero-video.mp4", {
     as: "video",
     type: "video/mp4",
@@ -156,12 +161,13 @@ export default function Home() {
                   {step.number}
                 </span>
                 <div className="workflow-step-icon mb-[26px] grid h-[72px] w-[72px] place-items-center rounded-[8px] bg-[#155796] shadow-[0_14px_28px_rgba(21,87,150,0.18)]">
-                  <Image
+                  <img
                     src={step.icon}
                     alt=""
                     width={38}
                     height={38}
-                    unoptimized
+                    loading="lazy"
+                    decoding="async"
                     className="h-[38px] w-[38px] object-contain brightness-0 invert"
                   />
                 </div>
@@ -206,11 +212,13 @@ export default function Home() {
                 key={card.title}
               >
                 <div className="why-card-pin">
-                  <Image
+                  <img
                     src="/assets/icons/home/pin-icon.png"
                     alt=""
                     width={76}
                     height={76}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-contain"
                   />
                 </div>

@@ -11,6 +11,10 @@ type HelpMessage = {
   text: string;
 };
 
+type FloatingHelpChatProps = {
+  initiallyOpen?: boolean;
+};
+
 const initialMessages: HelpMessage[] = [
   {
     id: "welcome",
@@ -19,9 +23,11 @@ const initialMessages: HelpMessage[] = [
   },
 ];
 
-export function FloatingHelpChat() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [shouldRenderChat, setShouldRenderChat] = useState(false);
+export function FloatingHelpChat({
+  initiallyOpen = false,
+}: FloatingHelpChatProps) {
+  const [isOpen, setIsOpen] = useState(initiallyOpen);
+  const [shouldRenderChat, setShouldRenderChat] = useState(initiallyOpen);
   const [messages, setMessages] = useState<HelpMessage[]>(initialMessages);
   const [askedQuestionIds, setAskedQuestionIds] = useState<string[]>([]);
   const [isAnswering, setIsAnswering] = useState(false);
@@ -35,7 +41,11 @@ export function FloatingHelpChat() {
 
   useEffect(() => {
     if (isOpen) {
-      setShouldRenderChat(true);
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+
       return;
     }
 
@@ -170,7 +180,7 @@ export function FloatingHelpChat() {
               <div className="flex min-w-0 items-center gap-3">
                 <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white/70 ring-1 ring-white max-[420px]:h-10 max-[420px]:w-10 max-[420px]:rounded-xl">
                   <Image
-                    src="/assets/images/brand/deepreader-navbar-logo.png"
+                    src="/assets/images/brand/deepreader-navbar-logo.webp"
                     alt=""
                     width={96}
                     height={64}

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { ChangeEvent, FormEvent, RefObject } from "react";
-import { AccountAvatar } from "@/components/AccountSidebar";
+import { AccountAvatar } from "@/components/AccountAvatar";
 import type { ProfileDraft } from "@/lib/profile";
 import type { AuthResponse } from "@/types/auth";
 

@@ -1,5 +1,4 @@
-import Image from "next/image";
-
+/* eslint-disable @next/next/no-img-element */
 export type FeatureCardItem = {
   title: string;
   description: string;
@@ -23,13 +22,13 @@ export function FeatureCardsShowcase({ features }: FeatureCardsShowcaseProps) {
             className="feature-3d-button"
           >
             <span className="feature-3d-orbit" aria-hidden="true" />
-            <Image
+            <img
               src={feature.image}
               alt={feature.alt}
               width={320}
               height={230}
-              sizes="(max-width: 700px) 88vw, (max-width: 1050px) 44vw, 320px"
-              quality={70}
+              loading="lazy"
+              decoding="async"
               className="feature-3d-image"
             />
             <span className="feature-3d-title">{feature.title}</span>

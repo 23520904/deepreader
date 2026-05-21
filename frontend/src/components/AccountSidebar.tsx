@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
+import { AccountAvatar, accountIconTint } from "@/components/AccountAvatar";
 import type { AuthResponse } from "@/types/auth";
 
 const sidebarItems = [
@@ -32,26 +33,13 @@ const secondarySidebarItems = [
   },
 ] as const;
 
-export const DEFAULT_USER_ICON = "/assets/icons/sidebar/user-icon.png";
 const LOGOUT_ICON = "/assets/icons/sidebar/logout-icon.png";
-
-export const accountIconTint = {
-  filter:
-    "invert(26%) sepia(89%) saturate(1558%) hue-rotate(222deg) brightness(91%) contrast(88%)",
-};
 
 type AccountSidebarProps = {
   isOpen: boolean;
   onClose: () => void;
   onLogout: () => void;
   session: AuthResponse;
-};
-
-type AccountAvatarProps = {
-  avatarUrl?: string | null;
-  size: number;
-  imagePaddingClassName: string;
-  className?: string;
 };
 
 export function getAccountDisplayName(email: string) {
@@ -82,36 +70,6 @@ export function getAccountInitials(email: string) {
   return initials || "DR";
 }
 
-export function AccountAvatar({
-  avatarUrl,
-  size,
-  imagePaddingClassName,
-  className = "",
-}: AccountAvatarProps) {
-  const trimmedAvatarUrl = avatarUrl?.trim();
-
-  return (
-    <div className={`overflow-hidden rounded-full bg-[#eaf2ff] ${className}`}>
-      {trimmedAvatarUrl ? (
-        <span
-          aria-hidden="true"
-          className="block h-full w-full bg-cover bg-center"
-          style={{ backgroundImage: `url(${JSON.stringify(trimmedAvatarUrl)})` }}
-        />
-      ) : (
-        <Image
-          src={DEFAULT_USER_ICON}
-          alt=""
-          width={size}
-          height={size}
-          className={`h-full w-full object-cover ${imagePaddingClassName}`}
-          style={accountIconTint}
-        />
-      )}
-    </div>
-  );
-}
-
 export function AccountSidebar({
   isOpen,
   onClose,
@@ -125,7 +83,11 @@ export function AccountSidebar({
   const sidebarTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    setIsMounted(true);
+    const mountTimer = window.setTimeout(() => {
+      setIsMounted(true);
+    }, 0);
+
+    return () => window.clearTimeout(mountTimer);
   }, []);
 
   useEffect(() => {
@@ -135,18 +97,21 @@ export function AccountSidebar({
         sidebarTimerRef.current = null;
       }
 
-      setShouldRenderSidebar(true);
-
-      requestAnimationFrame(() => {
+      const openTimer = window.setTimeout(() => {
+        setShouldRenderSidebar(true);
         requestAnimationFrame(() => {
-          setIsSidebarVisible(true);
+          requestAnimationFrame(() => {
+            setIsSidebarVisible(true);
+          });
         });
-      });
+      }, 0);
 
-      return;
+      return () => window.clearTimeout(openTimer);
     }
 
-    setIsSidebarVisible(false);
+    const visibilityTimer = window.setTimeout(() => {
+      setIsSidebarVisible(false);
+    }, 0);
 
     if (sidebarTimerRef.current) {
       window.clearTimeout(sidebarTimerRef.current);
@@ -156,6 +121,8 @@ export function AccountSidebar({
       setShouldRenderSidebar(false);
       sidebarTimerRef.current = null;
     }, 460);
+
+    return () => window.clearTimeout(visibilityTimer);
   }, [isOpen]);
 
   useEffect(() => {

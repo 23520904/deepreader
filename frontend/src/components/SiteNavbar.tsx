@@ -1,7 +1,8 @@
 "use client";
 
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -10,15 +11,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { Menu, X } from "lucide-react";
 
-import {
-  AccountAvatar,
-  AccountSidebar,
-} from "@/components/AccountSidebar";
-
-import { isAuthError } from "@/services/apiClient";
-import { fetchUserProfile } from "@/services/profileService";
+import { AccountAvatar } from "@/components/AccountAvatar";
 
 import {
   clearAuthSession,
@@ -26,6 +20,17 @@ import {
   syncProfileIntoSession,
   subscribeAuthSession,
 } from "@/lib/authSession";
+
+const LazyAccountSidebar = dynamic(
+  () =>
+    import("@/components/AccountSidebar").then(
+      (module) => module.AccountSidebar,
+    ),
+  {
+    ssr: false,
+    loading: () => null,
+  },
+);
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -43,6 +48,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
   const router = useRouter();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [hasRequestedSidebar, setHasRequestedSidebar] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [shouldRenderMobileMenu, setShouldRenderMobileMenu] = useState(false);
   const mobileMenuTimerRef = useRef<number | null>(null);
@@ -72,20 +78,28 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
 
     let isCancelled = false;
 
-    fetchUserProfile(session.token)
-      .then((profile) => {
-        if (!isCancelled) {
-          syncProfileIntoSession(profile);
-        }
-      })
-      .catch((error) => {
-        if (isCancelled || !isAuthError(error)) {
-          return;
-        }
+    Promise.all([
+      import("@/services/apiClient"),
+      import("@/services/profileService"),
+    ])
+      .then(([apiClient, profileService]) => {
+        profileService
+          .fetchUserProfile(session.token)
+          .then((profile) => {
+            if (!isCancelled) {
+              syncProfileIntoSession(profile);
+            }
+          })
+          .catch((error) => {
+            if (isCancelled || !apiClient.isAuthError(error)) {
+              return;
+            }
 
-        clearAuthSession();
-        setIsSidebarOpen(false);
-      });
+            clearAuthSession();
+            setIsSidebarOpen(false);
+          });
+      })
+      .catch(() => undefined);
 
     return () => {
       isCancelled = true;
@@ -96,6 +110,11 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
     setIsSidebarOpen(false);
     clearAuthSession();
     router.push("/");
+  }
+
+  function openAccountSidebar() {
+    setHasRequestedSidebar(true);
+    setIsSidebarOpen(true);
   }
 
   function openMobileMenu() {
@@ -144,12 +163,13 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
           aria-label="DeepReader Home"
           onClick={closeMobileMenu}
         >
-          <Image
-            src="/assets/images/brand/deepreader-navbar-logo.png"
+          <img
+            src="/assets/images/brand/deepreader-navbar-logo.webp"
             alt=""
             width={1536}
             height={1024}
-            priority
+            fetchPriority="high"
+            decoding="async"
             className="h-full w-full object-cover object-center drop-shadow-[0_7px_9px_rgba(29,53,91,0.12)]"
           />
         </Link>
@@ -183,14 +203,14 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
             aria-expanded={isMobileMenuOpen}
           >
             <span className="grid place-items-center transition-transform duration-300">
-              {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+              {isMobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
             </span>
           </button>
 
           {session ? (
             <button
               type="button"
-              onClick={() => setIsSidebarOpen(true)}
+              onClick={openAccountSidebar}
               className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-[#eaf2ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_13px_24px_rgba(77,88,181,0.20)] ring-2 ring-white/80 transition hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_17px_30px_rgba(77,88,181,0.27)] focus:outline-none focus:ring-4 focus:ring-[#5d6bd6]/30"
               aria-label="Open account sidebar"
               aria-expanded={isSidebarOpen}
@@ -264,8 +284,8 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
         ) : null}
       </div>
 
-      {session ? (
-        <AccountSidebar
+      {session && hasRequestedSidebar ? (
+        <LazyAccountSidebar
           isOpen={isSidebarOpen}
           onClose={closeSidebar}
           onLogout={handleLogout}
@@ -273,5 +293,42 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
         />
       ) : null}
     </header>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-[22px] w-[22px]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2.4"
+      viewBox="0 0 24 24"
+    >
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-[22px] w-[22px]"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2.4"
+      viewBox="0 0 24 24"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
   );
 }
