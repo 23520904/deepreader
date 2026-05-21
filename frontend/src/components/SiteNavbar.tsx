@@ -166,8 +166,8 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
           <img
             src="/assets/images/brand/deepreader-navbar-logo.webp"
             alt=""
-            width={1536}
-            height={1024}
+            width={354}
+            height={236}
             fetchPriority="high"
             decoding="async"
             className="h-full w-full object-cover object-center drop-shadow-[0_7px_9px_rgba(29,53,91,0.12)]"
