@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 
 const footerGroups = [
@@ -31,56 +34,136 @@ const footerGroups = [
 ];
 
 export function SiteFooter() {
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+  const toggleGroup = (title: string) => {
+    setOpenGroup((current) => (current === title ? null : title));
+  };
+
   return (
     <footer
       id="contact"
-      className="flow-root bg-[#101b31] px-0 pb-[34px] pt-16 text-[#a8b2c4] max-[1050px]:py-16 max-[1050px]:pb-10"
+      className="flow-root bg-[#101b31] pt-16 pb-10 text-[#a8b2c4] max-[700px]:pt-12 max-[700px]:pb-8"
     >
-      <div className="mx-auto grid w-[min(1180px,calc(100%_-_48px))] grid-cols-[minmax(260px,1.35fr)_repeat(3,minmax(130px,1fr))] items-start gap-[74px] max-[1050px]:grid-cols-2 max-[1050px]:gap-[42px] max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:grid-cols-1">
-        <div>
-          <h2 className="text-[43px] font-extrabold leading-none tracking-[0] text-[#78e7d8]">
+      <div className="mx-auto grid w-[min(1180px,calc(100%_-_48px))] grid-cols-[minmax(280px,1.35fr)_repeat(3,minmax(130px,1fr))] items-start gap-[74px] max-[1200px]:gap-[56px] max-[1050px]:grid-cols-2 max-[1050px]:gap-[42px] max-[700px]:w-[min(calc(100%_-_32px),1180px)] max-[700px]:grid-cols-1 max-[700px]:gap-10">
+        {/* Brand Section */}
+        <div className="max-[700px]:max-w-[420px]">
+          <h2 className="text-[43px] font-extrabold leading-none tracking-[0] text-[#78e7d8] max-[700px]:text-[34px]">
             DeepReader
           </h2>
-          <p className="mt-[30px] max-w-[330px] text-[15px] leading-[1.65] text-[#9aa6ba]">
+
+          <p className="mt-[26px] max-w-[330px] text-[15px] leading-[1.7] text-[#9aa6ba] max-[700px]:mt-5 max-[700px]:max-w-full">
             Get started now and build a smarter reading journey.
           </p>
-          <div className="mt-[26px] flex min-h-[54px] w-[min(310px,100%)] items-center overflow-hidden rounded-[27px] border border-[#aabcdb]/25 bg-white/[0.02]">
+
+          <div className="mt-[28px] flex min-h-[54px] w-[min(320px,100%)] items-center overflow-hidden rounded-full border border-[#aabcdb]/20 bg-white/[0.03] shadow-[0_10px_28px_rgba(0,0,0,0.16)] max-[700px]:mt-6 max-[420px]:w-full">
             <input
               type="email"
               placeholder="Enter your email here"
               aria-label="Email address"
-              className="h-[54px] min-w-0 flex-1 bg-transparent px-4 text-[14px] text-white outline-none placeholder:text-[#78869d]"
+              className="h-[54px] min-w-0 flex-1 bg-transparent px-5 text-[14px] text-white outline-none placeholder:text-[#78869d]"
             />
+
             <button
               type="button"
               aria-label="Submit email"
-              className="grid h-[54px] w-[54px] cursor-pointer place-items-center bg-[#63dce4] text-[24px] font-extrabold text-[#0e2e53]"
+              className="grid h-[54px] w-[54px] shrink-0 place-items-center bg-[#63dce4] text-[22px] font-extrabold text-[#0e2e53] transition hover:bg-[#7ae8ef]"
             >
               &rarr;
             </button>
           </div>
         </div>
 
+        {/* Desktop Footer Groups */}
         {footerGroups.map((group) => (
-          <div key={group.title}>
-            <h3 className="mb-[22px] text-[14px] font-extrabold text-white">{group.title}</h3>
+          <div key={group.title} className="max-[700px]:hidden">
+            <h3 className="mb-[22px] text-[14px] font-extrabold uppercase tracking-[0.04em] text-white">
+              {group.title}
+            </h3>
+
             <div className="grid gap-3.5 text-[14px] text-[#9aa6ba]">
               {group.links.map((link) => (
-                <Link key={link.label} href={link.href} className="transition hover:text-white">
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className="w-fit transition duration-200 hover:text-white"
+                >
                   {link.label}
                 </Link>
               ))}
             </div>
           </div>
         ))}
+
+        {/* Mobile Accordion Footer Groups */}
+        <div className="hidden max-[700px]:block">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]">
+            {footerGroups.map((group, index) => {
+              const isOpen = openGroup === group.title;
+
+              return (
+                <div
+                  key={group.title}
+                  className={index !== 0 ? "border-t border-white/10" : ""}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.title)}
+                    aria-expanded={isOpen}
+                    className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+                  >
+                    <span className="text-[14px] font-extrabold uppercase tracking-[0.04em] text-white">
+                      {group.title}
+                    </span>
+
+                    <span
+                      className={`text-[20px] leading-none text-[#78e7d8] transition-transform duration-200 ${
+                        isOpen ? "rotate-45" : ""
+                      }`}
+                    >
+                      +
+                    </span>
+                  </button>
+
+                  <div
+                    className={`grid overflow-hidden transition-all duration-300 ease-out ${
+                      isOpen
+                        ? "grid-rows-[1fr] opacity-100"
+                        : "grid-rows-[0fr] opacity-0"
+                    }`}
+                  >
+                    <div className="min-h-0">
+                      <div className="grid gap-3 px-5 pb-5 text-[14px] text-[#9aa6ba]">
+                        {group.links.map((link) => (
+                          <Link
+                            key={link.label}
+                            href={link.href}
+                            className="w-fit transition duration-200 hover:text-white"
+                          >
+                            {link.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div className="mx-auto mt-10 flex w-[min(1180px,calc(100%_-_48px))] items-center justify-between gap-6 border-t border-[#b8c7e2]/15 pt-7 text-[13px] text-[#8b97aa] max-[1050px]:w-[min(calc(100%_-_36px),1200px)] max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:flex-col max-[700px]:items-start">
-        <span>&copy; 2026 DeepReader Inc. Copyright and rights reserved</span>
-        <div className="flex gap-[34px] max-[700px]:flex-wrap max-[700px]:gap-[18px]">
+      {/* Bottom Footer */}
+      <div className="mx-auto mt-12 flex w-[min(1180px,calc(100%_-_48px))] items-center justify-between gap-6 border-t border-[#b8c7e2]/15 pt-7 text-[13px] text-[#8b97aa] max-[1050px]:w-[min(calc(100%_-_36px),1200px)] max-[700px]:mt-10 max-[700px]:w-[min(calc(100%_-_32px),1180px)] max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-4 max-[460px]:items-center max-[460px]:text-center">
+        <span>
+          &copy; 2026 DeepReader Inc. Copyright and rights reserved
+        </span>
+
+        <div className="flex flex-wrap items-center gap-[24px] max-[700px]:gap-x-5 max-[700px]:gap-y-2 max-[460px]:justify-center">
           <Link href="#" className="transition hover:text-white">
             Terms and Conditions
           </Link>
+
           <Link href="#" className="transition hover:text-white">
             Privacy Policy
           </Link>

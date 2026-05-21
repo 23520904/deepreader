@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { shuffleItems, truncateText, type StudyFlashcard } from "@/lib/flashcardStudy";
+import {
+  shuffleItems,
+  truncateText,
+  type StudyFlashcard,
+} from "@/lib/flashcardStudy";
 import type { GameResult } from "../types";
 import { formatGameTime } from "./gameConfig";
 import { GameMetric } from "./GameMetric";
+
 export function MatchTermsGame({
   cards,
   onFinish,
@@ -56,6 +61,7 @@ export function MatchTermsGame({
       const nextMatchedCardIds = [...matchedCardIds, answerCard.id];
       const nextCombo = combo + 1;
       const nextScore = score + 100 + combo * 25;
+
       setMatchedCardIds(nextMatchedCardIds);
       setScore(nextScore);
       setCombo(nextCombo);
@@ -69,12 +75,14 @@ export function MatchTermsGame({
       if (nextMatchedCardIds.length >= cards.length) {
         window.setTimeout(() => finishMatch(nextScore, wrongCardIds), 700);
       }
+
       return;
     }
 
     const nextWrongCardIds = wrongCardIds.includes(selectedQuestionId)
       ? wrongCardIds
       : [...wrongCardIds, selectedQuestionId];
+
     setWrongCardIds(nextWrongCardIds);
     setCombo(0);
     setFeedback({
@@ -88,16 +96,20 @@ export function MatchTermsGame({
 
   return (
     <div className="grid gap-5">
-      <div className="grid gap-3 rounded-[18px] bg-[#f8fafc] p-4 ring-1 ring-[#e2e8f0] md:grid-cols-4">
+      <div className="grid gap-3 rounded-[18px] bg-[#f8fafc] p-4 ring-1 ring-[#e2e8f0] sm:grid-cols-2 md:grid-cols-4">
         <GameMetric label="Score" value={score} />
-        <GameMetric label="Matches" value={`${matchedCardIds.length}/${cards.length}`} />
+        <GameMetric
+          label="Matches"
+          value={`${matchedCardIds.length}/${cards.length}`}
+        />
         <GameMetric label="Combo" value={`x${combo}`} />
         <GameMetric label="Goal" value="All pairs" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="grid gap-3">
+      <div className="grid gap-5 min-[640px]:grid-cols-2">
+        <div className="grid min-w-0 content-start gap-3">
           <p className="text-[13px] font-black text-[#2563eb]">Concepts</p>
+
           {cards.map((card, index) => {
             const isMatched = matchedCardIds.includes(card.id);
             const isSelected = selectedQuestionId === card.id;
@@ -127,8 +139,9 @@ export function MatchTermsGame({
           })}
         </div>
 
-        <div className="grid gap-3">
+        <div className="grid min-w-0 content-start gap-3">
           <p className="text-[13px] font-black text-[#047857]">Definitions</p>
+
           {answerCards.map((card, index) => {
             const isMatched = matchedCardIds.includes(card.id);
             const isWrong =

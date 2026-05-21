@@ -56,8 +56,6 @@ export function ReadingWorkspace({
         Math.abs(event.deltaY) >= Math.abs(event.deltaX);
 
       if (!isVerticalScroll) {
-        event.preventDefault();
-        container.scrollLeft += event.deltaX;
         return;
       }
 
@@ -124,26 +122,26 @@ export function ReadingWorkspace({
 
   if (isLoading) {
     return (
-      <div className="mt-10 grid gap-6 lg:grid-cols-[320px_1fr]">
-        <div className="h-[520px] rounded-[16px] bg-white/75" />
-        <div className="h-[520px] rounded-[16px] bg-white/75" />
+      <div className="mt-6 grid gap-4 lg:mt-10 lg:grid-cols-[320px_1fr] lg:gap-6">
+        <div className="h-[320px] rounded-[16px] bg-white/75 sm:h-[420px] lg:h-[520px]" />
+        <div className="h-[420px] rounded-[16px] bg-white/75 sm:h-[520px]" />
       </div>
     );
   }
 
   return (
     <div
-      className={`mt-8 grid items-start gap-6 ${
+      className={`mt-5 grid min-w-0 items-start gap-4 lg:mt-8 lg:gap-6 ${
         isFocusMode ? "lg:grid-cols-1" : "lg:grid-cols-[280px_1fr]"
       }`}
     >
       {!isFocusMode ? (
-        <aside className="sticky top-[92px] h-[calc(76vh+98px)] min-h-[718px] overflow-hidden rounded-[14px] bg-white shadow-[0_14px_30px_rgba(18,24,38,0.08)] max-[1024px]:static max-[1024px]:h-auto max-[1024px]:min-h-0">
-          <h2 className="border-b border-[#dce3ef] px-7 py-6 text-[26px] font-black leading-tight text-[#0f2442]">
+        <aside className="overflow-hidden rounded-[14px] bg-white shadow-[0_14px_30px_rgba(18,24,38,0.08)] lg:sticky lg:top-[92px] lg:h-[calc(76vh+98px)] lg:min-h-[718px]">
+          <h2 className="border-b border-[#dce3ef] px-4 py-4 text-[20px] font-black leading-tight text-[#0f2442] sm:px-6 sm:py-5 sm:text-[24px] lg:px-7 lg:py-6 lg:text-[26px]">
             Table of Contents
           </h2>
 
-          <div className="h-[calc(100%-88px)] overflow-y-auto py-2">
+          <div className="max-h-[260px] overflow-y-auto py-2 lg:h-[calc(100%-88px)] lg:max-h-none">
             {pages.length ? (
               pages.map((page, index) => {
                 const isActive = page.key === activePageKey;
@@ -154,14 +152,14 @@ export function ReadingWorkspace({
                     key={page.key}
                     type="button"
                     onClick={() => onPageSelect(index)}
-                    className={`flex w-full cursor-pointer items-start gap-4 px-7 py-4 text-left transition ${
+                    className={`flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition sm:gap-4 sm:px-6 sm:py-4 lg:px-7 ${
                       isActive
                         ? "bg-[#eef5ff] text-[#245895]"
                         : "text-[#111827] hover:bg-[#f5f8fd]"
                     }`}
                   >
                     <span
-                      className={`mt-1.5 h-7 w-7 shrink-0 rounded-full ${
+                      className={`mt-1 h-5 w-5 shrink-0 rounded-full sm:h-6 sm:w-6 lg:mt-1.5 lg:h-7 lg:w-7 ${
                         isActive
                           ? "bg-[#245895]"
                           : isRead
@@ -169,11 +167,13 @@ export function ReadingWorkspace({
                             : "bg-[#d7dbe4]"
                       }`}
                     />
-                    <span>
-                      <span className="block text-[20px] font-black leading-tight">
+
+                    <span className="min-w-0">
+                      <span className="block break-words text-[16px] font-black leading-tight sm:text-[18px] lg:text-[20px]">
                         {page.title}
                       </span>
-                      <span className="mt-1 block text-[14px] font-semibold text-[#6e7788]">
+
+                      <span className="mt-1 block text-[13px] font-semibold text-[#6e7788] sm:text-[14px]">
                         {isRead ? "Read" : `Page ${page.pageNumber}`}
                       </span>
                     </span>
@@ -181,7 +181,7 @@ export function ReadingWorkspace({
                 );
               })
             ) : (
-              <p className="px-8 py-8 text-[16px] font-semibold text-[#778298]">
+              <p className="px-5 py-6 text-[15px] font-semibold text-[#778298] sm:px-8 sm:py-8 sm:text-[16px]">
                 No pages are available for this document yet.
               </p>
             )}
@@ -189,29 +189,29 @@ export function ReadingWorkspace({
         </aside>
       ) : null}
 
-      <div>
+      <div className="min-w-0">
         {activePage ? (
-          <article className="rounded-[14px] bg-white px-8 py-7 shadow-[0_14px_30px_rgba(18,24,38,0.08)] ring-2 ring-[#a8bdd9]">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h2 className="text-[34px] font-black leading-tight text-[#0f2442]">
+          <article className="min-w-0 rounded-[14px] bg-white px-2 py-3 shadow-[0_14px_30px_rgba(18,24,38,0.08)] ring-2 ring-[#a8bdd9] sm:px-5 sm:py-6 lg:px-8 lg:py-7">
+            <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
+              <h2 className="min-w-0 break-words text-[22px] font-black leading-tight text-[#0f2442] sm:text-[30px] lg:text-[34px]">
                 {activePage.title}
               </h2>
 
-              <span className="rounded-full bg-[#eef5ff] px-5 py-2 text-[14px] font-black text-[#245895]">
+              <span className="rounded-full bg-[#eef5ff] px-4 py-2 text-[13px] font-black text-[#245895] sm:px-5 sm:text-[14px]">
                 Page {activePage.pageNumber}
               </span>
             </div>
 
             {pdfSourceUrl ? (
-              <div className="mt-7 rounded-[8px] border border-[#d6e0ee] bg-[#f8fbff] p-4">
+              <div className="mt-4 rounded-[8px] border border-[#d6e0ee] bg-[#f8fbff] p-1 sm:mt-6 sm:p-3 lg:mt-7 lg:p-4">
                 <div
                   ref={pdfCanvasContainerRef}
-                  className="flex h-[76vh] min-h-[620px] items-start justify-center overflow-auto overscroll-contain rounded-[6px] bg-[#edf3fb] p-4"
+                  className="flex h-[calc(100dvh-250px)] min-h-[460px] items-start justify-center overflow-y-auto overflow-x-hidden overscroll-contain rounded-[6px] bg-[#edf3fb] p-1 sm:h-[76vh] sm:min-h-[620px] sm:p-3 lg:p-4"
                 >
                   <canvas
                     ref={pdfCanvasRef}
                     aria-label={`${title} - page ${activePage.pageNumber}`}
-                    className="max-w-full bg-white shadow-[0_16px_32px_rgba(15,36,66,0.14)]"
+                    className="h-auto w-full max-w-full bg-white shadow-[0_16px_32px_rgba(15,36,66,0.14)]"
                   />
                 </div>
 
@@ -228,17 +228,17 @@ export function ReadingWorkspace({
                 ) : null}
               </div>
             ) : isPdfSourceLoading ? (
-              <div className="mt-7 grid min-h-[520px] place-items-center rounded-[8px] bg-[#f8fbff] text-[16px] font-black text-[#245895] ring-1 ring-[#d6e0ee]">
+              <div className="mt-5 grid min-h-[380px] place-items-center rounded-[8px] bg-[#f8fbff] text-[15px] font-black text-[#245895] ring-1 ring-[#d6e0ee] sm:mt-7 sm:min-h-[520px] sm:text-[16px]">
                 Loading PDF preview...
               </div>
             ) : (
-              <pre className="mt-8 whitespace-pre-wrap font-sans text-[18px] font-medium leading-9 text-[#17213a]">
+              <pre className="mt-6 whitespace-pre-wrap break-words font-sans text-[16px] font-medium leading-8 text-[#17213a] sm:mt-8 sm:text-[18px] sm:leading-9">
                 {activePage.content}
               </pre>
             )}
           </article>
         ) : (
-          <div className="rounded-[14px] bg-white px-8 py-10 text-[18px] font-semibold text-[#778298] shadow-[0_14px_30px_rgba(18,24,38,0.08)]">
+          <div className="rounded-[14px] bg-white px-5 py-8 text-[16px] font-semibold text-[#778298] shadow-[0_14px_30px_rgba(18,24,38,0.08)] sm:px-8 sm:py-10 sm:text-[18px]">
             This document has no readable pages yet.
           </div>
         )}
