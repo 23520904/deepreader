@@ -4,7 +4,7 @@ const footerGroups = [
   {
     title: "Support",
     links: [
-      { label: "Help centre", href: "/contact" },
+      { label: "Help Center", href: "/help-center" },
       { label: "Account information", href: "/login" },
       { label: "About", href: "/about" },
       { label: "Contact us", href: "/contact" },
@@ -14,7 +14,7 @@ const footerGroups = [
     title: "Help and Solution",
     links: [
       { label: "Talk to support", href: "/contact" },
-      { label: "Support docs", href: "/#workflow" },
+      { label: "Support docs", href: "/help-center" },
       { label: "System status", href: "/#workflow" },
       { label: "Reading workflow", href: "/#workflow" },
     ],

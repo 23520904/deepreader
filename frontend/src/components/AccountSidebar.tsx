@@ -26,7 +26,7 @@ const sidebarItems = [
 const secondarySidebarItems = [
   {
     label: "HELP CENTER",
-    href: "/contact",
+    href: "/help-center",
     icon: "/assets/icons/sidebar/question-mark-icon.png",
   },
 ] as const;
