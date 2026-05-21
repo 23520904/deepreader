@@ -80,16 +80,16 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
       <div className="mx-auto flex min-h-[66px] w-[min(1180px,calc(100%_-_40px))] items-center justify-between gap-4 max-[1050px]:min-h-0 max-[1050px]:flex-wrap max-[1050px]:py-3 max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:justify-center max-[700px]:text-center">
         <Link
           href="/"
-          className="flex h-[58px] w-[52px] items-center justify-center transition hover:-translate-y-0.5 max-[700px]:h-[54px] max-[700px]:w-[49px]"
+          className="flex h-[50px] w-[132px] items-center justify-center overflow-hidden rounded-[8px] transition hover:-translate-y-0.5 max-[700px]:h-[46px] max-[700px]:w-[118px]"
           aria-label="DeepReader Home"
         >
           <Image
             src="/assets/images/brand/deepreader-navbar-logo.png"
             alt=""
-            width={252}
-            height={320}
+            width={1536}
+            height={1024}
             priority
-            className="h-[54px] w-auto object-contain drop-shadow-[0_7px_9px_rgba(29,53,91,0.18)] max-[700px]:h-[50px]"
+            className="h-full w-full object-cover object-center drop-shadow-[0_7px_9px_rgba(29,53,91,0.12)]"
           />
         </Link>
 

@@ -37,7 +37,7 @@ export function AuthShell({ children }: AuthShellProps) {
 
               <div className="relative z-10">
                 <Image
-                  src="/assets/images/brand/deepreader-logo.png"
+                  src="/assets/images/brand/deepreader-auth-logo.png"
                   alt="DeepReader AI logo"
                   width={612}
                   height={408}
