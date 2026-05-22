@@ -1,20 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   shuffleItems,
   truncateText,
   type StudyFlashcard,
 } from "@/lib/flashcardStudy";
-import type { GameResult } from "../types";
+import type { GamePlayMode, GameResult } from "../types";
 import { formatGameTime } from "./gameConfig";
 import { GameMetric } from "./GameMetric";
 
 export function MatchTermsGame({
   cards,
+  mode,
+  seconds,
   onFinish,
 }: {
   cards: StudyFlashcard[];
+  mode: GamePlayMode;
+  seconds: number;
   onFinish: (result: GameResult) => void;
 }) {
   const [answerCards] = useState(() => shuffleItems(cards));
@@ -29,8 +33,54 @@ export function MatchTermsGame({
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [startedAt] = useState(() => Date.now());
+  const [secondsLeft, setSecondsLeft] = useState(seconds);
+  const isCompleteRef = useRef(false);
 
-  function finishMatch(nextScore: number, nextWrongCardIds: string[]) {
+  useEffect(() => {
+    if (mode !== "timed") {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setSecondsLeft((currentSeconds) =>
+        isCompleteRef.current ? currentSeconds : Math.max(currentSeconds - 1, 0),
+      );
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "timed" || secondsLeft > 0 || isCompleteRef.current) {
+      return;
+    }
+
+    isCompleteRef.current = true;
+
+    const uniqueWrongCards = cards.filter((card) =>
+      wrongCardIds.includes(card.id),
+    );
+
+    onFinish({
+      game: "match",
+      title: "Puzzle Match",
+      score,
+      total: cards.length,
+      accuracy: Math.round(
+        ((cards.length - uniqueWrongCards.length) / Math.max(cards.length, 1)) *
+          100,
+      ),
+      timeLabel: formatGameTime(startedAt),
+      wrongCards: uniqueWrongCards,
+      message: "Time is up. Nice matching run.",
+    });
+  }, [cards, mode, onFinish, score, secondsLeft, startedAt, wrongCardIds]);
+
+  function finishMatch(
+    nextScore: number,
+    nextWrongCardIds: string[],
+    message = "Great matching run.",
+  ) {
     const uniqueWrongCards = cards.filter((card) =>
       nextWrongCardIds.includes(card.id),
     );
@@ -46,12 +96,16 @@ export function MatchTermsGame({
       ),
       timeLabel: formatGameTime(startedAt),
       wrongCards: uniqueWrongCards,
-      message: "Great matching run.",
+      message,
     });
   }
 
   function chooseAnswer(answerCard: StudyFlashcard) {
-    if (!selectedQuestionId || matchedCardIds.includes(answerCard.id)) {
+    if (
+      !selectedQuestionId ||
+      matchedCardIds.includes(answerCard.id) ||
+      isCompleteRef.current
+    ) {
       return;
     }
 
@@ -73,6 +127,7 @@ export function MatchTermsGame({
       setSelectedQuestionId("");
 
       if (nextMatchedCardIds.length >= cards.length) {
+        isCompleteRef.current = true;
         window.setTimeout(() => finishMatch(nextScore, wrongCardIds), 700);
       }
 
@@ -96,14 +151,17 @@ export function MatchTermsGame({
 
   return (
     <div className="grid gap-5">
-      <div className="grid gap-3 rounded-[18px] bg-[#f8fafc] p-4 ring-1 ring-[#e2e8f0] sm:grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-3 rounded-[18px] bg-[#f8fafc] p-4 ring-1 ring-[#e2e8f0] sm:grid-cols-2 md:grid-cols-4 max-[420px]:p-3">
         <GameMetric label="Score" value={score} />
         <GameMetric
           label="Matches"
           value={`${matchedCardIds.length}/${cards.length}`}
         />
         <GameMetric label="Combo" value={`x${combo}`} />
-        <GameMetric label="Goal" value="All pairs" />
+        <GameMetric
+          label={mode === "timed" ? "Timer" : "Goal"}
+          value={mode === "timed" ? `${secondsLeft}s` : "All pairs"}
+        />
       </div>
 
       <div className="grid gap-5 min-[640px]:grid-cols-2">
@@ -122,7 +180,7 @@ export function MatchTermsGame({
                 type="button"
                 disabled={isMatched}
                 onClick={() => setSelectedQuestionId(card.id)}
-                className={`min-h-[86px] cursor-pointer rounded-[16px] px-4 py-4 text-left text-[15px] font-black leading-6 transition disabled:cursor-default ${
+                className={`min-h-[86px] cursor-pointer rounded-[16px] px-4 py-4 text-left text-[15px] font-black leading-6 transition disabled:cursor-default max-[420px]:px-3 max-[420px]:py-3 max-[420px]:text-[14px] ${
                   isMatched
                     ? "bg-[#ecfdf5] text-[#047857] ring-1 ring-[#86efac]"
                     : isWrong
@@ -153,7 +211,7 @@ export function MatchTermsGame({
                 type="button"
                 disabled={isMatched}
                 onClick={() => chooseAnswer(card)}
-                className={`min-h-[86px] cursor-pointer rounded-[16px] px-4 py-4 text-left text-[15px] font-semibold leading-7 transition disabled:cursor-default ${
+                className={`min-h-[86px] cursor-pointer rounded-[16px] px-4 py-4 text-left text-[15px] font-semibold leading-7 transition disabled:cursor-default max-[420px]:px-3 max-[420px]:py-3 max-[420px]:text-[14px] max-[420px]:leading-6 ${
                   isMatched
                     ? "bg-[#ecfdf5] text-[#047857] ring-1 ring-[#86efac]"
                     : isWrong

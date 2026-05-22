@@ -8,12 +8,12 @@ export function CardModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#0f172a]/55 px-4">
-      <div className="w-[min(720px,100%)] rounded-[8px] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#0f172a]/55 px-4 py-4">
+      <div className="max-h-[calc(100dvh-32px)] w-[min(720px,100%)] overflow-y-auto rounded-[8px] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.28)] max-[520px]:p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[14px] font-bold text-[#2563eb]">Flashcard</p>
-            <h2 className="mt-1 text-[26px] font-black text-[#0f172a]">
+            <h2 className="mt-1 break-words text-[clamp(22px,7vw,26px)] font-black text-[#0f172a]">
               {card.question}
             </h2>
           </div>
@@ -28,7 +28,7 @@ export function CardModal({
         </div>
         <div className="mt-5 rounded-[8px] bg-[#f8fafc] px-5 py-5 ring-1 ring-[#e2e8f0]">
           <p className="text-[13px] font-black text-[#047857]">Answer</p>
-          <p className="mt-3 whitespace-pre-wrap text-[16px] font-semibold leading-8 text-[#0f172a]">
+          <p className="mt-3 whitespace-pre-wrap break-words text-[16px] font-semibold leading-8 text-[#0f172a] max-[420px]:text-[14px] max-[420px]:leading-7">
             {card.answer}
           </p>
         </div>
@@ -53,12 +53,12 @@ export function EditCardModal({
   onSave: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#0f172a]/55 px-4">
-      <div className="w-[min(680px,100%)] rounded-[8px] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.28)]">
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-[#0f172a]/55 px-4 py-4">
+      <div className="max-h-[calc(100dvh-32px)] w-[min(680px,100%)] overflow-y-auto rounded-[8px] bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.28)] max-[520px]:p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[14px] font-bold text-[#2563eb]">Edit card</p>
-            <h2 className="mt-1 text-[26px] font-black text-[#0f172a]">
+            <h2 className="mt-1 text-[clamp(22px,7vw,26px)] font-black text-[#0f172a]">
               Local card edit
             </h2>
           </div>
@@ -87,7 +87,7 @@ export function EditCardModal({
             className="min-h-[140px] rounded-[8px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3 text-[15px] font-bold leading-7 text-[#0f172a] outline-none focus:border-[#2563eb]"
           />
         </label>
-        <div className="mt-5 flex justify-end gap-3">
+        <div className="mt-5 flex justify-end gap-3 max-[420px]:grid max-[420px]:grid-cols-2">
           <button
             type="button"
             onClick={onClose}

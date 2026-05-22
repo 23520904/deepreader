@@ -46,7 +46,7 @@ public class PromptBuilderService {
 				+ "For broad questions such as what the document is about, key points, overview, or summary, synthesize the overall topic across all provided sources and the file name; do not focus on a single matching word or one isolated page. "
 				+ "For concept questions, answer the exact concept the user asked about and ignore unrelated source snippets. "
 				+ "For example requests, give only examples that are explicitly present in the sources. "
-				+ "Write the answer in English. Translate source ideas into natural English when the source is Vietnamese. "
+				+ "Write the final answer in English only. Every sentence must be English. Translate source ideas into natural English when the source is Vietnamese. "
 				+ "Do not include source labels, page labels, chunk IDs, citations, or text like \"Page 1\", \"Source 2\", or \"the provided sources\" in the final answer. "
 				+ "Keep the answer concise, factual, and useful for studying.\n\n"
 				+ "Question:\n" + query + "\n\n"
@@ -56,7 +56,7 @@ public class PromptBuilderService {
 	public String buildAnswerRepairPrompt(String query, String previousAnswer) {
 		return "Rewrite the assistant answer below for the user. "
 				+ "Return only the cleaned answer, with no preface and no commentary. "
-				+ "The answer must be fully in English. If any part is Vietnamese or another language, translate it into natural English. "
+				+ "The answer must be fully in English only. If any word, phrase, or sentence is Vietnamese or another language, translate it into natural English. "
 				+ "Remove every mention of sources, pages, chunks, citations, excerpts, or phrases such as \"based on the provided sources\". "
 				+ "Do not add new facts. Preserve the meaning of the answer and keep it concise.\n\n"
 				+ "Question:\n" + nullSafe(query) + "\n\n"

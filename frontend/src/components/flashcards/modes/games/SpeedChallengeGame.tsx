@@ -105,14 +105,14 @@ export function SpeedChallengeGame({
 
   return (
     <div className="grid gap-5">
-      <div className="grid gap-3 rounded-[18px] bg-[#fff7ed] p-4 ring-1 ring-[#fed7aa] md:grid-cols-4">
+      <div className="grid gap-3 rounded-[18px] bg-[#fff7ed] p-4 ring-1 ring-[#fed7aa] sm:grid-cols-2 md:grid-cols-4 max-[420px]:p-3">
         <GameMetric label="Timer" value={`${secondsLeft}s`} />
         <GameMetric label="Score" value={score} />
         <GameMetric label="Combo" value={`x${combo}`} />
         <GameMetric label="Answered" value={answeredCount} />
       </div>
 
-      <div className="rounded-[22px] bg-[#f8fafc] p-5 ring-1 ring-[#e2e8f0]">
+      <div className="rounded-[22px] bg-[#f8fafc] p-5 ring-1 ring-[#e2e8f0] max-[520px]:p-4">
         <div className="h-3 overflow-hidden rounded-full bg-[#e2e8f0]">
           <div
             className="h-full rounded-full bg-[#f97316] transition-all duration-500"
@@ -122,7 +122,7 @@ export function SpeedChallengeGame({
         <p className="mt-6 text-[14px] font-black text-[#f97316]">
           Question {speedCards.length ? (cardIndex % speedCards.length) + 1 : 0}
         </p>
-        <h2 className="mt-2 text-[30px] font-black leading-tight text-[#0f172a]">
+        <h2 className="mt-2 break-words text-[clamp(23px,8vw,30px)] font-black leading-tight text-[#0f172a]">
           {currentCard?.question ?? "No question available."}
         </h2>
         <div className="mt-6 grid gap-3 md:grid-cols-2">
@@ -136,7 +136,7 @@ export function SpeedChallengeGame({
                 type="button"
                 onClick={() => chooseAnswer(option)}
                 disabled={Boolean(selectedAnswer)}
-                className={`min-h-[96px] cursor-pointer rounded-[16px] px-4 py-4 text-left text-[15px] font-semibold leading-7 transition disabled:cursor-default ${
+                className={`min-h-[96px] cursor-pointer rounded-[16px] px-4 py-4 text-left text-[15px] font-semibold leading-7 transition disabled:cursor-default max-[420px]:px-3 max-[420px]:py-3 max-[420px]:text-[14px] max-[420px]:leading-6 ${
                   selectedAnswer
                     ? isSelected && isCorrect
                       ? "bg-[#ecfdf5] text-[#047857] ring-1 ring-[#86efac]"
@@ -146,7 +146,7 @@ export function SpeedChallengeGame({
                     : "bg-white text-[#0f172a] ring-1 ring-[#dbe7f5] hover:-translate-y-0.5 hover:ring-[#fdba74]"
                 }`}
               >
-                <span className="mr-2 inline-grid h-8 w-8 place-items-center rounded-full bg-[#fff7ed] text-[13px] font-black text-[#f97316]">
+                <span className="mr-2 inline-grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#fff7ed] text-[13px] font-black text-[#f97316]">
                   {String.fromCharCode(65 + index)}
                 </span>
                 {truncateText(option, 220)}

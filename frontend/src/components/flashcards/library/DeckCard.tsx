@@ -19,7 +19,7 @@ export function DeckCard({ deck, deckRoute }: DeckCardProps) {
   const primaryLabel = learningStatus === "new" ? "Start learning" : "Study now";
 
   return (
-    <article className="rounded-[18px] border border-[#dbe7f5] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.09)]">
+    <article className="min-w-0 overflow-hidden rounded-[18px] border border-[#dbe7f5] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.09)] max-[420px]:p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[12px] font-black text-[#1d4ed8]">
           {deck.format}
@@ -33,10 +33,10 @@ export function DeckCard({ deck, deckRoute }: DeckCardProps) {
         </span>
       </div>
 
-      <h2 className="mt-4 line-clamp-2 text-[22px] font-black leading-snug text-[#0f172a]">
+      <h2 className="mt-4 line-clamp-2 break-words text-[22px] font-black leading-snug text-[#0f172a] max-[420px]:text-[19px]">
         {deck.title}
       </h2>
-      <p className="mt-2 truncate text-[14px] font-semibold text-[#64748b]">
+      <p className="mt-2 min-w-0 truncate text-[14px] font-semibold text-[#64748b]">
         Source: {deck.sourceTitle}
       </p>
       <p className="mt-2 text-[14px] font-bold text-[#475569]">
@@ -56,22 +56,22 @@ export function DeckCard({ deck, deckRoute }: DeckCardProps) {
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-3">
+      <div className="mt-5 grid min-w-0 grid-cols-2 gap-3">
         <Link
           href={deckRoute(deck.id, "review")}
-          className="inline-flex h-10 items-center justify-center rounded-[8px] bg-[#2563eb] px-4 text-[14px] font-black text-white transition hover:bg-[#1d4ed8]"
+          className="col-span-2 inline-flex h-10 min-w-0 items-center justify-center rounded-[8px] bg-[#2563eb] px-4 text-center text-[14px] font-black text-white transition hover:bg-[#1d4ed8]"
         >
           {primaryLabel}
         </Link>
         <Link
           href={deckRoute(deck.id, "games")}
-          className="inline-flex h-10 items-center justify-center rounded-[8px] bg-[#ecfdf5] px-4 text-[14px] font-black text-[#047857] transition hover:bg-[#d1fae5]"
+          className="inline-flex h-10 min-w-0 items-center justify-center rounded-[8px] bg-[#ecfdf5] px-3 text-center text-[14px] font-black text-[#047857] transition hover:bg-[#d1fae5] max-[360px]:col-span-2"
         >
           Mini game
         </Link>
         <Link
           href={deckRoute(deck.id, "cards")}
-          className="inline-flex h-10 items-center justify-center rounded-[8px] border border-[#cbd5e1] bg-white px-4 text-[14px] font-black text-[#0f172a] transition hover:bg-[#f1f5f9]"
+          className="inline-flex h-10 min-w-0 items-center justify-center rounded-[8px] border border-[#cbd5e1] bg-white px-3 text-center text-[14px] font-black text-[#0f172a] transition hover:bg-[#f1f5f9] max-[360px]:col-span-2"
         >
           View cards
         </Link>

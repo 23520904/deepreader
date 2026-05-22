@@ -30,6 +30,8 @@ export function ReviewView({
     );
   }
 
+  const isLastCard = reviewCardIndex + 1 >= reviewCards.length;
+
   return (
     <section className="rounded-[8px] border border-[#dbe7f5] bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.06)] sm:p-5">
       <ModeHeader deck={deck} label="Review mode" title="Study flashcards" />
@@ -48,10 +50,10 @@ export function ReviewView({
 
       <div className="mt-5 rounded-[8px] border border-[#dbe7f5] bg-[#f8fafc] p-3 sm:mt-6 sm:p-5">
         <div
-          className="mx-auto w-full max-w-[430px]"
+          className="mx-auto w-full max-w-[430px] max-[420px]:max-w-full"
           style={{ perspective: "1600px" }}
         >
-          <div className="relative min-h-[380px] sm:min-h-[470px] lg:min-h-[570px]">
+          <div className="relative min-h-[min(520px,68dvh)] sm:min-h-[470px] lg:min-h-[570px]">
             <div
               className="absolute inset-0 rounded-[20px] transition-transform duration-500 sm:rounded-[28px]"
               style={{
@@ -62,7 +64,7 @@ export function ReviewView({
               }}
             >
               <div
-                className="absolute inset-0 overflow-y-auto rounded-[20px] bg-[#2418f6] px-5 py-8 text-center text-white shadow-[0_24px_54px_rgba(37,99,235,0.18)] ring-1 ring-[#dbeafe] sm:rounded-[28px] sm:px-8 sm:py-10"
+                className="absolute inset-0 overflow-y-auto rounded-[20px] bg-[#2418f6] px-5 py-8 text-center text-white shadow-[0_24px_54px_rgba(37,99,235,0.18)] ring-1 ring-[#dbeafe] sm:rounded-[28px] sm:px-8 sm:py-10 max-[380px]:px-4"
                 style={{
                   backfaceVisibility: "hidden",
                   WebkitBackfaceVisibility: "hidden",
@@ -87,7 +89,7 @@ export function ReviewView({
               </div>
 
               <div
-                className="absolute inset-0 overflow-y-auto rounded-[20px] bg-white px-5 py-8 text-center shadow-[0_24px_54px_rgba(15,118,110,0.14)] ring-1 ring-[#bbf7d0] sm:rounded-[28px] sm:px-8 sm:py-10"
+                className="absolute inset-0 overflow-y-auto rounded-[20px] bg-white px-5 py-8 text-center shadow-[0_24px_54px_rgba(15,118,110,0.14)] ring-1 ring-[#bbf7d0] sm:rounded-[28px] sm:px-8 sm:py-10 max-[380px]:px-4"
                 style={{
                   backfaceVisibility: "hidden",
                   WebkitBackfaceVisibility: "hidden",
@@ -132,7 +134,7 @@ export function ReviewView({
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="mt-5 grid grid-cols-2 gap-3 max-[360px]:grid-cols-1">
           <button
             type="button"
             onClick={onPrevious}
@@ -144,9 +146,13 @@ export function ReviewView({
           <button
             type="button"
             onClick={onNext}
-            className="h-11 cursor-pointer rounded-[8px] border border-[#cbd5e1] bg-white px-4 text-[14px] font-black text-[#0f172a] transition hover:bg-[#f1f5f9]"
+            className={`h-11 cursor-pointer rounded-[8px] px-4 text-[14px] font-black transition ${
+              isLastCard
+                ? "border border-[#2563eb] bg-[#2563eb] text-white hover:bg-[#1d4ed8]"
+                : "border border-[#cbd5e1] bg-white text-[#0f172a] hover:bg-[#f1f5f9]"
+            }`}
           >
-            Next
+            {isLastCard ? "Done" : "Next"}
           </button>
         </div>
       </div>

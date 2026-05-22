@@ -24,6 +24,9 @@ export type CardProgress = {
   attempts: number;
   correct: number;
   lastReviewed: string | null;
+  dueAt?: string | null;
+  intervalDays?: number;
+  easeFactor?: number;
 };
 
 export type CardEdit = {
@@ -135,6 +138,91 @@ export function shuffleItems<T>(items: T[]) {
   return nextItems;
 }
 
+export function isCardDue(
+  cardId: string,
+  progressByCard: Record<string, CardProgress>,
+  now = new Date(),
+) {
+  const progress = progressByCard[cardId];
+
+  if (!progress?.dueAt) {
+    return true;
+  }
+
+  const dueTime = new Date(progress.dueAt).getTime();
+  return Number.isNaN(dueTime) || dueTime <= now.getTime();
+}
+
+export function scheduleCardReview({
+  currentProgress,
+  rating,
+  now = new Date(),
+}: {
+  currentProgress?: CardProgress;
+  rating: ReviewRating;
+  now?: Date;
+}): CardProgress {
+  const currentCard = currentProgress ?? {
+    status: "new" as StudyStatus,
+    reviews: 0,
+    attempts: 0,
+    correct: 0,
+    lastReviewed: null,
+    dueAt: null,
+    intervalDays: 0,
+    easeFactor: 2.5,
+  };
+  const nextReviews = currentCard.reviews + 1;
+  const remembered = rating !== "again";
+  const nextEase = nextEaseFactor(currentCard.easeFactor ?? 2.5, rating);
+  const nextInterval = nextIntervalDays({
+    previousInterval: currentCard.intervalDays ?? 0,
+    reviews: currentCard.reviews,
+    rating,
+    easeFactor: nextEase,
+  });
+  const dueAt = addReviewDelay(now, rating, nextInterval).toISOString();
+
+  return {
+    status: statusForRating(rating, nextReviews),
+    reviews: nextReviews,
+    attempts: currentCard.attempts + 1,
+    correct: currentCard.correct + (remembered ? 1 : 0),
+    lastReviewed: now.toISOString(),
+    dueAt,
+    intervalDays: nextInterval,
+    easeFactor: nextEase,
+  };
+}
+
+export function sortCardsForReview(
+  cards: StudyFlashcard[],
+  progressByCard: Record<string, CardProgress>,
+) {
+  const now = new Date();
+
+  return shuffleItems(cards).sort((left, right) => {
+    const leftDue = isCardDue(left.id, progressByCard, now) ? 0 : 1;
+    const rightDue = isCardDue(right.id, progressByCard, now) ? 0 : 1;
+
+    if (leftDue !== rightDue) {
+      return leftDue - rightDue;
+    }
+
+    const leftPriority = reviewPriority(cardStatus(left.id, progressByCard));
+    const rightPriority = reviewPriority(cardStatus(right.id, progressByCard));
+
+    if (leftPriority !== rightPriority) {
+      return rightPriority - leftPriority;
+    }
+
+    return (
+      createdAtTime(progressByCard[left.id]?.dueAt ?? null) -
+      createdAtTime(progressByCard[right.id]?.dueAt ?? null)
+    );
+  });
+}
+
 export function uniqueValues(values: string[]) {
   return Array.from(
     new Set(values.map((value) => value.trim()).filter(Boolean)),
@@ -163,6 +251,102 @@ export function cardStatus(
   progressByCard: Record<string, CardProgress>,
 ) {
   return progressByCard[cardId]?.status ?? "new";
+}
+
+function statusForRating(rating: ReviewRating, reviews: number): StudyStatus {
+  if (rating === "again") {
+    return "weak";
+  }
+
+  if (rating === "hard") {
+    return "learning";
+  }
+
+  if (rating === "easy" || reviews >= 3) {
+    return "mastered";
+  }
+
+  return "learning";
+}
+
+function nextEaseFactor(currentEase: number, rating: ReviewRating) {
+  if (rating === "again") {
+    return Math.max(1.3, currentEase - 0.25);
+  }
+
+  if (rating === "hard") {
+    return Math.max(1.3, currentEase - 0.15);
+  }
+
+  if (rating === "easy") {
+    return currentEase + 0.15;
+  }
+
+  return currentEase;
+}
+
+function nextIntervalDays({
+  previousInterval,
+  reviews,
+  rating,
+  easeFactor,
+}: {
+  previousInterval: number;
+  reviews: number;
+  rating: ReviewRating;
+  easeFactor: number;
+}) {
+  if (rating === "again") {
+    return 0;
+  }
+
+  if (rating === "hard") {
+    return Math.max(1, Math.round(Math.max(previousInterval, 1) * 1.2));
+  }
+
+  if (rating === "easy") {
+    return reviews === 0
+      ? 4
+      : Math.max(4, Math.round(Math.max(previousInterval, 1) * (easeFactor + 0.4)));
+  }
+
+  if (reviews === 0) {
+    return 1;
+  }
+
+  if (reviews === 1) {
+    return 3;
+  }
+
+  return Math.max(1, Math.round(Math.max(previousInterval, 1) * easeFactor));
+}
+
+function addReviewDelay(now: Date, rating: ReviewRating, intervalDays: number) {
+  const dueAt = new Date(now);
+
+  if (rating === "again") {
+    dueAt.setMinutes(dueAt.getMinutes() + 10);
+    return dueAt;
+  }
+
+  dueAt.setDate(dueAt.getDate() + intervalDays);
+  return dueAt;
+}
+
+function reviewPriority(status: StudyStatus) {
+  if (status === "weak") {
+    return 4;
+  }
+
+  if (status === "new") {
+    return 3;
+  }
+
+  if (status === "learning") {
+    return 2;
+  }
+
+  return 1;
 }
 
 export function statusLabel(status: StudyStatus) {

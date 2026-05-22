@@ -72,7 +72,7 @@ export function GamesView({
 
   if (gameStatus === "playing") {
     return (
-      <section className="rounded-[18px] border border-[#dbe7f5] bg-white p-5 shadow-[0_18px_44px_rgba(15,23,42,0.08)]">
+      <section className="min-w-0 overflow-hidden rounded-[18px] border border-[#dbe7f5] bg-white p-5 shadow-[0_18px_44px_rgba(15,23,42,0.08)] max-[520px]:p-4">
         <GamePlayHeader
           deck={deck}
           title={activeConfig.title}
@@ -86,9 +86,19 @@ export function GamesView({
             onFinish={finishGame}
           />
         ) : activeGame === "memory" ? (
-          <MemoryFlipGame cards={gameCards} onFinish={finishGame} />
+          <MemoryFlipGame
+            cards={gameCards}
+            mode={gameSettings.mode}
+            seconds={gameSettings.seconds}
+            onFinish={finishGame}
+          />
         ) : (
-          <MatchTermsGame cards={gameCards} onFinish={finishGame} />
+          <MatchTermsGame
+            cards={gameCards}
+            mode={gameSettings.mode}
+            seconds={gameSettings.seconds}
+            onFinish={finishGame}
+          />
         )}
       </section>
     );
@@ -106,8 +116,8 @@ export function GamesView({
   }
 
   return (
-    <section className="grid gap-6">
-      <div className="relative overflow-hidden rounded-[24px] bg-[linear-gradient(135deg,#dbeafe_0%,#cffafe_48%,#ede9fe_100%)] px-7 py-8 text-[#0f172a] shadow-[0_24px_64px_rgba(30,64,175,0.12)] ring-1 ring-white/70">
+    <section className="grid min-w-0 gap-6">
+      <div className="relative min-w-0 overflow-hidden rounded-[24px] bg-[linear-gradient(135deg,#dbeafe_0%,#cffafe_48%,#ede9fe_100%)] px-7 py-8 text-[#0f172a] shadow-[0_24px_64px_rgba(30,64,175,0.12)] ring-1 ring-white/70 max-[520px]:rounded-[18px] max-[520px]:px-5 max-[520px]:py-6">
         <div className="absolute -right-12 -top-16 h-64 w-64 rounded-full bg-white/38 blur-2xl" />
         <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 lg:block">
           <div className="relative grid h-[360px] w-[520px] place-items-center">
@@ -125,10 +135,10 @@ export function GamesView({
           <p className="text-[13px] font-black uppercase text-[#2563eb]/70">
             Learning Games
           </p>
-          <h1 className="mt-3 whitespace-nowrap text-[42px] font-black leading-tight tracking-[0] max-[1024px]:whitespace-normal max-[700px]:text-[34px]">
+          <h1 className="mt-3 whitespace-nowrap text-[42px] font-black leading-tight tracking-[0] max-[1024px]:whitespace-normal max-[700px]:text-[34px] max-[420px]:text-[30px]">
             Flashcard Game Zone
           </h1>
-          <p className="mt-4 text-[17px] font-semibold leading-8 text-[#475569]">
+          <p className="mt-4 text-[17px] font-semibold leading-8 text-[#475569] max-[420px]:text-[15px] max-[420px]:leading-7">
             Turn your flashcards into quick challenges, matching games, and
             memory battles.
           </p>
@@ -143,7 +153,7 @@ export function GamesView({
         </div>
       </div>
 
-      <div className="rounded-[18px] border border-[#dbe7f5] bg-white/92 px-5 py-4 shadow-[0_14px_34px_rgba(15,23,42,0.055)]">
+      <div className="min-w-0 overflow-hidden rounded-[18px] border border-[#dbe7f5] bg-white/92 px-5 py-4 shadow-[0_14px_34px_rgba(15,23,42,0.055)] max-[520px]:px-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-4">
             <div className="grid h-[52px] w-[52px] shrink-0 place-items-center rounded-[16px] bg-[#eff6ff] ring-1 ring-[#dbeafe]">
@@ -159,12 +169,12 @@ export function GamesView({
               <p className="text-[13px] font-black text-[#2563eb]">
                 Current deck
               </p>
-              <h2 className="mt-1 truncate text-[22px] font-black text-[#0f172a]">
+              <h2 className="mt-1 line-clamp-2 text-[22px] font-black leading-snug text-[#0f172a] max-[420px]:text-[18px]">
                 {deck.title}
               </h2>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
             <span className="rounded-full bg-[#eff6ff] px-3 py-1.5 text-[12px] font-black text-[#1d4ed8]">
               {deck.totalCards} cards
             </span>
@@ -178,7 +188,7 @@ export function GamesView({
         </div>
       </div>
 
-      <div className="grid gap-5 pt-1 lg:grid-cols-3">
+      <div className="grid min-w-0 gap-5 pt-1 lg:grid-cols-2 xl:grid-cols-3">
         {gameConfigs.map((game) => (
           <GameLobbyCard
             key={game.id}
@@ -216,22 +226,22 @@ function GameLobbyCard({
     <button
       type="button"
       onClick={onSelect}
-      className={`group relative min-h-[300px] cursor-pointer overflow-hidden rounded-[24px] bg-gradient-to-br ${game.gradient} p-5 text-left text-[#0f172a] transition duration-300 hover:-translate-y-1 ${game.glow} ${
+      className={`group relative min-h-[300px] min-w-0 cursor-pointer overflow-hidden rounded-[24px] bg-gradient-to-br ${game.gradient} p-5 text-left text-[#0f172a] transition duration-300 hover:-translate-y-1 ${game.glow} max-[420px]:min-h-[260px] max-[420px]:rounded-[18px] max-[420px]:p-4 ${
         isSelected ? "ring-2 ring-[#93c5fd]" : "ring-1 ring-white/70"
       }`}
     >
       <div className="absolute -bottom-12 -right-12 h-40 w-40 rounded-full bg-white/32 blur-sm" />
-      <div className="absolute right-4 top-4 grid h-[84px] w-[84px] place-items-center rounded-[24px] bg-white/58 shadow-[0_16px_34px_rgba(15,23,42,0.1)] ring-1 ring-white/75 transition duration-300 group-hover:-rotate-3 group-hover:scale-[1.03]">
+      <div className="absolute right-4 top-4 grid h-[84px] w-[84px] place-items-center rounded-[24px] bg-white/58 shadow-[0_16px_34px_rgba(15,23,42,0.1)] ring-1 ring-white/75 transition duration-300 group-hover:-rotate-3 group-hover:scale-[1.03] max-[420px]:h-[70px] max-[420px]:w-[70px] max-[420px]:rounded-[18px]">
         <Image
           src={game.iconSrc}
           alt=""
           width={64}
           height={64}
-          className="h-16 w-16 object-contain"
+          className="h-16 w-16 object-contain max-[420px]:h-12 max-[420px]:w-12"
         />
       </div>
       <div className="relative pr-20">
-        <h3 className="text-[26px] font-black leading-tight">
+        <h3 className="break-words text-[26px] font-black leading-tight max-[420px]:text-[22px]">
           {game.title}
         </h3>
         <p className="mt-3 text-[14px] font-semibold leading-6 text-[#475569]">

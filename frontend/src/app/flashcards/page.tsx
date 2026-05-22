@@ -313,10 +313,10 @@ export default function FlashcardsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f9fe] text-[#0f172a]">
+    <main className="min-h-screen overflow-x-hidden bg-[#f6f9fe] text-[#0f172a]">
       <SiteNavbar activeItem="Flashcards" />
 
-      <section className="mx-auto w-[min(1180px,calc(100%_-_48px))] py-8 max-[700px]:w-[min(100%_-_28px,1180px)]">
+      <section className="mx-auto min-w-0 w-[min(1180px,calc(100%_-_48px))] py-8 max-[700px]:w-[min(100%_-_28px,1180px)]">
         <FlashcardsHeader
           summaryLine={summaryLine}
           onCreate={openCreateDeck}
@@ -328,7 +328,7 @@ export default function FlashcardsPage() {
           </div>
         ) : null}
 
-        <section className="mt-6 grid gap-6">
+        <section className="mt-6 grid min-w-0 gap-6">
           <FlashcardsToolbar
             decks={decks}
             query={query}
@@ -354,7 +354,7 @@ export default function FlashcardsPage() {
               <h2 className="text-[22px] font-black text-[#0f172a]">
                 All decks
               </h2>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid min-w-0 gap-4 lg:grid-cols-2">
                 {filteredDecks.map((deck) => (
                   <DeckCard key={deck.id} deck={deck} deckRoute={deckRoute} />
                 ))}

@@ -22,7 +22,7 @@ export function CardsView({
   onDeleteCard: (cardId: string) => void;
 }) {
   return (
-    <section className="rounded-[8px] border border-[#dbe7f5] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+    <section className="min-w-0 overflow-hidden rounded-[8px] border border-[#dbe7f5] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)] max-[520px]:p-4">
       <ModeHeader deck={deck} label="Cards" title="Cards in this deck" />
       <div className="mt-5 overflow-hidden rounded-[8px] border border-[#e2e8f0]">
         {deck.cards.map((card) => {
@@ -31,12 +31,12 @@ export function CardsView({
           return (
             <div
               key={card.id}
-              className="grid gap-3 border-b border-[#e2e8f0] px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_110px_180px]"
+              className="grid min-w-0 gap-3 border-b border-[#e2e8f0] px-4 py-4 last:border-b-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_110px_180px] max-[520px]:px-3"
             >
               <button
                 type="button"
                 onClick={() => onViewCard(card)}
-                className="cursor-pointer text-left"
+                className="min-w-0 cursor-pointer text-left"
               >
                 <span className="line-clamp-2 text-[15px] font-black leading-6 text-[#0f172a]">
                   {card.question}
@@ -50,7 +50,7 @@ export function CardsView({
               >
                 {statusLabel(status)}
               </span>
-              <div className="flex flex-wrap gap-2 md:justify-end">
+              <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:justify-end">
                 <button
                   type="button"
                   onClick={() => onEditCard(card)}

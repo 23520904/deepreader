@@ -21,8 +21,8 @@ export function FlashcardsToolbar({
   onSortModeChange,
 }: FlashcardsToolbarProps) {
   return (
-    <div className="rounded-[16px] border border-[#dbe7f5] bg-white p-3 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
-      <div className="hidden gap-3 md:grid md:grid-cols-[minmax(260px,1fr)_220px_170px_160px]">
+    <div className="min-w-0 overflow-hidden rounded-[16px] border border-[#dbe7f5] bg-white p-3 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
+      <div className="hidden gap-3 lg:grid lg:grid-cols-[minmax(220px,1fr)_minmax(170px,220px)_minmax(140px,170px)_minmax(130px,160px)]">
         <label className="sr-only" htmlFor="flashcard-search">
           Search decks or cards
         </label>
@@ -31,7 +31,7 @@ export function FlashcardsToolbar({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search decks or cards..."
-          className="h-11 rounded-[10px] border border-[#dbe7f5] bg-[#f8fbff] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:bg-white"
+          className="h-11 min-w-0 w-full rounded-[10px] border border-[#dbe7f5] bg-[#f8fbff] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:bg-white"
         />
 
         <DocumentSelect
@@ -43,19 +43,19 @@ export function FlashcardsToolbar({
         <SortSelect value={sortMode} onChange={onSortModeChange} />
       </div>
 
-      <div className="grid gap-3 md:hidden">
+      <div className="grid min-w-0 gap-3 lg:hidden">
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Search decks or cards..."
-          className="h-11 rounded-[10px] border border-[#dbe7f5] bg-[#f8fbff] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:bg-white"
+          className="h-11 min-w-0 w-full rounded-[10px] border border-[#dbe7f5] bg-[#f8fbff] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#2563eb] focus:bg-white"
           aria-label="Search decks or cards"
         />
-        <details className="rounded-[10px] border border-[#dbe7f5] bg-[#f8fbff] px-4 py-3">
+        <details className="min-w-0 rounded-[10px] border border-[#dbe7f5] bg-[#f8fbff] px-4 py-3">
           <summary className="cursor-pointer text-[14px] font-black text-[#1d4ed8]">
             Filter
           </summary>
-          <div className="mt-3 grid gap-3">
+          <div className="mt-3 grid min-w-0 gap-3">
             <DocumentSelect
               decks={decks}
               value={documentFilter}
@@ -152,6 +152,6 @@ function SortSelect({
 
 function selectClassName(mobile: boolean) {
   return mobile
-    ? "h-11 rounded-[10px] border border-[#dbe7f5] bg-white px-4 text-[14px] font-bold text-[#0f172a] outline-none"
-    : "h-11 rounded-[10px] border border-[#dbe7f5] bg-[#f8fbff] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white";
+    ? "h-11 w-full min-w-0 rounded-[10px] border border-[#dbe7f5] bg-white px-4 text-[14px] font-bold text-[#0f172a] outline-none"
+    : "h-11 w-full min-w-0 rounded-[10px] border border-[#dbe7f5] bg-[#f8fbff] px-4 text-[14px] font-bold text-[#0f172a] outline-none transition focus:border-[#2563eb] focus:bg-white";
 }

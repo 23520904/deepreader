@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   CardModal,
@@ -24,16 +24,17 @@ import {
   CARD_EDITS_KEY,
   HIDDEN_CARDS_KEY,
   makeQuizOptions,
+  scheduleCardReview,
   safeReadStorage,
-  shuffleItems,
+  sortCardsForReview,
   STUDY_STATE_KEY,
   writeStorage,
   type CardEdit,
   type CardProgress,
   type GameMode,
+  type ReviewRating,
   type StudyDeck,
   type StudyFlashcard,
-  type StudyStatus,
 } from "@/lib/flashcardStudy";
 import { mapBackendBook } from "@/lib/library";
 import { normalizeFlashcardRecords } from "@/lib/reading";
@@ -44,6 +45,7 @@ import type { LibraryDocument } from "@/types/library";
 type FlashcardRouteMode = "review" | "quiz" | "games" | "cards";
 
 export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
+  const router = useRouter();
   const params = useParams<{ deckId?: string }>();
   const deckId = decodeURIComponent(params.deckId ?? "");
   const session = useSyncExternalStore(
@@ -129,7 +131,11 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
         }
 
         setDocument(selectedDocument);
-        setCards(mode === "review" ? shuffleItems(deckCards) : deckCards);
+        setCards(
+          mode === "review"
+            ? sortCardsForReview(deckCards, safeReadStorage(STUDY_STATE_KEY, {}))
+            : deckCards,
+        );
         setReviewCardIndex(0);
         setIsAnswerVisible(false);
       } catch (error) {
@@ -194,25 +200,14 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
     .map((cardId) => quizCards.find((card) => card.id === cardId))
     .filter((card): card is StudyFlashcard => Boolean(card));
 
-  function updateProgress(cardId: string, status: StudyStatus, correct: boolean) {
+  function updateProgress(cardId: string, rating: ReviewRating) {
     setStudyProgress((currentProgress) => {
-      const currentCard = currentProgress[cardId] ?? {
-        status: "new",
-        reviews: 0,
-        attempts: 0,
-        correct: 0,
-        lastReviewed: null,
-      };
-
       return {
         ...currentProgress,
-        [cardId]: {
-          status,
-          reviews: currentCard.reviews + 1,
-          attempts: currentCard.attempts + 1,
-          correct: currentCard.correct + (correct ? 1 : 0),
-          lastReviewed: new Date().toISOString(),
-        },
+        [cardId]: scheduleCardReview({
+          currentProgress: currentProgress[cardId],
+          rating,
+        }),
       };
     });
   }
@@ -224,7 +219,7 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
 
     const isCorrect = quizSelectedAnswer === currentQuizCard.answer;
     setQuizSubmitted(true);
-    updateProgress(currentQuizCard.id, isCorrect ? "mastered" : "weak", isCorrect);
+    updateProgress(currentQuizCard.id, isCorrect ? "good" : "again");
 
     if (isCorrect) {
       setQuizScore((score) => score + 1);
@@ -259,6 +254,20 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
     setQuizWrongCardIds([]);
   }
 
+  function goToNextReviewCard() {
+    if (activeReviewCard && isAnswerVisible) {
+      updateProgress(activeReviewCard.id, "good");
+    }
+
+    if (reviewCardIndex + 1 >= reviewCards.length) {
+      router.push("/flashcards");
+      return;
+    }
+
+    setReviewCardIndex((reviewCardIndex + 1) % reviewCards.length);
+    setIsAnswerVisible(false);
+  }
+
   function openCardEditor(card: StudyFlashcard) {
     setEditingCard(card);
     setEditQuestion(card.question);
@@ -287,11 +296,11 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#0f172a]">
+    <main className="min-h-screen overflow-x-hidden bg-[#f8fafc] text-[#0f172a]">
       <SiteNavbar activeItem="Flashcards" />
 
-      <section className="mx-auto w-[min(1120px,calc(100%_-_48px))] py-8 max-[700px]:w-[min(100%_-_28px,1120px)]">
-        <div className="mb-5">
+      <section className="mx-auto min-w-0 w-[min(1120px,calc(100%_-_48px))] py-8 max-[700px]:w-[min(100%_-_28px,1120px)] max-[520px]:py-5">
+        <div className="mb-5 max-[520px]:mb-4">
           <Link
             href="/flashcards"
             className="inline-flex h-10 items-center justify-center gap-2 rounded-[8px] bg-transparent px-1 text-[14px] font-black text-[#1d4ed8] transition hover:text-[#0f172a]"
@@ -302,7 +311,7 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
         </div>
 
         {isLoading ? (
-          <div className="grid min-h-[430px] place-items-center rounded-[8px] border border-[#dbe7f5] bg-white">
+          <div className="grid min-h-[430px] place-items-center rounded-[8px] border border-[#dbe7f5] bg-white max-[520px]:min-h-[260px]">
             <p className="text-[16px] font-black text-[#2563eb]">
               Loading deck...
             </p>
@@ -330,8 +339,7 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
               setIsAnswerVisible(false);
             }}
             onNext={() => {
-              setReviewCardIndex((reviewCardIndex + 1) % reviewCards.length);
-              setIsAnswerVisible(false);
+              goToNextReviewCard();
             }}
             onToggleAnswer={() => setIsAnswerVisible((value) => !value)}
           />

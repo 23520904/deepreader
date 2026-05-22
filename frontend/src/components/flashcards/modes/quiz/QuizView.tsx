@@ -36,9 +36,9 @@ export function QuizView({
 }) {
   if (quizFinished) {
     return (
-      <section className="rounded-[8px] border border-[#dbe7f5] bg-white p-6 text-center shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+      <section className="rounded-[8px] border border-[#dbe7f5] bg-white p-6 text-center shadow-[0_12px_28px_rgba(15,23,42,0.06)] max-[520px]:p-4">
         <p className="text-[14px] font-bold text-[#2563eb]">Quiz result</p>
-        <h1 className="mt-2 text-[42px] font-black text-[#0f172a]">
+        <h1 className="mt-2 text-[clamp(32px,12vw,42px)] font-black text-[#0f172a]">
           {quizScore} / {quizCards.length}
         </h1>
         <p className="mt-2 text-[16px] font-semibold text-[#64748b]">
@@ -84,7 +84,7 @@ export function QuizView({
   }
 
   return (
-    <section className="rounded-[8px] border border-[#dbe7f5] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+    <section className="rounded-[8px] border border-[#dbe7f5] bg-white p-5 shadow-[0_12px_28px_rgba(15,23,42,0.06)] max-[520px]:p-4">
       <ModeHeader deck={deck} label="Multiple choice" title="Quiz practice" />
 
       <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e2e8f0]">
@@ -96,16 +96,16 @@ export function QuizView({
         />
       </div>
 
-      <div className="mt-6 rounded-[8px] bg-[#f8fafc] px-6 py-6 ring-1 ring-[#e2e8f0]">
+      <div className="mt-6 rounded-[8px] bg-[#f8fafc] px-6 py-6 ring-1 ring-[#e2e8f0] max-[520px]:px-4 max-[520px]:py-5">
         <p className="text-[13px] font-bold text-[#64748b]">
           Question {quizIndex + 1} of {quizCards.length}
         </p>
-        <h2 className="mt-3 text-[26px] font-black leading-snug text-[#0f172a]">
+        <h2 className="mt-3 break-words text-[clamp(21px,7vw,26px)] font-black leading-snug text-[#0f172a]">
           {currentQuizCard.question}
         </h2>
       </div>
 
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
+      <div className="mt-5 grid min-w-0 gap-3 lg:grid-cols-2">
         {quizOptions.map((option, index) => {
           const isSelected = quizSelectedAnswer === option;
           const isCorrect = option === currentQuizCard.answer;
@@ -120,7 +120,7 @@ export function QuizView({
                 }
               }}
               disabled={quizSubmitted}
-              className={`min-h-[74px] cursor-pointer rounded-[8px] px-5 py-4 text-left text-[15px] font-bold leading-7 transition disabled:cursor-not-allowed ${
+              className={`min-h-[74px] min-w-0 cursor-pointer rounded-[8px] px-5 py-4 text-left text-[15px] font-bold leading-7 transition disabled:cursor-not-allowed max-[520px]:px-4 max-[420px]:text-[14px] max-[420px]:leading-6 ${
                 quizSubmitted && isCorrect
                   ? "bg-[#ecfdf5] text-[#047857] ring-1 ring-[#bbf7d0]"
                   : quizSubmitted && isSelected
@@ -130,10 +130,10 @@ export function QuizView({
                       : "bg-white text-[#0f172a] ring-1 ring-[#e2e8f0] hover:bg-[#f8fafc]"
               }`}
             >
-              <span className="mr-3 inline-grid h-7 w-7 place-items-center rounded-full bg-[#eff6ff] text-[13px] font-black text-[#1d4ed8]">
+              <span className="mr-3 inline-grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#eff6ff] text-[13px] font-black text-[#1d4ed8]">
                 {String.fromCharCode(65 + index)}
               </span>
-              {option}
+              <span className="break-words">{option}</span>
             </button>
           );
         })}
@@ -145,11 +145,11 @@ export function QuizView({
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap justify-between gap-3">
+      <div className="mt-5 flex flex-wrap justify-between gap-3 max-[420px]:grid">
         <button
           type="button"
           onClick={onReset}
-          className="h-11 cursor-pointer rounded-[8px] border border-[#cbd5e1] bg-white px-5 text-[14px] font-black text-[#0f172a] transition hover:bg-[#f1f5f9]"
+          className="h-11 cursor-pointer rounded-[8px] border border-[#cbd5e1] bg-white px-5 text-[14px] font-black text-[#0f172a] transition hover:bg-[#f1f5f9] max-[420px]:w-full"
         >
           Reset
         </button>
@@ -157,7 +157,7 @@ export function QuizView({
           <button
             type="button"
             onClick={onNext}
-            className="h-11 cursor-pointer rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white transition hover:bg-[#1d4ed8]"
+            className="h-11 cursor-pointer rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white transition hover:bg-[#1d4ed8] max-[420px]:w-full"
           >
             {quizIndex + 1 >= quizCards.length ? "See Result" : "Next Question"}
           </button>
@@ -166,7 +166,7 @@ export function QuizView({
             type="button"
             onClick={onSubmit}
             disabled={!quizSelectedAnswer}
-            className="h-11 cursor-pointer rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-11 cursor-pointer rounded-[8px] bg-[#2563eb] px-5 text-[14px] font-black text-white transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-50 max-[420px]:w-full"
           >
             Submit
           </button>

@@ -13,12 +13,12 @@ export function ModeHeader({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
-      <div>
+      <div className="min-w-0">
         <p className="text-[14px] font-bold text-[#2563eb]">{label}</p>
-        <h1 className="mt-1 text-[clamp(30px,4vw,44px)] font-black leading-tight text-[#0f172a]">
+        <h1 className="mt-1 break-words text-[clamp(28px,9vw,44px)] font-black leading-tight text-[#0f172a]">
           {title}
         </h1>
-        <p className="mt-2 text-[14px] font-semibold text-[#64748b]">
+        <p className="mt-2 break-words text-[14px] font-semibold leading-6 text-[#64748b]">
           {deck.title} - {deck.totalCards} cards
         </p>
       </div>
