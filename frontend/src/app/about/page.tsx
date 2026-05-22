@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
+import { HomeScrollReveal } from "@/components/home/HomeScrollReveal";
 import { AboutGoalCTA } from "@/components/about/AboutGoalCTA";
 import { AboutHero } from "@/components/about/AboutHero";
 import { AboutMission } from "@/components/about/AboutMission";
@@ -16,7 +17,8 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-[#eef0f7] text-[#181b24]">
+    <main className="min-h-screen bg-[#eef1f8] text-[#1d355b]">
+      <HomeScrollReveal />
       <SiteNavbar activeItem="About" />
       <AboutHero />
       <AboutWorkSteps />
