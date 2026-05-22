@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   CardModal,
@@ -44,7 +44,6 @@ import type { LibraryDocument } from "@/types/library";
 type FlashcardRouteMode = "review" | "quiz" | "games" | "cards";
 
 export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
-  const router = useRouter();
   const params = useParams<{ deckId?: string }>();
   const deckId = decodeURIComponent(params.deckId ?? "");
   const session = useSyncExternalStore(
@@ -64,7 +63,7 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
   const [hiddenCardIds, setHiddenCardIds] = useState<string[]>(() =>
     safeReadStorage(HIDDEN_CARDS_KEY, []),
   );
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [reviewCardIndex, setReviewCardIndex] = useState(0);
   const [isAnswerVisible, setIsAnswerVisible] = useState(false);
@@ -94,7 +93,6 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
 
   useEffect(() => {
     if (!session) {
-      router.push("/login");
       return;
     }
 
@@ -154,7 +152,7 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
     return () => {
       ignore = true;
     };
-  }, [deckId, mode, router, session]);
+  }, [deckId, mode, session]);
 
   const visibleCards = useMemo(
     () => applyCardOverrides({ cards, cardEdits, hiddenCardIds }),
@@ -175,6 +173,9 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
   }, [document, studyProgress, visibleCards]);
 
   const reviewCards = useMemo(() => deck?.cards ?? [], [deck]);
+  const pageErrorMessage = !session
+    ? "Please log in to open this flashcard deck."
+    : errorMessage;
 
   const activeReviewCard = reviewCards.length
     ? reviewCards[reviewCardIndex % reviewCards.length]
@@ -306,9 +307,9 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
               Loading deck...
             </p>
           </div>
-        ) : errorMessage ? (
+        ) : pageErrorMessage ? (
           <div className="rounded-[8px] border border-[#fecdd3] bg-[#fff1f2] px-5 py-4 text-[14px] font-bold text-[#be123c]">
-            {errorMessage}
+            {pageErrorMessage}
           </div>
         ) : !deck ? (
           <EmptyMode

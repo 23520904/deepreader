@@ -892,3 +892,18 @@ html {
     object-fit: cover;
   }
 }
+
+/* Navbar logo - desktop only */
+@media (min-width: 768px) {
+  header img[src*="logo"],
+  header img[src*="brand"],
+  header img[alt*="DeepReader"],
+  nav img[src*="logo"],
+  nav img[src*="brand"],
+  nav img[alt*="DeepReader"] {
+    width: 160px !important;
+    height: auto !important;
+    max-height: 150px !important;
+    object-fit: contain !important;
+  }
+}

@@ -16,6 +16,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "DeepReader",
   description: "Read smarter and learn faster with DeepReader AI.",
+  icons: {
+    icon: [
+      {
+        url: "/favicon.ico",
+        type: "image/x-icon",
+      },
+      {
+        url: "/assets/images/brand/deepreader-favicon.png",
+        type: "image/png",
+      },
+    ],
+    apple: [
+      {
+        url: "/assets/images/brand/deepreader-favicon.png",
+        type: "image/png",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

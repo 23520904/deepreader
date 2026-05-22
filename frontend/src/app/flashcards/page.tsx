@@ -79,7 +79,7 @@ export default function FlashcardsPage() {
     [],
   );
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [createErrorMessage, setCreateErrorMessage] = useState("");
 
@@ -89,7 +89,6 @@ export default function FlashcardsPage() {
 
   useEffect(() => {
     if (!session) {
-      router.push("/login");
       return;
     }
 
@@ -161,7 +160,7 @@ export default function FlashcardsPage() {
     return () => {
       ignore = true;
     };
-  }, [router, session]);
+  }, [session]);
 
   const readyDocuments = useMemo(
     () => documents.filter((document) => document.status === "Ready"),
@@ -251,6 +250,16 @@ export default function FlashcardsPage() {
     );
   }
 
+  function openCreateDeck() {
+    if (!session) {
+      router.push("/login");
+      return;
+    }
+
+    resetCreateModal();
+    setIsCreateModalOpen(true);
+  }
+
   async function generateDeckPreview() {
     if (!session || !createBookId) {
       return;
@@ -310,10 +319,7 @@ export default function FlashcardsPage() {
       <section className="mx-auto w-[min(1180px,calc(100%_-_48px))] py-8 max-[700px]:w-[min(100%_-_28px,1180px)]">
         <FlashcardsHeader
           summaryLine={summaryLine}
-          onCreate={() => {
-            resetCreateModal();
-            setIsCreateModalOpen(true);
-          }}
+          onCreate={openCreateDeck}
         />
 
         {errorMessage ? (
@@ -342,12 +348,7 @@ export default function FlashcardsPage() {
               </p>
             </div>
           ) : !decks.length ? (
-            <EmptyDecks
-              onCreate={() => {
-                resetCreateModal();
-                setIsCreateModalOpen(true);
-              }}
-            />
+            <EmptyDecks onCreate={openCreateDeck} />
           ) : filteredDecks.length ? (
             <section className="grid gap-4">
               <h2 className="text-[22px] font-black text-[#0f172a]">

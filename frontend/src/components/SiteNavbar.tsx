@@ -156,10 +156,10 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/70 bg-[#eef2f8]/90 shadow-[0_14px_32px_rgba(18,31,65,0.12)] backdrop-blur-xl">
-      <div className="relative mx-auto flex min-h-[66px] w-[min(1180px,calc(100%_-_40px))] items-center justify-between gap-4 max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:py-3">
+      <div className="relative mx-auto flex min-h-[76px] w-[min(1180px,calc(100%_-_40px))] items-center justify-between gap-4 max-[700px]:min-h-[66px] max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:py-3">
         <Link
           href="/"
-          className="flex h-[50px] w-[132px] items-center justify-center overflow-hidden rounded-[8px] transition duration-300 hover:-translate-y-0.5 max-[700px]:h-[46px] max-[700px]:w-[118px]"
+          className="flex h-[64px] w-[170px] items-center justify-center overflow-hidden rounded-[8px] transition duration-300 hover:-translate-y-0.5 max-[700px]:h-[46px] max-[700px]:w-[118px]"
           aria-label="DeepReader Home"
           onClick={closeMobileMenu}
         >
