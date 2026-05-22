@@ -9,13 +9,14 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class ChatService {
 
 	private static final int GROQ_MAX_MATCHES = 4;
-	private static final int GROQ_MAX_CONTEXT_CHARS = 10_000;
-	private static final int GROQ_MAX_CHUNK_CHARS = 2_200;
+	private static final int GROQ_MAX_CONTEXT_CHARS = 12_000;
+	private static final int GROQ_MAX_CHUNK_CHARS = 1_100;
 	private static final String STUDY_PROVIDER = "groq";
 
 	private final RetrievalService retrievalService;
@@ -51,7 +52,11 @@ public class ChatService {
 				GROQ_MAX_CONTEXT_CHARS,
 				GROQ_MAX_CHUNK_CHARS
 		);
-		String answer = llmClientService.generateAnswer(userId, STUDY_PROVIDER, prompt);
+		String answer = cleanAnswer(llmClientService.generateAnswer(userId, STUDY_PROVIDER, prompt));
+		if (needsAnswerRepair(answer)) {
+			String repairPrompt = promptBuilderService.buildAnswerRepairPrompt(searchResponse.query(), answer);
+			answer = cleanAnswer(llmClientService.generateAnswer(userId, STUDY_PROVIDER, repairPrompt));
+		}
 
 		List<SourceReference> sources = matches.stream()
 				.map(chunk -> new SourceReference(
@@ -75,5 +80,32 @@ public class ChatService {
 		}
 
 		return limit;
+	}
+
+	private String cleanAnswer(String answer) {
+		return answer == null ? "" : answer.trim();
+	}
+
+	private boolean needsAnswerRepair(String answer) {
+		if (answer == null || answer.isBlank()) {
+			return false;
+		}
+
+		String normalized = answer.toLowerCase(Locale.ROOT);
+		return containsVietnameseText(normalized)
+				|| normalized.contains("provided source")
+				|| normalized.contains("provided sources")
+				|| normalized.contains("based on the sources")
+				|| normalized.contains("based on these sources")
+				|| normalized.contains("based on the provided")
+				|| normalized.contains("the sources")
+				|| normalized.matches("(?s).*\\bsource\\s*\\d+\\b.*")
+				|| normalized.matches("(?s).*\\bpage\\s*\\d+\\b.*")
+				|| normalized.matches("(?s).*\\bchunk\\s*\\d+\\b.*");
+	}
+
+	private boolean containsVietnameseText(String answer) {
+		return answer.matches(".*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ].*")
+				|| answer.matches("(?s).*\\b(là|việc|của|và|hoặc|trong|phương\\s+thức|tham\\s+số|đối\\s+tượng)\\b.*");
 	}
 }

@@ -38,6 +38,11 @@ export function ReadingWorkspace({
   onPageSelect,
 }: ReadingWorkspaceProps) {
   const wheelNavigationLockedRef = useRef(false);
+  const pdfScrollMetricsRef = useRef({
+    scrollTop: 0,
+    clientHeight: 0,
+    scrollHeight: 0,
+  });
   const activePageIndex = pages.findIndex((page) => page.key === activePageKey);
 
   useEffect(() => {
@@ -47,11 +52,41 @@ export function ReadingWorkspace({
       return;
     }
 
-    function handlePdfWheel(event: WheelEvent) {
-      if (!container) {
-        return;
+    const scrollContainer = container;
+    let metricsFrame: number | null = null;
+
+    const updateScrollMetrics = () => {
+      pdfScrollMetricsRef.current = {
+        scrollTop: scrollContainer.scrollTop,
+        clientHeight: scrollContainer.clientHeight,
+        scrollHeight: scrollContainer.scrollHeight,
+      };
+    };
+
+    const scheduleMetricsUpdate = () => {
+      if (metricsFrame !== null) {
+        window.cancelAnimationFrame(metricsFrame);
       }
 
+      metricsFrame = window.requestAnimationFrame(() => {
+        updateScrollMetrics();
+        metricsFrame = null;
+      });
+    };
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(scheduleMetricsUpdate);
+
+    scheduleMetricsUpdate();
+    resizeObserver?.observe(scrollContainer);
+
+    function handlePdfScroll() {
+      pdfScrollMetricsRef.current.scrollTop = scrollContainer.scrollTop;
+    }
+
+    function handlePdfWheel(event: WheelEvent) {
       const isVerticalScroll =
         Math.abs(event.deltaY) >= Math.abs(event.deltaX);
 
@@ -66,18 +101,25 @@ export function ReadingWorkspace({
       event.preventDefault();
 
       const isScrollingDown = event.deltaY > 0;
+      const { clientHeight, scrollHeight, scrollTop } =
+        pdfScrollMetricsRef.current;
       const hasVerticalScroll =
-        container.scrollHeight > container.clientHeight + 2;
-      const isAtTop = container.scrollTop <= 2;
+        scrollHeight > clientHeight + 2;
+      const isAtTop = scrollTop <= 2;
       const isAtBottom =
-        container.scrollTop + container.clientHeight >=
-        container.scrollHeight - 2;
+        scrollTop + clientHeight >= scrollHeight - 2;
 
       if (
         hasVerticalScroll &&
         ((isScrollingDown && !isAtBottom) || (!isScrollingDown && !isAtTop))
       ) {
-        container.scrollTop += event.deltaY;
+        const nextScrollTop = Math.max(
+          0,
+          Math.min(scrollTop + event.deltaY, scrollHeight - clientHeight),
+        );
+
+        scrollContainer.scrollTop = nextScrollTop;
+        pdfScrollMetricsRef.current.scrollTop = nextScrollTop;
         return;
       }
 
@@ -99,24 +141,31 @@ export function ReadingWorkspace({
 
         if (nextContainer) {
           nextContainer.scrollTo({
-            top: isScrollingDown
-              ? 0
-              : Math.max(
-                  nextContainer.scrollHeight - nextContainer.clientHeight,
-                  0,
-                ),
+            top: isScrollingDown ? 0 : Number.MAX_SAFE_INTEGER,
             left: 0,
           });
+          scheduleMetricsUpdate();
         }
 
         wheelNavigationLockedRef.current = false;
       }, 420);
     }
 
-    container.addEventListener("wheel", handlePdfWheel, { passive: false });
+    scrollContainer.addEventListener("scroll", handlePdfScroll, {
+      passive: true,
+    });
+    scrollContainer.addEventListener("wheel", handlePdfWheel, {
+      passive: false,
+    });
 
     return () => {
-      container.removeEventListener("wheel", handlePdfWheel);
+      if (metricsFrame !== null) {
+        window.cancelAnimationFrame(metricsFrame);
+      }
+
+      resizeObserver?.disconnect();
+      scrollContainer.removeEventListener("scroll", handlePdfScroll);
+      scrollContainer.removeEventListener("wheel", handlePdfWheel);
     };
   }, [activePageIndex, onPageSelect, pages.length, pdfCanvasContainerRef]);
 

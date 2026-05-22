@@ -22,6 +22,8 @@ export function HomeHero() {
   const videoHostRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    let isCancelled = false;
+
     const revealCopyOnFinalFrame = () => {
       const video = videoHostRef.current?.querySelector("video");
 
@@ -29,7 +31,9 @@ export function HomeHero() {
         video.pause();
       }
 
-      setIsCopyVisible(true);
+      if (!isCancelled) {
+        setIsCopyVisible(true);
+      }
     };
 
     const video = videoHostRef.current?.querySelector("video");
@@ -38,17 +42,41 @@ export function HomeHero() {
       return;
     }
 
-    if (video.ended) {
-      revealCopyOnFinalFrame();
-      return;
-    }
+    const restartVideo = () => {
+      if (isCancelled) {
+        return;
+      }
 
-    video.addEventListener("ended", revealCopyOnFinalFrame, { once: true });
-    video.addEventListener("error", revealCopyOnFinalFrame, { once: true });
+      setIsCopyVisible(false);
+      video.muted = true;
+      video.playsInline = true;
+
+      try {
+        video.pause();
+        video.currentTime = 0;
+        video.load();
+      } catch {
+        // If the browser cannot seek before metadata is ready, play from the initial load state.
+      }
+
+      const playPromise = video.play();
+      if (playPromise) {
+        playPromise.catch(() => {
+          revealCopyOnFinalFrame();
+        });
+      }
+    };
+
+    video.addEventListener("ended", revealCopyOnFinalFrame);
+    video.addEventListener("error", revealCopyOnFinalFrame);
+    window.addEventListener("pageshow", restartVideo);
+    restartVideo();
 
     return () => {
+      isCancelled = true;
       video.removeEventListener("ended", revealCopyOnFinalFrame);
       video.removeEventListener("error", revealCopyOnFinalFrame);
+      window.removeEventListener("pageshow", restartVideo);
     };
   }, []);
 

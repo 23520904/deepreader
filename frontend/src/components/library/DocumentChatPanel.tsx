@@ -10,11 +10,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { AccountAvatar } from "@/components/AccountAvatar";
-import type {
-  ChatMessageView,
-  ChatSourceReference,
-  ChatThreadView,
-} from "@/types/study";
+import type { ChatMessageView, ChatThreadView } from "@/types/study";
 
 type DocumentChatPanelProps = {
   messages: ChatMessageView[];
@@ -101,27 +97,6 @@ function formatHistoryTime(value: string | null) {
   }).format(date);
 }
 
-function SourceLabel({
-  source,
-  index,
-}: {
-  source: ChatSourceReference;
-  index: number;
-}) {
-  const label =
-    source.title?.trim() ||
-    source.fileName?.trim() ||
-    (source.chunkIndex !== null && source.chunkIndex !== undefined
-      ? `Chunk ${source.chunkIndex + 1}`
-      : `Source ${index + 1}`);
-
-  return (
-    <span className="inline-flex max-w-full items-center rounded-full bg-[#eef5ff] px-3 py-1 text-[12px] font-black text-[#245895] ring-1 ring-[#dce6f4]">
-      <span className="truncate">{label}</span>
-    </span>
-  );
-}
-
 function TypingDots() {
   return (
     <div className="flex items-center gap-1.5 py-1">
@@ -144,7 +119,6 @@ function ChatBubble({
   userAvatarUrl?: string | null;
 }) {
   const isUser = message.role === "user";
-  const visibleSources = message.sources?.slice(0, 3) ?? [];
 
   return (
     <div className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -173,17 +147,6 @@ function ChatBubble({
           </p>
         </div>
 
-        {visibleSources.length ? (
-          <div className="flex max-w-full flex-wrap gap-2">
-            {visibleSources.map((source, index) => (
-              <SourceLabel
-                key={`${message.id}-source-${source.chunkId ?? index}`}
-                source={source}
-                index={index}
-              />
-            ))}
-          </div>
-        ) : null}
       </div>
 
       {isUser ? (
@@ -225,8 +188,8 @@ export function DocumentChatPanel({
 
     const animationFrame = window.requestAnimationFrame(() => {
       viewport.scrollTo({
-        top: viewport.scrollHeight,
-        behavior: "smooth",
+        top: Number.MAX_SAFE_INTEGER,
+        behavior: "auto",
       });
     });
 

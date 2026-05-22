@@ -373,6 +373,8 @@ input::-ms-clear {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
   padding: 24px 34px 34px;
+  cursor: pointer;
+  font: inherit;
   text-align: center;
   transform:
     translateY(var(--lift))
@@ -387,6 +389,11 @@ input::-ms-clear {
     filter 260ms ease,
     opacity 260ms ease,
     transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.feature-3d-button:focus-visible {
+  outline: 4px solid rgba(36, 88, 149, 0.22);
+  outline-offset: 6px;
 }
 
 .feature-3d-button::before,
@@ -747,6 +754,7 @@ input::-ms-clear {
 @media (prefers-reduced-motion: reduce) {
   .account-sidebar-backdrop,
   .account-sidebar-panel,
+  [data-home-reveal],
   .feature-3d-button,
   .feature-3d-button::before,
   .feature-3d-button::after,
@@ -758,6 +766,13 @@ input::-ms-clear {
   .workflow-step-number,
   .workflow-v-stage::after {
     animation: none;
+  }
+
+  [data-home-reveal] {
+    opacity: 1;
+    translate: none;
+    filter: none;
+    transition: none;
   }
 
   .workflow-v-flow {
@@ -794,6 +809,64 @@ input::-ms-clear {
 
 html {
   scroll-behavior: smooth;
+}
+
+[data-home-reveal] {
+  opacity: 0;
+  translate: 0 18px;
+  filter: blur(2px);
+  transition:
+    opacity 620ms ease,
+    translate 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 620ms ease;
+  transition-delay: var(--home-reveal-delay, 0ms);
+  will-change: opacity, translate, filter;
+}
+
+[data-home-reveal].is-visible {
+  opacity: 1;
+  translate: 0 0;
+  filter: blur(0);
+}
+
+.home-reveal-delay-1 {
+  --home-reveal-delay: 90ms;
+}
+
+.home-reveal-delay-2 {
+  --home-reveal-delay: 180ms;
+}
+
+.home-reveal-delay-3 {
+  --home-reveal-delay: 270ms;
+}
+
+.home-reveal-delay-4 {
+  --home-reveal-delay: 360ms;
+}
+
+.home-deferred-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 860px;
+}
+
+.home-video-hero,
+.home-deferred-section,
+.library-hero-section,
+.library-content-section,
+.about-fade-left,
+.about-fade-right,
+.about-fade-up,
+.workflow-step-card,
+.why-card,
+.feature-3d-card,
+.feature-3d-button {
+  contain: layout style;
+}
+
+.library-content-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 900px;
 }
 
 .home-video-hero {

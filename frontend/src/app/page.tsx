@@ -2,6 +2,7 @@
 import { preload } from "react-dom";
 import { FeatureCardsShowcase } from "@/components/FeatureCardsShowcase";
 import { HomeHero } from "@/components/home/HomeHero";
+import { HomeScrollReveal } from "@/components/home/HomeScrollReveal";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
 
@@ -97,12 +98,16 @@ export default function Home() {
   return (
     <>
       <main className="min-h-screen bg-[#e8e9f1] text-[#1d355b]">
+        <HomeScrollReveal />
         <SiteNavbar activeItem="Home" />
         <HomeHero />
 
-      <section id="workflow" className="bg-white py-[86px] max-[700px]:py-[70px]">
+      <section id="workflow" className="home-deferred-section bg-white py-[86px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <div className="mx-auto mb-[46px] max-w-[780px] text-center">
+          <div
+            className="mx-auto mb-[46px] max-w-[780px] text-center"
+            data-home-reveal
+          >
             <h2 className="home-section-heading font-extrabold leading-[1.16] tracking-[0] text-[#1d355b]">
               A clearer, deeper document reading workflow
             </h2>
@@ -155,7 +160,8 @@ export default function Home() {
                 key={step.number}
                 className={`workflow-step-card workflow-step-card-${
                   index + 1
-                } relative z-10 min-h-[232px] overflow-hidden rounded-[8px] border border-[#e8eef8] bg-white/95 p-6 shadow-[0_22px_50px_rgba(32,55,103,0.12)] backdrop-blur`}
+                } home-reveal-delay-${index + 1} relative z-10 min-h-[232px] overflow-hidden rounded-[8px] border border-[#e8eef8] bg-white/95 p-6 shadow-[0_22px_50px_rgba(32,55,103,0.12)] backdrop-blur`}
+                data-home-reveal
               >
                 <span className="workflow-step-number absolute right-[18px] top-[18px] text-[40px] font-extrabold leading-none text-[#d8deea]">
                   {step.number}
@@ -183,9 +189,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="why-choose-section bg-[#f7f8fb] py-[92px] max-[700px]:py-[70px]">
+      <section className="home-deferred-section why-choose-section bg-[#f7f8fb] py-[92px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] text-center max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <div>
+          <div data-home-reveal>
             <h2 className="home-section-heading why-choose-title font-extrabold leading-[1.08] tracking-[0] text-[#1d355b]">
               Why <span>Choose</span> DeepReader?
             </h2>
@@ -208,8 +214,11 @@ export default function Home() {
 
             {whyChooseCards.map((card, index) => (
               <article
-                className={`why-card why-card-${index + 1} ${card.tone}`}
+                className={`why-card why-card-${index + 1} ${
+                  card.tone
+                } home-reveal-delay-${index + 1}`}
                 key={card.title}
+                data-home-reveal
               >
                 <div className="why-card-pin">
                   <img
@@ -232,9 +241,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="workspace" className="bg-[#e8e9f1] py-[82px] max-[700px]:py-[70px]">
+      <section id="workspace" className="home-deferred-section bg-[#e8e9f1] py-[82px] max-[700px]:py-[70px]">
         <div className="mx-auto grid min-h-[520px] w-[min(1180px,calc(100%_-_48px))] grid-cols-[minmax(0,500px)_minmax(520px,1fr)] items-center gap-[100px] max-[1050px]:grid-cols-1 max-[1050px]:gap-12 max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <div className="max-w-[500px] max-[1050px]:max-w-[720px]">
+          <div
+            className="max-w-[500px] max-[1050px]:max-w-[720px]"
+            data-home-reveal
+          >
             <h2 className="max-w-[520px] text-[38px] font-extrabold leading-[1.16] tracking-[0] text-[#1d355b] max-[700px]:text-[29px]">
               A calm dashboard for focused study
             </h2>
@@ -256,6 +268,7 @@ export default function Home() {
 
           <div
             className="relative min-h-[500px] max-w-[720px] max-[1050px]:mx-auto max-[1050px]:w-full max-[700px]:min-h-[420px]"
+            data-home-reveal
           >
             <div className="absolute right-0 top-0 h-[500px] w-[500px] rounded-[8px] bg-[linear-gradient(135deg,#e5fcff_0%,#dff6fb_48%,#d0eef5_100%)] max-[700px]:h-[420px] max-[700px]:w-full" />
 
@@ -315,9 +328,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="flashcards" className="bg-white py-[90px] max-[700px]:py-[70px]">
+      <section id="flashcards" className="home-deferred-section bg-white py-[90px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
-          <div className="mx-auto mb-[46px] max-w-[700px] text-center">
+          <div
+            className="mx-auto mb-[46px] max-w-[700px] text-center"
+            data-home-reveal
+          >
             <h2 className="home-section-heading font-extrabold leading-[1.16] tracking-[0] text-[#1d355b]">
               Smart reading tools for focused study
             </h2>

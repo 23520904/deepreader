@@ -19,11 +19,9 @@ public class PromptBuilderService {
 		StringBuilder context = new StringBuilder();
 		for (int i = 0; i < chunks.size(); i++) {
 			RetrievedChunk chunk = chunks.get(i);
-			String source = "[Source " + (i + 1) + "]\n"
+			String source = "[Document excerpt " + (i + 1) + "]\n"
 					+ "File: " + nullSafe(chunk.fileName()) + "\n"
-					+ "Section Id: " + nullSafe(chunk.sectionId()) + "\n"
-					+ "Title: " + nullSafe(chunk.title()) + "\n"
-					+ "Chunk Index: " + chunk.chunkIndex() + "\n"
+					+ "Location: " + displayLocation(chunk) + "\n"
 					+ "Content: " + truncate(nullSafe(chunk.content()), maxChunkChars) + "\n\n";
 
 			if (context.length() + source.length() > maxContextChars) {
@@ -35,25 +33,48 @@ public class PromptBuilderService {
 
 		if (context.isEmpty() && !chunks.isEmpty()) {
 			RetrievedChunk chunk = chunks.getFirst();
-			context.append("[Source 1]\n")
+			context.append("[Document excerpt 1]\n")
 					.append("File: ").append(nullSafe(chunk.fileName())).append("\n")
-					.append("Section Id: ").append(nullSafe(chunk.sectionId())).append("\n")
-					.append("Title: ").append(nullSafe(chunk.title())).append("\n")
-					.append("Chunk Index: ").append(chunk.chunkIndex()).append("\n")
+					.append("Location: ").append(displayLocation(chunk)).append("\n")
 					.append("Content: ").append(truncate(nullSafe(chunk.content()), Math.max(500, maxContextChars / 2))).append("\n\n");
 		}
 
 		return "You are a document question-answering assistant for the document the user is currently reading. "
 				+ "The sources below are the only allowed facts. "
 				+ "Do not use prior knowledge, conversation memory, or content from any other document. "
-				+ "If the answer cannot be found in these sources, say that clearly. "
-				+ "Keep the answer concise and factual.\n\n"
+				+ "If the answer cannot be found in these sources, say that clearly without guessing. "
+				+ "For broad questions such as what the document is about, key points, overview, or summary, synthesize the overall topic across all provided sources and the file name; do not focus on a single matching word or one isolated page. "
+				+ "For concept questions, answer the exact concept the user asked about and ignore unrelated source snippets. "
+				+ "For example requests, give only examples that are explicitly present in the sources. "
+				+ "Write the answer in English. Translate source ideas into natural English when the source is Vietnamese. "
+				+ "Do not include source labels, page labels, chunk IDs, citations, or text like \"Page 1\", \"Source 2\", or \"the provided sources\" in the final answer. "
+				+ "Keep the answer concise, factual, and useful for studying.\n\n"
 				+ "Question:\n" + query + "\n\n"
 				+ "Sources:\n" + context;
 	}
 
+	public String buildAnswerRepairPrompt(String query, String previousAnswer) {
+		return "Rewrite the assistant answer below for the user. "
+				+ "Return only the cleaned answer, with no preface and no commentary. "
+				+ "The answer must be fully in English. If any part is Vietnamese or another language, translate it into natural English. "
+				+ "Remove every mention of sources, pages, chunks, citations, excerpts, or phrases such as \"based on the provided sources\". "
+				+ "Do not add new facts. Preserve the meaning of the answer and keep it concise.\n\n"
+				+ "Question:\n" + nullSafe(query) + "\n\n"
+				+ "Answer to clean:\n" + nullSafe(previousAnswer);
+	}
+
 	private String nullSafe(String value) {
 		return value == null ? "" : value;
+	}
+
+	private String displayLocation(RetrievedChunk chunk) {
+		String title = nullSafe(chunk.title()).trim();
+
+		if (!title.matches("(?i)^page\\s+\\d+$") && !title.matches("(?i)^slide\\s+\\d+$") && !title.isBlank()) {
+			return title;
+		}
+
+		return "Document excerpt";
 	}
 
 	public String buildSummaryPrompt(String fileName, String content) {

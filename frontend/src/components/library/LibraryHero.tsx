@@ -10,7 +10,7 @@ export function LibraryHero({
   onViewLibraryClick,
 }: LibraryHeroProps) {
   return (
-    <section className="overflow-hidden bg-[#eef1f8]">
+    <section className="library-hero-section overflow-hidden bg-[#eef1f8]">
       <div className="mx-auto grid min-h-[560px] w-[min(1180px,calc(100%_-_48px))] items-center gap-14 py-[78px] md:grid-cols-[minmax(0,520px)_minmax(420px,1fr)] max-[900px]:min-h-0 max-[900px]:gap-10 max-[900px]:py-16 max-[700px]:w-[min(calc(100%_-_32px),1180px)] max-[700px]:grid-cols-1 max-[700px]:gap-8 max-[700px]:py-12 max-[420px]:w-[min(calc(100%_-_24px),1180px)] max-[420px]:py-10">
         <div className="contents md:block">
           <div className="translate-y-3 max-[900px]:translate-y-0">

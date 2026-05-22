@@ -31,7 +31,7 @@ export function FloatingHelpChat({
   const [messages, setMessages] = useState<HelpMessage[]>(initialMessages);
   const [askedQuestionIds, setAskedQuestionIds] = useState<string[]>([]);
   const [isAnswering, setIsAnswering] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesViewportRef = useRef<HTMLDivElement | null>(null);
   const answerTimerRef = useRef<number | null>(null);
   const closeTimerRef = useRef<number | null>(null);
 
@@ -67,10 +67,15 @@ export function FloatingHelpChat({
       return;
     }
 
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "end",
+    const animationFrame = window.requestAnimationFrame(() => {
+      const viewport = messagesViewportRef.current;
+
+      if (viewport) {
+        viewport.scrollTop = Number.MAX_SAFE_INTEGER;
+      }
     });
+
+    return () => window.cancelAnimationFrame(animationFrame);
   }, [isAnswering, isOpen, messages]);
 
   useEffect(() => {
@@ -208,7 +213,10 @@ export function FloatingHelpChat({
               </button>
             </div>
 
-            <div className="min-h-[220px] flex-1 space-y-3 overflow-y-auto bg-[#f8fafc] px-4 py-4 max-[640px]:min-h-[180px] max-[640px]:px-3.5 max-[640px]:py-3.5">
+            <div
+              ref={messagesViewportRef}
+              className="min-h-[220px] flex-1 space-y-3 overflow-y-auto bg-[#f8fafc] px-4 py-4 max-[640px]:min-h-[180px] max-[640px]:px-3.5 max-[640px]:py-3.5"
+            >
               {messages.map((message) => (
                 <div
                   key={message.id}
@@ -236,7 +244,6 @@ export function FloatingHelpChat({
                 </div>
               ) : null}
 
-              <div ref={messagesEndRef} />
             </div>
 
             <div className="border-t border-[#e2e8f0] bg-white px-4 py-4 max-[640px]:px-3.5 max-[640px]:py-3.5">
