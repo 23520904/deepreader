@@ -164,13 +164,13 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
           onClick={closeMobileMenu}
         >
           <img
-            src="/assets/images/brand/deepreader-navbar-logo.webp"
+            src="/assets/images/brand/deepreader-navbar-logo-compact.webp"
             alt=""
-            width={354}
-            height={236}
+            width={180}
+            height={120}
             fetchPriority="high"
             decoding="async"
-            className="h-full w-full object-cover object-center drop-shadow-[0_7px_9px_rgba(29,53,91,0.12)]"
+            className="h-full w-full object-contain object-center drop-shadow-[0_7px_9px_rgba(29,53,91,0.12)]"
           />
         </Link>
 

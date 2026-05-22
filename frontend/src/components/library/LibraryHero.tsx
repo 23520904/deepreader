@@ -52,11 +52,13 @@ export function LibraryHero({
 
           <div className="relative mx-auto h-[430px] w-full max-w-[520px] overflow-hidden max-[900px]:h-[360px] max-[700px]:h-[250px] max-[420px]:h-[215px]">
             <Image
-              src="/assets/images/library/upload-banner.png"
+              src="/assets/images/library/upload-banner-lcp.webp"
               alt="Cloud upload illustration"
               fill
               priority
-              sizes="(min-width: 1024px) 520px, (min-width: 768px) 440px, calc(100vw - 32px)"
+              fetchPriority="high"
+              quality={70}
+              sizes="(min-width: 1024px) 340px, (min-width: 768px) 320px, min(360px, calc(100vw - 32px))"
               className="object-contain drop-shadow-[0_26px_42px_rgba(36,88,149,0.16)]"
             />
           </div>

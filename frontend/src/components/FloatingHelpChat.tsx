@@ -185,11 +185,11 @@ export function FloatingHelpChat({
               <div className="flex min-w-0 items-center gap-3">
                 <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white/70 ring-1 ring-white max-[420px]:h-10 max-[420px]:w-10 max-[420px]:rounded-xl">
                   <Image
-                    src="/assets/images/brand/deepreader-navbar-logo.webp"
+                    src="/assets/images/brand/deepreader-navbar-logo-compact.webp"
                     alt=""
-                    width={96}
-                    height={64}
-                    className="h-full w-full object-cover object-center"
+                    width={90}
+                    height={60}
+                    className="h-full w-full object-contain object-center"
                   />
                 </div>
 
