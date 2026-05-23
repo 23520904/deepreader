@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState, type ComponentType } from "react";
 
 type FloatingHelpChatProps = {
@@ -9,6 +10,7 @@ type FloatingHelpChatProps = {
 type FloatingHelpChatComponent = ComponentType<FloatingHelpChatProps>;
 
 export function LazyFloatingHelpChat() {
+  const pathname = usePathname();
   const [ChatComponent, setChatComponent] =
     useState<FloatingHelpChatComponent | null>(null);
   const [shouldOpenWhenLoaded, setShouldOpenWhenLoaded] = useState(false);
@@ -30,6 +32,10 @@ export function LazyFloatingHelpChat() {
       .finally(() => {
         setIsLoading(false);
       });
+  }
+
+  if (pathname.startsWith("/admin")) {
+    return null;
   }
 
   if (ChatComponent) {

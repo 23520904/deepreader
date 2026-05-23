@@ -39,6 +39,7 @@ const navItems = [
   { label: "Flashcards", href: "/flashcards" },
   { label: "Contact", href: "/contact" },
 ];
+const adminNavItems = [{ label: "Admin", href: "/admin" }];
 
 type SiteNavbarProps = {
   activeItem?: string;
@@ -58,6 +59,8 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
     getAuthSessionSnapshot,
     () => null,
   );
+  const visibleNavItems =
+    session?.role?.toUpperCase() === "ADMIN" ? adminNavItems : navItems;
 
   const closeSidebar = useCallback(() => {
     setIsSidebarOpen(false);
@@ -175,7 +178,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
         </Link>
 
         <nav className="hidden items-center justify-center gap-1 rounded-[8px] border border-white/80 bg-[rgba(255,255,255,0.72)] p-1 text-[14px] font-bold text-[#2f4195] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_26px_rgba(34,54,111,0.10)] min-[700px]:flex">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <Link
               key={item.label}
               href={item.href}
@@ -243,7 +246,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
               }`}
             >
               <div className="grid gap-1.5">
-                {navItems.map((item, index) => {
+                {visibleNavItems.map((item, index) => {
                   const isActive = item.label === activeItem;
 
                   return (

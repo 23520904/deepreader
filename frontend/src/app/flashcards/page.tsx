@@ -43,6 +43,10 @@ import {
   fetchDocumentFlashcards,
   generateDocumentFlashcards,
 } from "@/services/readingService";
+import {
+  fetchStudyProgress,
+  studyProgressRecordsToState,
+} from "@/services/studyProgressService";
 import type { LibraryDocument } from "@/types/library";
 
 export default function FlashcardsPage() {
@@ -101,7 +105,10 @@ export default function FlashcardsPage() {
       setErrorMessage("");
 
       try {
-        const books = await fetchLibraryBooks(token);
+        const [books, remoteProgressRecords] = await Promise.all([
+          fetchLibraryBooks(token),
+          fetchStudyProgress(token).catch(() => []),
+        ]);
         const libraryDocuments = books.map((book) =>
           mapBackendBook(book, "mine", displayName),
         );
@@ -135,6 +142,10 @@ export default function FlashcardsPage() {
 
         setDocuments(libraryDocuments);
         setFlashcards(nextFlashcards);
+        setStudyProgress((currentProgress) => ({
+          ...studyProgressRecordsToState(remoteProgressRecords),
+          ...currentProgress,
+        }));
         setCreateBookId(
           (currentBookId) => currentBookId || readyDocuments[0]?.id || "",
         );

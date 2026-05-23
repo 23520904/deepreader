@@ -40,6 +40,11 @@ import { mapBackendBook } from "@/lib/library";
 import { normalizeFlashcardRecords } from "@/lib/reading";
 import { fetchLibraryBooks } from "@/services/libraryService";
 import { fetchDocumentFlashcards } from "@/services/readingService";
+import {
+  fetchStudyProgress,
+  saveStudyProgress,
+  studyProgressRecordsToState,
+} from "@/services/studyProgressService";
 import type { LibraryDocument } from "@/types/library";
 
 type FlashcardRouteMode = "review" | "quiz" | "games" | "cards";
@@ -107,7 +112,11 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
       setErrorMessage("");
 
       try {
-        const books = await fetchLibraryBooks(token);
+        const [books, remoteProgressRecords] = await Promise.all([
+          fetchLibraryBooks(token),
+          fetchStudyProgress(token).catch(() => []),
+        ]);
+        const remoteProgress = studyProgressRecordsToState(remoteProgressRecords);
         const libraryDocuments = books.map((book) =>
           mapBackendBook(book, "mine", displayName),
         );
@@ -131,9 +140,16 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
         }
 
         setDocument(selectedDocument);
+        setStudyProgress((currentProgress) => ({
+          ...remoteProgress,
+          ...currentProgress,
+        }));
         setCards(
           mode === "review"
-            ? sortCardsForReview(deckCards, safeReadStorage(STUDY_STATE_KEY, {}))
+            ? sortCardsForReview(deckCards, {
+                ...remoteProgress,
+                ...safeReadStorage(STUDY_STATE_KEY, {}),
+              })
             : deckCards,
         );
         setReviewCardIndex(0);
@@ -202,12 +218,24 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
 
   function updateProgress(cardId: string, rating: ReviewRating) {
     setStudyProgress((currentProgress) => {
+      const nextProgress = scheduleCardReview({
+        currentProgress: currentProgress[cardId],
+        rating,
+      });
+      const targetCard = visibleCards.find((card) => card.id === cardId);
+
+      if (session?.token && targetCard) {
+        void saveStudyProgress({
+          token: session.token,
+          cardId,
+          bookId: targetCard.bookId,
+          progress: nextProgress,
+        }).catch(() => undefined);
+      }
+
       return {
         ...currentProgress,
-        [cardId]: scheduleCardReview({
-          currentProgress: currentProgress[cardId],
-          rating,
-        }),
+        [cardId]: nextProgress,
       };
     });
   }

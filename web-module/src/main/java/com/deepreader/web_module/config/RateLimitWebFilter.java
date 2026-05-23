@@ -34,7 +34,10 @@ public class RateLimitWebFilter implements WebFilter {
 	public @NonNull Mono<Void> filter(@NonNull ServerWebExchange exchange, @NonNull WebFilterChain chain) {
 		Duration window = Objects.requireNonNull(Duration.ofMinutes(1), "rate limit window must not be null");
 		String path = exchange.getRequest().getPath().value();
-		if (path.startsWith("/actuator") || path.startsWith("/swagger") || path.startsWith("/v3/api-docs")) {
+		if (path.startsWith("/actuator")
+				|| path.startsWith("/swagger")
+				|| path.startsWith("/v3/api-docs")
+				|| path.startsWith("/api/v1/admin/")) {
 			return chain.filter(exchange);
 		}
 		int requestLimit = path.startsWith("/api/v1/auth/") ? authMaxRequestsPerMinute : maxRequestsPerMinute;

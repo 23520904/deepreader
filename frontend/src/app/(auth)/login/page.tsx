@@ -26,7 +26,7 @@ export default function LoginPage() {
         password,
       });
       saveAuthSession(session);
-      router.replace("/");
+      router.replace(session.role?.toUpperCase() === "ADMIN" ? "/admin" : "/");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Login failed.");
     } finally {

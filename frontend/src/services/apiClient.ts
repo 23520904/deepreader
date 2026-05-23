@@ -107,7 +107,7 @@ export async function apiRequestJson<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(resolveApiUrl(path), {
     ...options,
     headers,
   });
@@ -136,7 +136,7 @@ export async function apiRequestBlob(
   path: string,
   { token, fallbackError, transformErrorMessage }: BlobRequestOptions,
 ) {
-  const response = await fetch(path, {
+  const response = await fetch(resolveApiUrl(path), {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/pdf,application/octet-stream,*/*",

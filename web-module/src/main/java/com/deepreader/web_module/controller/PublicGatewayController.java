@@ -93,7 +93,7 @@ public class PublicGatewayController {
 
 	@GetMapping("/admin-library")
 	public Flux<Book> listAdminBooks(ServerWebExchange exchange) {
-		RequestUserContext.requireUserId(exchange);
+		RequestUserContext.requireAdmin(exchange);
 		return Flux.fromIterable(userAccountService.findAdminUserIds())
 				.flatMap(businessServiceClient::listBooks);
 	}

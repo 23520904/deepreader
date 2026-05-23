@@ -36,6 +36,7 @@ public class AuthWebFilter implements WebFilter {
 		}
 		boolean protectedPath = matcher.match("/api/v1/admin/**", path)
 				|| matcher.match("/api/v1/books/**", path)
+				|| matcher.match("/api/v1/study-progress/**", path)
 				|| matcher.match("/api/v1/users/**", path);
 		if (!protectedPath) {
 			return chain.filter(exchange);
