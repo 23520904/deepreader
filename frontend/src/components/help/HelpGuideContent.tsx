@@ -33,14 +33,30 @@ export function HelpGuideContent({ guide }: { guide: HelpGuide }) {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-[24px] bg-[#0f172a] shadow-[0_20px_48px_rgba(15,23,42,0.2)] ring-1 ring-white/70">
-          <div className="aspect-video">
+        <div className="rounded-[26px] border border-[#dbeafe] bg-white p-4 shadow-[0_18px_48px_rgba(30,64,175,0.12)]">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3 px-1">
+            <div>
+              <p className="text-[12px] font-black uppercase tracking-[0.12em] text-[#2563eb]">
+                Video tutorial
+              </p>
+              <h2 className="mt-1 text-[24px] font-black text-[#0f172a]">
+                Watch the guide
+              </h2>
+            </div>
+            <span className="rounded-full bg-[#eff6ff] px-4 py-2 text-[12px] font-black text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
+              {guide.title}
+            </span>
+          </div>
+
+          <div className="aspect-video overflow-hidden rounded-[20px] bg-[#0f172a] ring-1 ring-[#c7d2fe]">
             {guide.youtubeEmbedUrl ? (
               <iframe
                 className="h-full w-full"
                 src={guide.youtubeEmbedUrl}
                 title={`${guide.title} tutorial video`}
+                loading="lazy"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
               />
             ) : (

@@ -23,7 +23,7 @@ export const helpGuides: HelpGuide[] = [
     description: "Upload study files and keep them in your private library.",
     overview:
       "Use this guide to learn the basic document upload flow, where uploaded files appear, and what to check before using AI study tools.",
-    youtubeEmbedUrl: "",
+    youtubeEmbedUrl: "https://www.youtube.com/embed/zyAcPUviQOE?si=EWR6p0ytJoOqYjio",
     primaryAction: {
       label: "Go to Library",
       href: "/library",
@@ -52,7 +52,7 @@ export const helpGuides: HelpGuide[] = [
     description: "Open a document and use Summary, Flashcards, or Chat.",
     overview:
       "This guide explains how the AI Study panel works when you are reading a document.",
-    youtubeEmbedUrl: "",
+    youtubeEmbedUrl: "https://www.youtube.com/embed/rohpxmPsIjM?si=u3RdHlH2B-J7Zsv2",
     primaryAction: {
       label: "Open Library",
       href: "/library",
@@ -86,7 +86,7 @@ export const helpGuides: HelpGuide[] = [
     description: "Choose a deck, study cards, take quizzes, or play games.",
     overview:
       "Use this guide to understand the Flashcards page and the study modes available for each deck.",
-    youtubeEmbedUrl: "",
+    youtubeEmbedUrl: "https://www.youtube.com/embed/aDF1lM6OX40?si=8R1YfS6ONG85IJaF",
     primaryAction: {
       label: "Go to Flashcards",
       href: "/flashcards",
