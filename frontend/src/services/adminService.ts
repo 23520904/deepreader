@@ -22,6 +22,7 @@ export type AdminUserRow = {
 
 export type AdminDocumentRow = {
   document_id: string;
+  user_id: string;
   file_name: string;
   created_at: string;
   email?: string | null;
@@ -60,5 +61,21 @@ export function fetchAdminAuditLogs(token: string) {
   return apiRequestJson<AdminAuditLog[]>("/api/v1/admin/audit-logs?limit=20", {
     token,
     fallbackError: "Could not load audit logs.",
+  });
+}
+
+export function deleteAdminUser(userId: string, token: string) {
+  return apiRequestJson<void>(`/api/v1/admin/users/${userId}`, {
+    method: "DELETE",
+    token,
+    fallbackError: "Could not delete this user.",
+  });
+}
+
+export function deleteAdminDocument(documentId: string, token: string) {
+  return apiRequestJson<void>(`/api/v1/admin/documents/${documentId}`, {
+    method: "DELETE",
+    token,
+    fallbackError: "Could not delete this document.",
   });
 }

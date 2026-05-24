@@ -2,13 +2,17 @@ package com.deepreader.web_module.controller;
 
 import com.deepreader.core.model.Book;
 import com.deepreader.web_module.client.BusinessServiceClient;
+import com.deepreader.web_module.service.AuditLogService;
 import com.deepreader.web_module.service.RequestUserContext;
 import com.deepreader.web_module.service.StudyProgressService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,15 +31,18 @@ public class AdminController {
 	private final JdbcTemplate jdbcTemplate;
 	private final BusinessServiceClient businessServiceClient;
 	private final StudyProgressService studyProgressService;
+	private final AuditLogService auditLogService;
 
 	public AdminController(
 			JdbcTemplate jdbcTemplate,
 			BusinessServiceClient businessServiceClient,
-			StudyProgressService studyProgressService
+			StudyProgressService studyProgressService,
+			AuditLogService auditLogService
 	) {
 		this.jdbcTemplate = jdbcTemplate;
 		this.businessServiceClient = businessServiceClient;
 		this.studyProgressService = studyProgressService;
+		this.auditLogService = auditLogService;
 	}
 
 	@GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -85,7 +92,7 @@ public class AdminController {
 			int safeLimit = Math.min(Math.max(limit, 1), 500);
 			return jdbcTemplate.queryForList(
 					"""
-					select d.document_id, d.file_name, d.created_at, u.email, u.username
+					select d.document_id, d.user_id, d.file_name, d.created_at, u.email, u.username
 					from indexed_documents d
 					left join app_users u on u.user_id = d.user_id
 					order by d.created_at desc
@@ -94,6 +101,47 @@ public class AdminController {
 					safeLimit
 			);
 		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@DeleteMapping(value = "/users/{userId}")
+	@Operation(summary = "Delete a user account and related owned data (admin only)")
+	public Mono<ResponseEntity<Void>> deleteUser(@PathVariable String userId, ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			String adminUserId = RequestUserContext.requireUserId(exchange);
+			if (adminUserId.equals(userId)) {
+				throw new IllegalArgumentException("Admin cannot delete the current signed-in account");
+			}
+			int deleted = jdbcTemplate.update("delete from app_users where user_id = ?", userId);
+			if (deleted == 0) {
+				throw new IllegalArgumentException("User not found");
+			}
+			auditLogService.log(adminUserId, "ADMIN_DELETE_USER", "userId=" + userId);
+			return ResponseEntity.noContent().<Void>build();
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@DeleteMapping(value = "/documents/{documentId}")
+	@Operation(summary = "Delete a document and its indexed content (admin only)")
+	public Mono<ResponseEntity<Void>> deleteDocument(@PathVariable String documentId, ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			String adminUserId = RequestUserContext.requireUserId(exchange);
+			List<String> owners = jdbcTemplate.queryForList(
+					"select user_id from indexed_documents where document_id = ?",
+					String.class,
+					documentId
+			);
+			if (owners.isEmpty()) {
+				throw new IllegalArgumentException("Document not found");
+			}
+			return new DeleteDocumentContext(adminUserId, owners.getFirst());
+		}).subscribeOn(Schedulers.boundedElastic())
+				.flatMap(context -> businessServiceClient.deleteBook(context.ownerUserId(), documentId)
+						.then(Mono.fromCallable(() -> {
+							auditLogService.log(context.adminUserId(), "ADMIN_DELETE_DOCUMENT", "documentId=" + documentId);
+							return ResponseEntity.noContent().<Void>build();
+						}).subscribeOn(Schedulers.boundedElastic())));
 	}
 
 	@GetMapping(value = "/library", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -130,6 +178,9 @@ public class AdminController {
 	private int queryCount(String sql) {
 		Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
 		return count == null ? 0 : count;
+	}
+
+	private record DeleteDocumentContext(String adminUserId, String ownerUserId) {
 	}
 
 	public record AdminSummaryResponse(
