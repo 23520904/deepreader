@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import { AccountAvatar, accountIconTint } from "@/components/AccountAvatar";
+import { ConfigureModal } from "@/components/ConfigureModal";
 import type { AuthResponse } from "@/types/auth";
 
 const sidebarItems = [
@@ -80,6 +81,7 @@ export function AccountSidebar({
   const [shouldRenderSidebar, setShouldRenderSidebar] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isConfigureOpen, setIsConfigureOpen] = useState(false);
   const sidebarTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -314,11 +316,43 @@ export function AccountSidebar({
             </Link>
           ))}
 
+          {/* Configure AI — nhập API key */}
+          <button
+            type="button"
+            onClick={() => setIsConfigureOpen(true)}
+            style={{
+              transitionDelay: isSidebarVisible ? "315ms" : "0ms",
+            }}
+            className={`grid min-h-[54px] w-full cursor-pointer grid-cols-[26px_1fr] items-center gap-4 rounded-[12px] px-3 text-left text-[14px] font-black text-[#2f47b8] transition-[opacity,transform,background-color,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#eef3ff] hover:text-[#223aa4] ${
+              isSidebarVisible
+                ? "translate-x-0 opacity-100"
+                : "translate-x-5 opacity-0"
+            }`}
+          >
+            <span className="grid h-[22px] w-[22px] place-items-center">
+              <svg
+                aria-hidden="true"
+                className="h-[20px] w-[20px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={accountIconTint}
+              >
+                <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" />
+                <path d="M19 15l.75 2.25L22 18l-2.25.75L19 21l-.75-2.25L16 18l2.25-.75z" />
+              </svg>
+            </span>
+            <span>CONFIGURE AI</span>
+          </button>
+
           <button
             type="button"
             onClick={onLogout}
             style={{
-              transitionDelay: isSidebarVisible ? "315ms" : "0ms",
+              transitionDelay: isSidebarVisible ? "370ms" : "0ms",
             }}
             className={`grid min-h-[54px] w-full cursor-pointer grid-cols-[26px_1fr] items-center gap-4 rounded-[12px] px-3 text-left text-[14px] font-black text-[#2f47b8] transition-[opacity,transform,background-color,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#eef3ff] hover:text-[#223aa4] ${
               isSidebarVisible
@@ -342,5 +376,14 @@ export function AccountSidebar({
     </div>
   );
 
-  return createPortal(sidebarContent, document.body);
+  return (
+    <>
+      {createPortal(sidebarContent, document.body)}
+      <ConfigureModal
+        isOpen={isConfigureOpen}
+        onClose={() => setIsConfigureOpen(false)}
+        token={session.token}
+      />
+    </>
+  );
 }
