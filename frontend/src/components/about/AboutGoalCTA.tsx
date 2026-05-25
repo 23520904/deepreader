@@ -1,0 +1,27 @@
+import Link from "next/link";
+
+export function AboutGoalCTA() {
+  return (
+    <section className="bg-white px-6 pb-[42px] pt-[30px]">
+      <div
+        className="about-fade-up mx-auto flex min-h-[300px] w-[min(1070px,100%)] flex-col items-center justify-center rounded-[12px] bg-[#1d355b] px-6 text-center text-white shadow-[0_24px_60px_rgba(29,53,91,0.22)] transition duration-300 hover:shadow-[0_24px_60px_rgba(29,53,91,0.28)]"
+        data-home-reveal
+      >
+        <h2 className="max-w-[620px] text-[34px] font-extrabold leading-[1.15] tracking-[0] max-[700px]:text-[28px]">
+          Daily guidance crafted specifically for your reading goals
+        </h2>
+
+        <p className="mt-4 text-[15px] font-medium leading-[1.6] text-[#9fa3ad]">
+          Read smarter, review faster and learn deeper with DeepReader AI
+        </p>
+
+        <Link
+          href="/signup"
+          className="about-hover-lift mt-8 inline-flex min-h-[40px] items-center justify-center rounded-[8px] bg-white px-8 text-[13px] font-extrabold text-[#245895] transition hover:bg-[#eef6ff]"
+        >
+          Get Started
+        </Link>
+      </div>
+    </section>
+  );
+}

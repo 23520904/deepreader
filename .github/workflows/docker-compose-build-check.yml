@@ -1,0 +1,28 @@
+name: docker-compose-build-check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "docker-compose.yml"
+      - "**/Dockerfile"
+      - "pom.xml"
+      - "core/**"
+      - "ai-service/**"
+      - "business-service/**"
+      - "data-service/**"
+      - "web-module/**"
+      - ".github/workflows/docker-compose-build-check.yml"
+  workflow_dispatch:
+
+jobs:
+  compose-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build backend images with docker compose
+        run: docker compose build ai-service data-service business-service web-module

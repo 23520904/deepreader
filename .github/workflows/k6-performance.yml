@@ -1,0 +1,104 @@
+name: k6-performance
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      vus:
+        description: "Virtual users"
+        required: false
+        default: "20"
+      duration:
+        description: "Test duration"
+        required: false
+        default: "60s"
+      warmup_duration:
+        description: "Warmup duration (excluded from threshold)"
+        required: false
+        default: "15s"
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - "ai-service/**"
+      - "business-service/**"
+      - "data-service/**"
+      - "web-module/**"
+      - "performance/**"
+      - "docker-compose.yml"
+      - ".github/workflows/k6-performance.yml"
+
+jobs:
+  k6:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-k6')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      DATABASE_URL: jdbc:postgresql://postgres:5432/deepreader
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      QDRANT_HOST: qdrant
+      QDRANT_GRPC_PORT: 6334
+      QDRANT_USE_TLS: "false"
+      QDRANT_COLLECTION_PREFIX: document_chunks
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      INGESTION_MAX_FILE_SIZE_BYTES: 26214400
+      INGESTION_MAX_RETRIES: 3
+      DOCKER_STORAGE_ENABLED: "false"
+      DOCKER_KAFKA_CAMEL_ROUTE_ENABLED: "false"
+      DOCKER_KAFKA_PUBLISHER_ENABLED: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Compose stack
+        run: docker compose up -d --build postgres mongodb redis qdrant haystack-service ai-service data-service business-service web-module
+
+      - name: Wait for API readiness
+        run: |
+          for i in {1..40}; do
+            if curl -fsS "http://localhost:8083/actuator/health" > /dev/null; then
+              echo "API readiness OK"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "API readiness check failed"
+          docker compose logs web-module business-service data-service ai-service
+          exit 1
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 performance test
+        env:
+          BASE_URL: http://localhost:8083
+          VUS: ${{ github.event.inputs.vus || '20' }}
+          DURATION: ${{ github.event.inputs.duration || '60s' }}
+          WARMUP_DURATION: ${{ github.event.inputs.warmup_duration || '15s' }}
+          WARMUP_VUS: ${{ github.event.inputs.vus || '20' }}
+          TEST_EMAIL: k6-ci@example.com
+          TEST_PASSWORD: password123
+        run: |
+          mkdir -p performance/results
+          k6 run --summary-export performance/results/summary.json performance/k6-basic.js
+
+      - name: Upload k6 summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-summary
+          path: performance/results/summary.json
+
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose logs web-module business-service data-service ai-service haystack-service postgres mongodb qdrant redis
+
+      - name: Teardown stack
+        if: always()
+        run: docker compose down -v

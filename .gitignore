@@ -1,0 +1,11 @@
+.gitnexus
+__pycache__/
+*.pyc
+.venv/
+.env
+aiven_connect/
+node_modules/
+frontend/dist/
+target/
+*.log
+test-all-apis.js

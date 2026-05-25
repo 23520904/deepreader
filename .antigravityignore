@@ -1,0 +1,12 @@
+.gitnexus
+__pycache__/
+*.pyc
+.venv/
+.env
+aiven_connect/
+node_modules/
+target/
+.idea/
+.vscode/
+.antigravityignore
+*.log
