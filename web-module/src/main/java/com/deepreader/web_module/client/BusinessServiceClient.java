@@ -77,25 +77,72 @@ public class BusinessServiceClient {
 				.toEntity(byte[].class);
 	}
 
-	public Mono<AiServiceClient.AiSearchResponse> search(String bookId, BookQueryRequest request) {
-		return webClient.post().uri("/internal/business/v1/books/{bookId}/search", bookId).bodyValue(request).retrieve().bodyToMono(AiServiceClient.AiSearchResponse.class);
+	public Mono<AiServiceClient.AiSearchResponse> search(String userId, String bookId, BookQueryRequest request) {
+		return webClient.post()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/search")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.bodyValue(request)
+				.retrieve()
+				.bodyToMono(AiServiceClient.AiSearchResponse.class);
 	}
 
-	public Mono<AiServiceClient.AiChatResponse> chat(String bookId, BookQueryRequest request) {
-		return webClient.post().uri("/internal/business/v1/books/{bookId}/chat", bookId).bodyValue(request).retrieve().bodyToMono(AiServiceClient.AiChatResponse.class);
+	public Mono<AiServiceClient.AiChatResponse> chat(String userId, String bookId, BookQueryRequest request) {
+		return webClient.post()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/chat")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.bodyValue(request)
+				.retrieve()
+				.bodyToMono(AiServiceClient.AiChatResponse.class);
 	}
 
-	public Mono<AiServiceClient.AiSummaryResponse> summary(String bookId, BookSummaryCommand command) {
-		return webClient.post().uri("/internal/business/v1/books/{bookId}/summary", bookId).bodyValue(command).retrieve().bodyToMono(AiServiceClient.AiSummaryResponse.class);
+	public Mono<AiServiceClient.AiSummaryResponse> summary(String userId, String bookId, BookSummaryCommand command) {
+		return webClient.post()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/summary")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.bodyValue(command)
+				.retrieve()
+				.bodyToMono(AiServiceClient.AiSummaryResponse.class);
 	}
 
-	public Mono<AiServiceClient.AiFlashcardResponse> flashcards(String bookId, BookFlashcardCommand command) {
-		return webClient.post().uri("/internal/business/v1/books/{bookId}/flashcards", bookId).bodyValue(command).retrieve().bodyToMono(AiServiceClient.AiFlashcardResponse.class);
+	public Mono<AiServiceClient.AiFlashcardResponse> flashcards(String userId, String bookId, BookFlashcardCommand command) {
+		return webClient.post()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/flashcards")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.bodyValue(command)
+				.retrieve()
+				.bodyToMono(AiServiceClient.AiFlashcardResponse.class);
 	}
 
-	public Flux<ChapterSummary> listSummaries(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/summaries", bookId).retrieve().bodyToFlux(ChapterSummary.class); }
-	public Flux<Flashcard> listFlashcards(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/flashcards", bookId).retrieve().bodyToFlux(Flashcard.class); }
-	public Flux<ChatHistory> listChats(String bookId) { return webClient.get().uri("/internal/business/v1/books/{bookId}/chats", bookId).retrieve().bodyToFlux(ChatHistory.class); }
+	public Flux<ChapterSummary> listSummaries(String userId, String bookId) {
+		return webClient.get()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/summaries")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.retrieve()
+				.bodyToFlux(ChapterSummary.class);
+	}
+
+	public Flux<Flashcard> listFlashcards(String userId, String bookId) {
+		return webClient.get()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/flashcards")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.retrieve()
+				.bodyToFlux(Flashcard.class);
+	}
+
+	public Flux<ChatHistory> listChats(String userId, String bookId) {
+		return webClient.get()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/chats")
+						.queryParam("userId", userId)
+						.build(bookId))
+				.retrieve()
+				.bodyToFlux(ChatHistory.class);
+	}
 	public Mono<Void> deleteChatThread(String userId, String bookId, BookChatThreadDeleteCommand command) {
 		return webClient.post()
 				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/{bookId}/chat-threads/delete")

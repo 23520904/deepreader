@@ -50,7 +50,7 @@ public class ChatService {
 
 	public Mono<ChatAskResponse> ask(String userId, String documentId, String query, Integer limit, String provider) {
 		Integer safeLimit = Math.max(normalizeLimit(limit), GROQ_CANDIDATE_MATCHES);
-		return retrievalService.search(userId, documentId, query, safeLimit, STUDY_PROVIDER)
+		return retrievalService.searchLexical(userId, documentId, query, safeLimit)
 				.flatMap(searchResponse -> Mono.fromCallable(() -> toChatResponse(searchResponse, userId))
 						.subscribeOn(Schedulers.boundedElastic()));
 	}
@@ -154,7 +154,8 @@ public class ChatService {
 	private boolean isOverviewQuery(String query) {
 		String normalized = normalizeText(query);
 		return normalized.matches(".*\\b(about|overview|summarize|summary|key ideas?|key points?|main ideas?|main points?|takeaways?)\\b.*")
-				|| normalized.matches(".*\\b(what|tell|describe|explain)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*");
+				|| normalized.matches(".*\\b(what|tell|describe|explain)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*")
+				|| normalized.matches(".*\\b(what|tell|describe|explain)\\b.*\\b(learn|study|review)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*");
 	}
 
 	private boolean containsAny(String value, String... candidates) {

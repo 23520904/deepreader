@@ -49,7 +49,7 @@ public class LibraryOrchestrationService {
 			org.springframework.core.io.buffer.DataBufferUtils.release(dataBuffer);
 			out.write(bytes, 0, bytes.length);
 			return out;
-		}).flatMap(out -> aiServiceClient.uploadDocument(userId, STUDY_PROVIDER, filePart.filename(), out.toByteArray()))
+		}).flatMap(out -> aiServiceClient.uploadDocument(userId, null, filePart.filename(), out.toByteArray()))
 				.flatMap(upload -> {
 					String documentProvider = STUDY_PROVIDER;
 					Book book = new Book();
@@ -129,38 +129,37 @@ public class LibraryOrchestrationService {
 				});
 	}
 
-	public Mono<AiServiceClient.AiSearchResponse> searchBook(String bookId, BookQueryRequest request) {
-		return dataServiceClient.getBook(bookId)
+	public Mono<AiServiceClient.AiSearchResponse> searchBook(String userId, String bookId, BookQueryRequest request) {
+		return requireOwnedBook(userId, bookId)
 				.flatMap(book -> {
 					if (book.getAiDocumentId() == null || book.getAiDocumentId().isBlank()) {
 						return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Indexed document not found"));
 					}
 
-					return aiServiceClient.search(book.getUserId(), book.getAiDocumentId(), request.query(), request.limit(), STUDY_PROVIDER);
+					return aiServiceClient.search(userId, book.getAiDocumentId(), request.query(), request.limit(), null);
 				});
 	}
 
-	public Mono<AiServiceClient.AiChatResponse> chatWithBook(String bookId, BookQueryRequest request) {
-		return dataServiceClient.getBook(bookId)
+	public Mono<AiServiceClient.AiChatResponse> chatWithBook(String userId, String bookId, BookQueryRequest request) {
+		return requireOwnedBook(userId, bookId)
 				.flatMap(book -> {
 					if (book.getAiDocumentId() == null || book.getAiDocumentId().isBlank()) {
 						return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Indexed document not found"));
 					}
 
 					String threadId = normalizeThreadId(request.threadId());
-					String documentProvider = STUDY_PROVIDER;
-					return aiServiceClient.chat(book.getUserId(), book.getAiDocumentId(), request.query(), request.limit(), documentProvider)
+					return aiServiceClient.chat(userId, book.getAiDocumentId(), request.query(), request.limit(), null)
 						.flatMap(response -> {
 							ChatHistory userMessage = new ChatHistory();
 							userMessage.setBookId(bookId);
-							userMessage.setUserId(book.getUserId());
+							userMessage.setUserId(userId);
 							userMessage.setThreadId(threadId);
 							userMessage.setRole("user");
 							userMessage.setContent(request.query());
 							userMessage.setTimestamp(LocalDateTime.now());
 							ChatHistory assistantMessage = new ChatHistory();
 							assistantMessage.setBookId(bookId);
-							assistantMessage.setUserId(book.getUserId());
+							assistantMessage.setUserId(userId);
 							assistantMessage.setThreadId(threadId);
 							assistantMessage.setRole("assistant");
 							assistantMessage.setContent(response.answer());
@@ -172,9 +171,9 @@ public class LibraryOrchestrationService {
 				});
 	}
 
-	public Mono<AiServiceClient.AiSummaryResponse> summarizeBook(String bookId, BookSummaryCommand command) {
-		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.summarize(book.getUserId(), book.getAiDocumentId(), STUDY_PROVIDER)
+	public Mono<AiServiceClient.AiSummaryResponse> summarizeBook(String userId, String bookId, BookSummaryCommand command) {
+		return requireOwnedBook(userId, bookId)
+				.flatMap(book -> aiServiceClient.summarize(userId, book.getAiDocumentId(), null)
 						.flatMap(summary -> {
 							ChapterSummary entity = new ChapterSummary();
 							entity.setBookId(bookId);
@@ -184,20 +183,20 @@ public class LibraryOrchestrationService {
 							entity.setCreatedAt(LocalDateTime.now());
 							return dataServiceClient.saveSummary(entity)
 									.doOnSuccess(ignored -> bookEventPublisher.publish("BOOK_SUMMARIZED",
-											book.getUserId(),
+											userId,
 											bookId,
 											Map.of("provider", summary.provider())))
 									.thenReturn(summary);
 						}));
 	}
 
-	public Mono<AiServiceClient.AiFlashcardResponse> generateFlashcards(String bookId, BookFlashcardCommand command) {
-		return dataServiceClient.getBook(bookId)
-				.flatMap(book -> aiServiceClient.flashcards(book.getUserId(), book.getAiDocumentId(), STUDY_PROVIDER, command.count())
+	public Mono<AiServiceClient.AiFlashcardResponse> generateFlashcards(String userId, String bookId, BookFlashcardCommand command) {
+		return requireOwnedBook(userId, bookId)
+				.flatMap(book -> aiServiceClient.flashcards(userId, book.getAiDocumentId(), null, command.count())
 						.flatMap(response -> dataServiceClient.saveFlashcards(response.flashcards().stream().map(card -> {
 									Flashcard flashcard = new Flashcard();
 									flashcard.setBookId(bookId);
-									flashcard.setUserId(book.getUserId());
+									flashcard.setUserId(userId);
 									flashcard.setQuestion(card.question());
 									flashcard.setAnswer(card.answer());
 									flashcard.setCreatedAt(LocalDateTime.now());
@@ -205,22 +204,22 @@ public class LibraryOrchestrationService {
 								}).toList())
 								.then()
 								.doOnSuccess(ignored -> bookEventPublisher.publish("FLASHCARDS_GENERATED",
-										book.getUserId(),
+										userId,
 										bookId,
 										Map.of("count", response.flashcards().size())))
 								.thenReturn(response)));
 	}
 
-	public Flux<ChapterSummary> listSummaries(String bookId) {
-		return dataServiceClient.listSummaries(bookId);
+	public Flux<ChapterSummary> listSummaries(String userId, String bookId) {
+		return requireOwnedBook(userId, bookId).flatMapMany(book -> dataServiceClient.listSummaries(bookId));
 	}
 
-	public Flux<Flashcard> listFlashcards(String bookId) {
-		return dataServiceClient.listFlashcards(bookId);
+	public Flux<Flashcard> listFlashcards(String userId, String bookId) {
+		return requireOwnedBook(userId, bookId).flatMapMany(book -> dataServiceClient.listFlashcards(bookId));
 	}
 
-	public Flux<ChatHistory> listChats(String bookId) {
-		return dataServiceClient.listChats(bookId);
+	public Flux<ChatHistory> listChats(String userId, String bookId) {
+		return requireOwnedBook(userId, bookId).flatMapMany(book -> dataServiceClient.listChats(bookId));
 	}
 
 	public Mono<Void> deleteChatThread(String userId, String bookId, BookChatThreadDeleteCommand command) {
@@ -243,23 +242,22 @@ public class LibraryOrchestrationService {
 		return "UNKNOWN";
 	}
 
-	private String resolveProvider(String primaryProvider, String fallbackProvider) {
-		return STUDY_PROVIDER;
-	}
-
-	private String resolveProvider(String requestedProvider, java.util.List<String> indexedProviders) {
-		return STUDY_PROVIDER;
-	}
-
-	private String normalizeProvider(String provider) {
-		return STUDY_PROVIDER;
-	}
-
 	private String normalizeThreadId(String threadId) {
 		if (threadId != null && !threadId.isBlank()) {
 			return threadId.trim();
 		}
 
 		return UUID.randomUUID().toString();
+	}
+
+	private Mono<Book> requireOwnedBook(String userId, String bookId) {
+		return dataServiceClient.getBook(bookId)
+				.switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "Book not found")))
+				.flatMap(book -> {
+					if (!userId.equals(book.getUserId())) {
+						return Mono.error(new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot access this book"));
+					}
+					return Mono.just(book);
+				});
 	}
 }

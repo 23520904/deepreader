@@ -99,25 +99,46 @@ public class PublicGatewayController {
 	}
 
 	@PostMapping(value = "/{bookId}/search", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<AiServiceClient.AiSearchResponse> search(@PathVariable String bookId, @RequestBody BookQueryRequest request) { return businessServiceClient.search(bookId, request); }
+	public Mono<AiServiceClient.AiSearchResponse> search(@PathVariable String bookId, @RequestBody BookQueryRequest request, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.search(userId, bookId, request);
+	}
 
 	@PostMapping(value = "/{bookId}/chat", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<AiServiceClient.AiChatResponse> chat(@PathVariable String bookId, @RequestBody BookQueryRequest request) { return businessServiceClient.chat(bookId, request); }
+	public Mono<AiServiceClient.AiChatResponse> chat(@PathVariable String bookId, @RequestBody BookQueryRequest request, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.chat(userId, bookId, request);
+	}
 
 	@PostMapping(value = "/{bookId}/summary", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<AiServiceClient.AiSummaryResponse> summary(@PathVariable String bookId, @RequestBody BookSummaryCommand command) { return businessServiceClient.summary(bookId, command); }
+	public Mono<AiServiceClient.AiSummaryResponse> summary(@PathVariable String bookId, @RequestBody BookSummaryCommand command, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.summary(userId, bookId, command);
+	}
 
 	@PostMapping(value = "/{bookId}/flashcards", consumes = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<AiServiceClient.AiFlashcardResponse> flashcards(@PathVariable String bookId, @RequestBody BookFlashcardCommand command) { return businessServiceClient.flashcards(bookId, command); }
+	public Mono<AiServiceClient.AiFlashcardResponse> flashcards(@PathVariable String bookId, @RequestBody BookFlashcardCommand command, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.flashcards(userId, bookId, command);
+	}
 
 	@GetMapping("/{bookId}/summaries")
-	public Flux<ChapterSummary> listSummaries(@PathVariable String bookId) { return businessServiceClient.listSummaries(bookId); }
+	public Flux<ChapterSummary> listSummaries(@PathVariable String bookId, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.listSummaries(userId, bookId);
+	}
 
 	@GetMapping("/{bookId}/flashcards")
-	public Flux<Flashcard> listFlashcards(@PathVariable String bookId) { return businessServiceClient.listFlashcards(bookId); }
+	public Flux<Flashcard> listFlashcards(@PathVariable String bookId, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.listFlashcards(userId, bookId);
+	}
 
 	@GetMapping("/{bookId}/chats")
-	public Flux<ChatHistory> listChats(@PathVariable String bookId) { return businessServiceClient.listChats(bookId); }
+	public Flux<ChatHistory> listChats(@PathVariable String bookId, ServerWebExchange exchange) {
+		String userId = RequestUserContext.requireUserId(exchange);
+		return businessServiceClient.listChats(userId, bookId);
+	}
 
 	@PostMapping(value = "/{bookId}/chat-threads/delete", consumes = MediaType.APPLICATION_JSON_VALUE)
 	public Mono<ResponseEntity<Void>> deleteChatThread(

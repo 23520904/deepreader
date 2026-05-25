@@ -3,7 +3,6 @@ package com.deepreader.ai_service.model;
 import java.util.Locale;
 
 public enum SupportedProvider {
-	OPENAI,
 	GEMINI,
 	GROQ;
 

@@ -5,6 +5,8 @@ import com.deepreader.ai_service.model.IndexedDocument;
 import com.deepreader.ai_service.model.RetrievedChunk;
 import com.deepreader.ai_service.model.api.internal.SearchResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -16,14 +18,16 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 @Service
 public class RetrievalService {
 
+	private static final Logger log = LoggerFactory.getLogger(RetrievalService.class);
 	private static final int DEFAULT_LIMIT = 5;
 	private static final int DEFAULT_OVERVIEW_LIMIT = 10;
 	private static final int MAX_LIMIT = 20;
-	private static final String STUDY_PROVIDER = "groq";
+	private static final String VECTOR_PROVIDER = EmbeddingService.EMBEDDING_PROVIDER;
 	private static final List<String> QUERY_STOP_WORDS = List.of(
 			"a", "an", "and", "are", "as", "at", "be", "by", "can", "could", "did", "do", "does",
 			"document", "file", "for", "from", "give", "go", "i", "in", "is", "it", "key", "main",
@@ -54,12 +58,15 @@ public class RetrievalService {
 		return Mono.fromCallable(() -> doSearch(userId, documentId, query, requestedLimit, provider)).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	public Mono<SearchResponse> searchLexical(String userId, String documentId, String query, Integer requestedLimit) {
+		return Mono.fromCallable(() -> doLexicalSearch(userId, documentId, query, requestedLimit)).subscribeOn(Schedulers.boundedElastic());
+	}
+
 	private SearchResponse doSearch(String userId, String documentId, String query, Integer requestedLimit, String provider) {
 		if (!StringUtils.hasText(query)) {
 			throw new IllegalArgumentException("Query must not be blank");
 		}
 		int limit = normalizeLimit(requestedLimit);
-		String normalizedProvider = STUDY_PROVIDER;
 		List<IndexedDocument> documents = StringUtils.hasText(documentId)
 				? List.of(documentIndexStoreService.requireById(userId, documentId))
 				: documentIndexStoreService.findAll(userId);
@@ -67,8 +74,54 @@ public class RetrievalService {
 			throw new IllegalStateException("No indexed documents available. Upload a PDF first.");
 		}
 
+		List<RetrievedChunk> vectorMatches = vectorSearch(query, documents, limit);
+		if (!vectorMatches.isEmpty()) {
+			return new SearchResponse(query, limit, VECTOR_PROVIDER, vectorMatches);
+		}
+
 		List<RetrievedChunk> lexicalMatches = lexicalFallback(query, documents, limit);
-		return new SearchResponse(query, limit, normalizedProvider, lexicalMatches);
+		return new SearchResponse(query, limit, VECTOR_PROVIDER, lexicalMatches);
+	}
+
+	private SearchResponse doLexicalSearch(String userId, String documentId, String query, Integer requestedLimit) {
+		if (!StringUtils.hasText(query)) {
+			throw new IllegalArgumentException("Query must not be blank");
+		}
+		int limit = normalizeLimit(requestedLimit);
+		List<IndexedDocument> documents = StringUtils.hasText(documentId)
+				? List.of(documentIndexStoreService.requireById(userId, documentId))
+				: documentIndexStoreService.findAll(userId);
+		if (documents.isEmpty()) {
+			throw new IllegalStateException("No indexed documents available. Upload a PDF first.");
+		}
+
+		return new SearchResponse(query, limit, VECTOR_PROVIDER, lexicalFallback(query, documents, limit));
+	}
+
+	private List<RetrievedChunk> vectorSearch(String query, List<IndexedDocument> documents, int limit) {
+		if (embeddingService == null) {
+			return List.of();
+		}
+
+		Set<String> allowedDocumentIds = documents.stream()
+				.map(IndexedDocument::documentId)
+				.filter(StringUtils::hasText)
+				.collect(java.util.stream.Collectors.toSet());
+		if (allowedDocumentIds.isEmpty()) {
+			return List.of();
+		}
+
+		try {
+			List<Float> queryVector = embeddingService.embed(VECTOR_PROVIDER, query);
+			int candidateLimit = Math.min(MAX_LIMIT, Math.max(limit, limit * 4));
+			return searchViaHaystack(VECTOR_PROVIDER, queryVector, candidateLimit).stream()
+					.filter(match -> allowedDocumentIds.contains(match.documentId()))
+					.limit(limit)
+					.toList();
+		} catch (RuntimeException ex) {
+			log.warn("Vector retrieval failed; falling back to lexical retrieval: {}", ex.getMessage());
+			return List.of();
+		}
 	}
 
 	private List<RetrievedChunk> lexicalFallback(String query, List<IndexedDocument> documents, int limit) {
@@ -132,6 +185,8 @@ public class RetrievalService {
 
 		return normalized.matches(".*\\b(about|overview|summarize|summary|key ideas?|key points?|main ideas?|main points?|takeaways?)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*")
 				|| normalized.matches(".*\\b(what|tell|describe|explain)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*\\b(about|cover|covers|discuss|discusses)\\b.*")
+				|| normalized.matches(".*\\b(what|tell|describe|explain)\\b.*\\b(learn|study|review)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*")
+				|| normalized.matches(".*\\b(document|file|slide|slides|deck|presentation)\\b.*\\b(teach|teaches|learn|study|review)\\b.*")
 				|| normalized.matches(".*\\b(key points?|main ideas?|important points?|takeaways?)\\b.*");
 	}
 

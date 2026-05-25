@@ -61,7 +61,7 @@ export function unwrapErrorMessage(value: string, maxDepth = 4) {
 
 export function friendlyProviderError(message: string) {
   if (message.includes("invalid_api_key") || message.includes("Incorrect API key")) {
-    return "Groq rejected the API key. Update the Groq key or the LLM token saved in your profile, then retry.";
+    return "The configured AI key was rejected. Update the Groq or Gemini key, then retry.";
   }
 
   if (
@@ -69,7 +69,7 @@ export function friendlyProviderError(message: string) {
     message.toLowerCase().includes("quota") ||
     message.includes("TOO_MANY_REQUESTS")
   ) {
-    return "Groq quota or rate limit was exceeded. Check billing/quota settings or retry later.";
+    return "AI quota or rate limit was exceeded. DeepReader tries Groq first and falls back to Gemini when available.";
   }
 
   return message;

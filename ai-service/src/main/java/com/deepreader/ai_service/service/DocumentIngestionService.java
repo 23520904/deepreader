@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.deepreader.ai_service.model.DocumentSection;
 import com.deepreader.ai_service.model.DocumentChunk;
 import com.deepreader.ai_service.model.IndexedDocument;
-import com.deepreader.ai_service.model.SupportedProvider;
 import com.deepreader.ai_service.model.api.internal.IngestionResult;
 import com.deepreader.ai_service.config.IngestionProperties;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -25,6 +24,7 @@ import java.util.UUID;
 @Service
 public class DocumentIngestionService {
 	private static final Logger log = LoggerFactory.getLogger(DocumentIngestionService.class);
+	private static final String VECTOR_PROVIDER = EmbeddingService.EMBEDDING_PROVIDER;
 
 	private final TextExtractionService textExtractionService;
 	private final DocumentIndexStoreService documentIndexStoreService;
@@ -77,7 +77,6 @@ public class DocumentIngestionService {
 	}
 
 	public IngestionResult ingestBytes(String userId, String fileName, byte[] bytes, String provider) {
-		String effectiveProvider = "groq";
 		String documentId = UUID.randomUUID().toString();
 		List<DocumentSection> extractedSections = textExtractionService.extractSections(fileName, bytes);
 		if (extractedSections.isEmpty()) {
@@ -106,31 +105,19 @@ public class DocumentIngestionService {
 			throw new IllegalStateException("No chunks produced for file: " + fileName);
 		}
 
-		if (isGroqProvider(effectiveProvider)) {
-			log.info("Skipping vector embedding during Groq upload for document {}. The document remains available for reading, summary, flashcards, and lexical chat fallback.", documentId);
-			return new IngestionResult(documentId, fileName, sections.size(), chunks.size(), chunks.stream().map(DocumentChunk::chunkId).toList(), List.of("groq"));
-		}
-
 		List<String> providers = new ArrayList<>();
 		List<String> providerErrors = new ArrayList<>();
-		for (String providerToIndex : providersToIndex(effectiveProvider)) {
+		for (String providerToIndex : providersToIndex()) {
 			indexProviderSafely(providerToIndex, chunks, providers, providerErrors);
 		}
 		if (providers.isEmpty()) {
-			throw new IllegalStateException("All embedding providers failed. " + String.join(" | ", providerErrors));
+			log.warn("Document {} was stored without vector embeddings. Search will use lexical fallback until Gemini vector indexing succeeds. {}", documentId, String.join(" | ", providerErrors));
 		}
 		return new IngestionResult(documentId, fileName, sections.size(), chunks.size(), chunks.stream().map(DocumentChunk::chunkId).toList(), providers);
 	}
 
-	private List<String> providersToIndex(String provider) {
-		if (StringUtils.hasText(provider)) {
-			return List.of(SupportedProvider.from(provider).value());
-		}
-		return List.of("openai", "gemini");
-	}
-
-	private boolean isGroqProvider(String provider) {
-		return StringUtils.hasText(provider) && SupportedProvider.from(provider) == SupportedProvider.GROQ;
+	private List<String> providersToIndex() {
+		return List.of(VECTOR_PROVIDER);
 	}
 
 	private void indexProviderSafely(String provider, List<DocumentChunk> chunks, List<String> indexedProviders, List<String> providerErrors) {

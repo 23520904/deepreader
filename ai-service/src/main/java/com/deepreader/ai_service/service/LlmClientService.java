@@ -2,12 +2,10 @@ package com.deepreader.ai_service.service;
 
 import com.deepreader.ai_service.config.GeminiProperties;
 import com.deepreader.ai_service.config.GroqProperties;
-import com.deepreader.ai_service.config.OpenAiProperties;
-import com.deepreader.ai_service.model.SupportedProvider;
 import com.deepreader.ai_service.model.provider.gemini.GeminiGenerateContentRequest;
 import com.deepreader.ai_service.model.provider.gemini.GeminiGenerateContentResponse;
-import com.deepreader.ai_service.model.provider.openai.OpenAiChatRequest;
-import com.deepreader.ai_service.model.provider.openai.OpenAiChatResponse;
+import com.deepreader.ai_service.model.provider.groq.GroqChatRequest;
+import com.deepreader.ai_service.model.provider.groq.GroqChatResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -15,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,15 +21,14 @@ import java.util.Objects;
 public class LlmClientService {
 
 	private static final int GROQ_MAX_PROMPT_CHARS = 16_000;
+	private static final List<String> GENERATION_PRIORITY = List.of("groq", "gemini");
 
-	private final OpenAiProperties openAiProperties;
 	private final GeminiProperties geminiProperties;
 	private final GroqProperties groqProperties;
 	private final WebClient.Builder webClientBuilder;
 	private final JdbcTemplate jdbcTemplate;
 
-	public LlmClientService(OpenAiProperties openAiProperties, GeminiProperties geminiProperties, GroqProperties groqProperties, WebClient.Builder webClientBuilder, JdbcTemplate jdbcTemplate) {
-		this.openAiProperties = openAiProperties;
+	public LlmClientService(GeminiProperties geminiProperties, GroqProperties groqProperties, WebClient.Builder webClientBuilder, JdbcTemplate jdbcTemplate) {
 		this.geminiProperties = geminiProperties;
 		this.groqProperties = groqProperties;
 		this.webClientBuilder = webClientBuilder;
@@ -38,43 +36,30 @@ public class LlmClientService {
 	}
 
 	public String generateAnswer(String userId, String provider, String prompt) {
-		String userToken = null;
-		if (StringUtils.hasText(userId)) {
-			List<String> tokens = jdbcTemplate.query(
-					"select llm_api_token from app_users where user_id = ?",
-					(rs, rowNum) -> rs.getString("llm_api_token"),
-					userId
-			);
-			if (!tokens.isEmpty() && StringUtils.hasText(tokens.getFirst())) {
-				userToken = tokens.getFirst();
-			}
-		}
-		
-		return generateWithGroq(userToken, prompt);
+		return generateAnswer(userId, prompt).answer();
 	}
 
-	private String generateWithOpenAi(String userToken, String prompt) {
-		String apiKey = StringUtils.hasText(userToken) ? userToken : openAiProperties.getApiKey();
-		if (!StringUtils.hasText(apiKey)) {
-			throw new IllegalStateException("Missing required property: deepreader.openai.api-key or User LLM API Token");
+	public GeneratedAnswer generateAnswer(String userId, String prompt) {
+		String userToken = findUserLlmToken(userId);
+		List<String> failures = new ArrayList<>();
+
+		for (String provider : GENERATION_PRIORITY) {
+			try {
+				String answer = "groq".equals(provider)
+						? generateWithGroq(userToken, prompt)
+						: generateWithGemini(userToken, prompt);
+				return new GeneratedAnswer(provider, answer);
+			} catch (IllegalStateException ex) {
+				String reason = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+				failures.add(provider + ": " + reason);
+			}
 		}
-		WebClient client = webClientBuilder.baseUrl(normalizeUrl(openAiProperties.getBaseUrl())).build();
-		OpenAiChatRequest request = new OpenAiChatRequest(openAiProperties.getChatModel(), List.of(new OpenAiChatRequest.Message("user", prompt)), 0.2d);
-		OpenAiChatResponse response;
-		try {
-			response = client.post().uri("/chat/completions").header("Authorization", "Bearer " + apiKey).bodyValue(request).retrieve().bodyToMono(OpenAiChatResponse.class).switchIfEmpty(Mono.error(new IllegalStateException("OpenAI generation response was empty"))).block();
-		} catch (WebClientResponseException e) {
-			throw providerGenerationException("OpenAI", "OPENAI_API_KEY", e);
-		}
-		OpenAiChatResponse safe = Objects.requireNonNull(response, "OpenAI generation response must not be null");
-		if (safe.choices() == null || safe.choices().isEmpty() || safe.choices().getFirst().message() == null || !StringUtils.hasText(safe.choices().getFirst().message().content())) {
-			throw new IllegalStateException("OpenAI generation response did not contain answer text");
-		}
-		return safe.choices().getFirst().message().content().trim();
+
+		throw new IllegalStateException("Groq and Gemini generation failed. " + String.join(" | ", failures));
 	}
 
 	private String generateWithGemini(String userToken, String prompt) {
-		String apiKey = StringUtils.hasText(userToken) ? userToken : geminiProperties.getApiKey();
+		String apiKey = isGeminiApiKey(userToken) ? userToken : geminiProperties.getApiKey();
 		if (!StringUtils.hasText(apiKey)) {
 			throw new IllegalStateException("Missing required property: deepreader.gemini.api-key or User LLM API Token");
 		}
@@ -104,21 +89,21 @@ public class LlmClientService {
 			throw new IllegalStateException("Missing required property: deepreader.groq.api-key or Groq user LLM API Token");
 		}
 		WebClient client = webClientBuilder.baseUrl(normalizeUrl(groqProperties.getBaseUrl())).build();
-		OpenAiChatRequest request = new OpenAiChatRequest(groqProperties.getChatModel(), List.of(new OpenAiChatRequest.Message("user", fitGroqPrompt(prompt))), 0.2d);
-		OpenAiChatResponse response;
+		GroqChatRequest request = new GroqChatRequest(groqProperties.getChatModel(), List.of(new GroqChatRequest.Message("user", fitGroqPrompt(prompt))), 0.2d);
+		GroqChatResponse response;
 		try {
 			response = client.post()
 					.uri("/chat/completions")
 					.header("Authorization", "Bearer " + apiKey)
 					.bodyValue(request)
 					.retrieve()
-					.bodyToMono(OpenAiChatResponse.class)
+					.bodyToMono(GroqChatResponse.class)
 					.switchIfEmpty(Mono.error(new IllegalStateException("Groq generation response was empty")))
 					.block();
 		} catch (WebClientResponseException e) {
 			throw providerGenerationException("Groq", "GROQ_API_KEY", e);
 		}
-		OpenAiChatResponse safe = Objects.requireNonNull(response, "Groq generation response must not be null");
+		GroqChatResponse safe = Objects.requireNonNull(response, "Groq generation response must not be null");
 		if (safe.choices() == null || safe.choices().isEmpty() || safe.choices().getFirst().message() == null || !StringUtils.hasText(safe.choices().getFirst().message().content())) {
 			throw new IllegalStateException("Groq generation response did not contain answer text");
 		}
@@ -135,7 +120,7 @@ public class LlmClientService {
 	}
 
 	private String normalizeUrl(String url) {
-		String normalized = StringUtils.hasText(url) ? url.trim() : "https://api.openai.com/v1";
+		String normalized = StringUtils.hasText(url) ? url.trim() : "https://api.groq.com/openai/v1";
 		while (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
 		return normalized;
 	}
@@ -154,12 +139,28 @@ public class LlmClientService {
 		return normalized;
 	}
 
-	private boolean isGroq(String provider) {
-		return StringUtils.hasText(provider) && "groq".equalsIgnoreCase(provider.trim());
-	}
-
 	private boolean isGroqApiKey(String value) {
 		return StringUtils.hasText(value) && value.trim().startsWith("gsk_");
+	}
+
+	private boolean isGeminiApiKey(String value) {
+		return StringUtils.hasText(value) && !isGroqApiKey(value);
+	}
+
+	private String findUserLlmToken(String userId) {
+		if (!StringUtils.hasText(userId) || jdbcTemplate == null) {
+			return null;
+		}
+
+		List<String> tokens = jdbcTemplate.query(
+				"select llm_api_token from app_users where user_id = ?",
+				(rs, rowNum) -> rs.getString("llm_api_token"),
+				userId
+		);
+		if (!tokens.isEmpty() && StringUtils.hasText(tokens.getFirst())) {
+			return tokens.getFirst();
+		}
+		return null;
 	}
 
 	private IllegalStateException providerGenerationException(String provider, String envName, WebClientResponseException exception) {
@@ -206,5 +207,8 @@ public class LlmClientService {
 		}
 
 		return " after " + delaySeconds + "s";
+	}
+
+	public record GeneratedAnswer(String provider, String answer) {
 	}
 }

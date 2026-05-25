@@ -1,8 +1,8 @@
-package com.deepreader.ai_service.model.provider.openai;
+package com.deepreader.ai_service.model.provider.groq;
 
 import java.util.List;
 
-public record OpenAiChatResponse(
+public record GroqChatResponse(
 		List<Choice> choices
 ) {
 	public record Choice(Message message) {}

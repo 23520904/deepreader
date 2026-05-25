@@ -1,8 +1,8 @@
-package com.deepreader.ai_service.model.provider.openai;
+package com.deepreader.ai_service.model.provider.groq;
 
 import java.util.List;
 
-public record OpenAiChatRequest(
+public record GroqChatRequest(
 		String model,
 		List<Message> messages,
 		Double temperature

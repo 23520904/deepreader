@@ -57,8 +57,8 @@ public class GenerationService {
 					document.fileName(),
 					combinedContent(document, contentBudget(STUDY_PROVIDER))
 			);
-			String summary = llmClientService.generateAnswer(userId, STUDY_PROVIDER, prompt);
-			return new SummaryResponse(documentId, STUDY_PROVIDER, summary);
+			LlmClientService.GeneratedAnswer generated = llmClientService.generateAnswer(userId, prompt);
+			return new SummaryResponse(documentId, generated.provider(), generated.answer());
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
@@ -71,7 +71,9 @@ public class GenerationService {
 					combinedStudyContent(document, contentBudget(STUDY_PROVIDER)),
 					count
 			);
-			String response = llmClientService.generateAnswer(userId, STUDY_PROVIDER, prompt);
+			LlmClientService.GeneratedAnswer generated = llmClientService.generateAnswer(userId, prompt);
+			String response = generated.answer();
+			String responseProvider = generated.provider();
 			List<Flashcard> flashcards = filterStudyFlashcards(parseFlashcards(response, count), count);
 
 			if (flashcards.size() < count) {
@@ -82,11 +84,12 @@ public class GenerationService {
 					count
 				);
 
-				String repairedResponse = llmClientService.generateAnswer(userId, STUDY_PROVIDER, repairPrompt);
-				flashcards = filterStudyFlashcards(parseFlashcards(repairedResponse, count), count);
+				LlmClientService.GeneratedAnswer repaired = llmClientService.generateAnswer(userId, repairPrompt);
+				responseProvider = repaired.provider();
+				flashcards = filterStudyFlashcards(parseFlashcards(repaired.answer(), count), count);
 			}
 
-			return new FlashcardResponse(documentId, STUDY_PROVIDER, flashcards);
+			return new FlashcardResponse(documentId, responseProvider, flashcards);
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 

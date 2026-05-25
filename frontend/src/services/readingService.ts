@@ -13,8 +13,6 @@ import type {
   SummaryRecord,
 } from "@/types/reading";
 
-const STUDY_PROVIDER = "groq";
-
 export function fetchDocumentContent(token: string, bookId: string) {
   return apiRequestJson<DocumentContentResponse>(
     `/api/v1/books/${encodeURIComponent(bookId)}/content`,
@@ -108,7 +106,7 @@ export function sendDocumentChatMessage({
     {
       token,
       method: "POST",
-      body: JSON.stringify({ provider: STUDY_PROVIDER, query, limit, threadId }),
+      body: JSON.stringify({ query, limit, threadId }),
       fallbackError: "Could not answer this question.",
       transformErrorMessage: friendlyProviderError,
     },
@@ -121,7 +119,7 @@ export function generateDocumentSummary(token: string, bookId: string) {
     {
       token,
       method: "POST",
-      body: JSON.stringify({ provider: STUDY_PROVIDER }),
+      body: JSON.stringify({}),
       fallbackError: "Could not generate this summary.",
       transformErrorMessage: friendlyProviderError,
     },
@@ -142,7 +140,7 @@ export function generateDocumentFlashcards({
     {
       token,
       method: "POST",
-      body: JSON.stringify({ provider: STUDY_PROVIDER, count }),
+      body: JSON.stringify({ count }),
       fallbackError: "Could not generate flashcards.",
       transformErrorMessage: friendlyProviderError,
     },

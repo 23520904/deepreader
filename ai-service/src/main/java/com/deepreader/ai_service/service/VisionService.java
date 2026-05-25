@@ -1,8 +1,6 @@
 package com.deepreader.ai_service.service;
 
 import com.deepreader.ai_service.config.GeminiProperties;
-import com.deepreader.ai_service.config.OpenAiProperties;
-import com.deepreader.ai_service.model.SupportedProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -11,7 +9,6 @@ import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,13 +17,11 @@ public class VisionService {
 
 	public record ImagePart(String mimeType, byte[] data) {}
 
-	private final OpenAiProperties openAiProperties;
 	private final GeminiProperties geminiProperties;
 	private final WebClient.Builder webClientBuilder;
 	private final JdbcTemplate jdbcTemplate;
 
-	public VisionService(OpenAiProperties openAiProperties, GeminiProperties geminiProperties, WebClient.Builder webClientBuilder, JdbcTemplate jdbcTemplate) {
-		this.openAiProperties = openAiProperties;
+	public VisionService(GeminiProperties geminiProperties, WebClient.Builder webClientBuilder, JdbcTemplate jdbcTemplate) {
 		this.geminiProperties = geminiProperties;
 		this.webClientBuilder = webClientBuilder;
 		this.jdbcTemplate = jdbcTemplate;
@@ -50,43 +45,11 @@ public class VisionService {
 		}
 
 		List<ImagePart> safeImages = images == null ? List.of() : images;
-		SupportedProvider supported = SupportedProvider.from(provider);
-		if (supported == SupportedProvider.OPENAI) {
-			return analyzeWithOpenAi(userToken, prompt, safeImages);
-		}
 		return analyzeWithGemini(userToken, prompt, safeImages);
 	}
 
-	private Mono<String> analyzeWithOpenAi(String userToken, String prompt, List<ImagePart> images) {
-		String apiKey = StringUtils.hasText(userToken) ? userToken : openAiProperties.getApiKey();
-		WebClient client = webClientBuilder.baseUrl(normalizeUrl(openAiProperties.getBaseUrl())).build();
-
-		List<Map<String, Object>> contentParts = new ArrayList<>();
-		contentParts.add(Map.of("type", "text", "text", prompt));
-		for (ImagePart img : images) {
-			String dataUri = "data:" + img.mimeType() + ";base64," + Base64.getEncoder().encodeToString(img.data());
-			contentParts.add(Map.of("type", "image_url", "image_url", Map.of("url", dataUri)));
-		}
-
-		Map<String, Object> request = new LinkedHashMap<>();
-		request.put("model", openAiProperties.getChatModel());
-		request.put("messages", List.of(Map.of("role", "user", "content", contentParts)));
-		request.put("max_tokens", 4096);
-
-		return client.post().uri("/chat/completions")
-				.header("Authorization", "Bearer " + apiKey)
-				.bodyValue(request)
-				.retrieve()
-				.bodyToMono(Map.class)
-				.map(response -> {
-					List<Map<String, Object>> choices = (List<Map<String, Object>>) response.get("choices");
-					Map<String, Object> message = (Map<String, Object>) choices.getFirst().get("message");
-					return (String) message.get("content");
-				});
-	}
-
 	private Mono<String> analyzeWithGemini(String userToken, String prompt, List<ImagePart> images) {
-		String apiKey = StringUtils.hasText(userToken) ? userToken : geminiProperties.getApiKey();
+		String apiKey = isGeminiApiKey(userToken) ? userToken : geminiProperties.getApiKey();
 		WebClient client = webClientBuilder.baseUrl(normalizeGeminiBaseUrl(geminiProperties.getBaseUrl())).build();
 		String modelId = geminiProperties.getGenerationModel();
 
@@ -124,12 +87,8 @@ public class VisionService {
 				});
 	}
 
-	private String normalizeUrl(String url) {
-		String normalized = StringUtils.hasText(url) ? url.trim() : "https://api.openai.com/v1";
-		while (normalized.endsWith("/")) {
-			normalized = normalized.substring(0, normalized.length() - 1);
-		}
-		return normalized;
+	private boolean isGeminiApiKey(String value) {
+		return StringUtils.hasText(value) && !value.trim().startsWith("gsk_");
 	}
 
 	private String normalizeGeminiBaseUrl(String configuredBaseUrl) {

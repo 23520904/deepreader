@@ -1,12 +1,9 @@
 package com.deepreader.ai_service.service;
 
 import com.deepreader.ai_service.config.GeminiProperties;
-import com.deepreader.ai_service.config.OpenAiProperties;
 import com.deepreader.ai_service.model.SupportedProvider;
 import com.deepreader.ai_service.model.provider.gemini.GeminiBatchEmbeddingRequest;
 import com.deepreader.ai_service.model.provider.gemini.GeminiBatchEmbeddingResponse;
-import com.deepreader.ai_service.model.provider.openai.OpenAiEmbeddingRequest;
-import com.deepreader.ai_service.model.provider.openai.OpenAiEmbeddingResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,16 +22,15 @@ import java.util.regex.Pattern;
 public class EmbeddingService {
 
 	private static final int GEMINI_MAX_BATCH_SIZE = 100;
+	public static final String EMBEDDING_PROVIDER = "gemini";
 	private static final Pattern GEMINI_RETRY_DELAY_PATTERN = Pattern.compile("\"retryDelay\"\\s*:\\s*\"([0-9]+(?:\\.[0-9]+)?)s\"");
 	private static final Logger LOGGER = LoggerFactory.getLogger(EmbeddingService.class);
 
 	private final WebClient.Builder webClientBuilder;
-	private final OpenAiProperties openAiProperties;
 	private final GeminiProperties geminiProperties;
 
-	public EmbeddingService(WebClient.Builder webClientBuilder, OpenAiProperties openAiProperties, GeminiProperties geminiProperties) {
+	public EmbeddingService(WebClient.Builder webClientBuilder, GeminiProperties geminiProperties) {
 		this.webClientBuilder = webClientBuilder;
-		this.openAiProperties = openAiProperties;
 		this.geminiProperties = geminiProperties;
 	}
 
@@ -50,43 +46,12 @@ public class EmbeddingService {
 		for (String text : texts) {
 			sanitized.add(requireText(text));
 		}
-		return switch (SupportedProvider.from(provider)) {
-			case OPENAI -> embedWithOpenAi(sanitized);
-			case GEMINI -> embedWithGemini(sanitized);
-			case GROQ -> throw new IllegalArgumentException("Groq does not support embeddings in DeepReader yet");
-		};
+		return embedWithGemini(sanitized);
 	}
 
 	public int embeddingDimensions(String provider) {
-		return switch (SupportedProvider.from(provider)) {
-			case OPENAI -> 1536;
-			case GEMINI -> geminiProperties.getEmbeddingDimensions();
-			case GROQ -> throw new IllegalArgumentException("Groq does not support embeddings in DeepReader yet");
-		};
-	}
-
-	private List<List<Float>> embedWithOpenAi(List<String> inputs) {
-		if (!StringUtils.hasText(openAiProperties.getApiKey())) {
-			throw new IllegalStateException("Missing required property: deepreader.openai.api-key");
-		}
-		WebClient client = webClientBuilder.baseUrl(normalizeBaseUrl(openAiProperties.getBaseUrl())).build();
-		OpenAiEmbeddingResponse response;
-		try {
-			response = client.post()
-					.uri("/embeddings")
-					.header("Authorization", "Bearer " + openAiProperties.getApiKey())
-					.bodyValue(new OpenAiEmbeddingRequest(openAiProperties.getEmbeddingModel(), inputs))
-					.retrieve()
-					.bodyToMono(OpenAiEmbeddingResponse.class)
-					.switchIfEmpty(Mono.error(new IllegalStateException("OpenAI embedding response was empty")))
-					.block();
-		} catch (WebClientResponseException e) {
-			throw new IllegalStateException("OpenAI embeddings request failed: " + e.getStatusCode() + " " + e.getResponseBodyAsString(), e);
-		}
-		OpenAiEmbeddingResponse safeResponse = Objects.requireNonNull(response, "OpenAI embedding response must not be null");
-		List<List<Float>> embeddings = safeResponse.data() == null ? List.of() : safeResponse.data().stream().map(OpenAiEmbeddingResponse.EmbeddingData::embedding).toList();
-		validateEmbeddings(inputs, embeddings, "OpenAI");
-		return embeddings;
+		validateEmbeddingProvider(provider);
+		return geminiProperties.getEmbeddingDimensions();
 	}
 
 	private List<List<Float>> embedWithGemini(List<String> inputs) {
@@ -229,8 +194,15 @@ public class EmbeddingService {
 		return text;
 	}
 
+	private void validateEmbeddingProvider(String provider) {
+		SupportedProvider supportedProvider = SupportedProvider.from(provider);
+		if (supportedProvider != SupportedProvider.GEMINI && supportedProvider != SupportedProvider.GROQ) {
+			throw new IllegalArgumentException("DeepReader supports Gemini embeddings only");
+		}
+	}
+
 	private String normalizeBaseUrl(String configuredBaseUrl) {
-		String normalized = StringUtils.hasText(configuredBaseUrl) ? configuredBaseUrl.trim() : "https://api.openai.com/v1";
+		String normalized = StringUtils.hasText(configuredBaseUrl) ? configuredBaseUrl.trim() : "https://generativelanguage.googleapis.com/v1beta";
 		while (normalized.endsWith("/")) {
 			normalized = normalized.substring(0, normalized.length() - 1);
 		}
