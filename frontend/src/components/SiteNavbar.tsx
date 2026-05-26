@@ -20,6 +20,7 @@ import {
   syncProfileIntoSession,
   subscribeAuthSession,
 } from "@/lib/authSession";
+import { useAppPreferences } from "@/lib/appPreferences";
 
 const LazyAccountSidebar = dynamic(
   () =>
@@ -47,6 +48,7 @@ type SiteNavbarProps = {
 
 export function SiteNavbar({ activeItem }: SiteNavbarProps) {
   const router = useRouter();
+  const { t } = useAppPreferences();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [hasRequestedSidebar, setHasRequestedSidebar] = useState(false);
@@ -163,7 +165,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
         <Link
           href="/"
           className="flex h-[64px] w-[170px] items-center justify-center overflow-hidden rounded-[8px] transition duration-300 hover:-translate-y-0.5 max-[700px]:h-[46px] max-[700px]:w-[118px]"
-          aria-label="DeepReader Home"
+          aria-label={t("DeepReader Home")}
           onClick={closeMobileMenu}
         >
           <img
@@ -188,7 +190,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
                   : ""
               }`}
             >
-              {item.label}
+              {t(item.label)}
             </Link>
           ))}
         </nav>
@@ -202,7 +204,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
                 ? "rotate-90 bg-[#f8fbff] shadow-[0_14px_28px_rgba(34,54,111,0.16)]"
                 : "rotate-0"
             }`}
-            aria-label="Toggle mobile menu"
+            aria-label={t("Toggle mobile menu")}
             aria-expanded={isMobileMenuOpen}
           >
             <span className="grid place-items-center transition-transform duration-300">
@@ -215,7 +217,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
               type="button"
               onClick={openAccountSidebar}
               className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-[#eaf2ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_13px_24px_rgba(77,88,181,0.20)] ring-2 ring-white/80 transition hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_17px_30px_rgba(77,88,181,0.27)] focus:outline-none focus:ring-4 focus:ring-[#5d6bd6]/30"
-              aria-label="Open account sidebar"
+              aria-label={t("Open account sidebar")}
               aria-expanded={isSidebarOpen}
             >
               <AccountAvatar
@@ -231,7 +233,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
               onClick={closeMobileMenu}
               className="flex min-h-[40px] min-w-[96px] items-center justify-center rounded-[8px] bg-[linear-gradient(145deg,#6976d6_0%,#4d5ab8_100%)] px-5 text-[14px] font-extrabold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_12px_22px_rgba(77,88,181,0.24)] transition hover:-translate-y-0.5 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_16px_28px_rgba(77,88,181,0.30)] max-[420px]:min-w-0 max-[420px]:px-4"
             >
-              Login
+              {t("Login")}
             </Link>
           )}
         </div>
@@ -269,7 +271,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
                           : "text-[#2f4195] hover:bg-[#eef4ff] hover:text-[#273a99]"
                       }`}
                     >
-                      <span>{item.label}</span>
+                      <span>{t(item.label)}</span>
 
                       <span
                         className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${

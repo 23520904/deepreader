@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthRoleGuard } from "@/components/AuthRoleGuard";
 import { LazyFloatingHelpChat } from "@/components/LazyFloatingHelpChat";
+import { AppPreferencesProvider } from "@/lib/appPreferences";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,13 +45,16 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="vi"
+      lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <AuthRoleGuard />
-        {children}
-        <LazyFloatingHelpChat />
+        <AppPreferencesProvider>
+          <AuthRoleGuard />
+          {children}
+          <LazyFloatingHelpChat />
+        </AppPreferencesProvider>
       </body>
     </html>
   );

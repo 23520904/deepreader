@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import { AccountAvatar, accountIconTint } from "@/components/AccountAvatar";
 import { ConfigureModal } from "@/components/ConfigureModal";
+import { useAppPreferences } from "@/lib/appPreferences";
 import type { AuthResponse } from "@/types/auth";
 
 const sidebarItems = [
@@ -35,6 +36,7 @@ const secondarySidebarItems = [
 ] as const;
 
 const LOGOUT_ICON = "/assets/icons/sidebar/logout-icon.png";
+const LANGUAGE_ICON = "/assets/icons/sidebar/language-icon.png";
 
 type AccountSidebarProps = {
   isOpen: boolean;
@@ -78,11 +80,17 @@ export function AccountSidebar({
   session,
 }: AccountSidebarProps) {
   const displayName = getAccountName(session);
+  const { locale, setLocale, t } = useAppPreferences();
   const [shouldRenderSidebar, setShouldRenderSidebar] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isConfigureOpen, setIsConfigureOpen] = useState(false);
   const sidebarTimerRef = useRef<number | null>(null);
+  const isVietnamese = locale === "vi";
+
+  function toggleLanguage() {
+    setLocale(isVietnamese ? "en" : "vi");
+  }
 
   useEffect(() => {
     const mountTimer = window.setTimeout(() => {
@@ -197,7 +205,7 @@ export function AccountSidebar({
           isSidebarVisible ? "opacity-100" : "opacity-0"
         }`}
         onClick={onClose}
-        aria-label="Close account sidebar"
+        aria-label={t("Close account sidebar")}
       />
 
       <aside
@@ -206,7 +214,7 @@ export function AccountSidebar({
             ? "translate-x-0 opacity-100"
             : "translate-x-full opacity-0"
         }`}
-        aria-label="Account sidebar"
+        aria-label={t("Account sidebar")}
         aria-modal="true"
         role="dialog"
       >
@@ -214,7 +222,7 @@ export function AccountSidebar({
           type="button"
           onClick={onClose}
           className="absolute right-5 top-5 z-20 grid h-9 w-9 cursor-pointer place-items-center rounded-full border border-[#dfe5f4] bg-white text-[#2f47b8] shadow-[0_8px_18px_rgba(47,71,184,0.10)] transition hover:bg-[#eef3ff] hover:text-[#223aa4] focus:outline-none focus:ring-4 focus:ring-[#5d6bd6]/20"
-          aria-label="Close account sidebar"
+          aria-label={t("Close account sidebar")}
         >
           <svg
             aria-hidden="true"
@@ -255,7 +263,7 @@ export function AccountSidebar({
           </div>
         </div>
 
-        <nav className="mt-10 grid gap-1">
+        <nav className="mt-10 grid gap-1" aria-label={t("Workspace")}>
           {sidebarItems.map((item, index) => (
             <Link
               key={item.label}
@@ -281,12 +289,66 @@ export function AccountSidebar({
                 style={accountIconTint}
               />
 
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </Link>
           ))}
         </nav>
 
+        <section
+          aria-label={t("Preferences")}
+          style={{
+            transitionDelay: isSidebarVisible ? "320ms" : "0ms",
+          }}
+          className={`mt-7 grid gap-2 rounded-[16px] border border-[#dfe5f4] bg-white/45 p-3 transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            isSidebarVisible
+              ? "translate-x-0 opacity-100"
+              : "translate-x-5 opacity-0"
+          }`}
+        >
+          <p className="px-3 text-[11px] font-black uppercase tracking-[0.16em] text-[#8a94b8]">
+            {t("Preferences")}
+          </p>
+          <div
+            className="grid min-h-[54px] grid-cols-[26px_1fr_auto] items-center gap-4 rounded-[12px] px-3 text-[14px] font-black text-[#2f47b8]"
+          >
+            <Image
+              src={LANGUAGE_ICON}
+              alt=""
+              width={24}
+              height={24}
+              className="h-[22px] w-[22px] object-contain"
+              style={accountIconTint}
+            />
+            <span>{t("Language")}</span>
+            <button
+              type="button"
+              onClick={toggleLanguage}
+              className="relative h-9 w-[96px] cursor-pointer rounded-full border border-[#d9e2f2] bg-[#e8eefb] text-[11px] font-black text-[#8a94b8] shadow-[inset_0_1px_2px_rgba(21,35,70,0.08)] transition hover:border-[#b8c7ec] focus:outline-none focus:ring-4 focus:ring-[#5d6bd6]/20"
+              aria-label={t("Switch language")}
+              title={t("Switch language")}
+              data-i18n-skip
+            >
+              <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                VN
+              </span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                EN
+              </span>
+              <span
+                className={`absolute top-[3px] grid h-[30px] w-[42px] place-items-center rounded-full bg-[linear-gradient(145deg,#6976d6,#4d5ab8)] text-white shadow-[0_5px_12px_rgba(77,90,184,0.26)] transition-all duration-300 ${
+                  isVietnamese ? "left-[3px]" : "left-[49px]"
+                }`}
+              >
+                {isVietnamese ? "VN" : "EN"}
+              </span>
+            </button>
+          </div>
+        </section>
+
         <div className="mt-auto border-t border-[#dfe5f4] pt-5">
+          <p className="mb-2 px-3 text-[11px] font-black uppercase tracking-[0.16em] text-[#8a94b8]">
+            {t("Support")}
+          </p>
           {secondarySidebarItems.map((item, index) => (
             <Link
               key={item.label}
@@ -294,7 +356,7 @@ export function AccountSidebar({
               onClick={onClose}
               style={{
                 transitionDelay: isSidebarVisible
-                  ? `${260 + index * 55}ms`
+                  ? `${390 + index * 55}ms`
                   : "0ms",
               }}
               className={`grid min-h-[54px] grid-cols-[26px_1fr] items-center gap-4 rounded-[12px] px-3 text-[14px] font-black text-[#2f47b8] transition-[opacity,transform,background-color,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#eef3ff] hover:text-[#223aa4] ${
@@ -312,16 +374,15 @@ export function AccountSidebar({
                 style={accountIconTint}
               />
 
-              <span>{item.label}</span>
+              <span>{t(item.label)}</span>
             </Link>
           ))}
 
-          {/* Configure AI — nhập API key */}
           <button
             type="button"
             onClick={() => setIsConfigureOpen(true)}
             style={{
-              transitionDelay: isSidebarVisible ? "315ms" : "0ms",
+              transitionDelay: isSidebarVisible ? "445ms" : "0ms",
             }}
             className={`grid min-h-[54px] w-full cursor-pointer grid-cols-[26px_1fr] items-center gap-4 rounded-[12px] px-3 text-left text-[14px] font-black text-[#2f47b8] transition-[opacity,transform,background-color,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#eef3ff] hover:text-[#223aa4] ${
               isSidebarVisible
@@ -345,14 +406,14 @@ export function AccountSidebar({
                 <path d="M19 15l.75 2.25L22 18l-2.25.75L19 21l-.75-2.25L16 18l2.25-.75z" />
               </svg>
             </span>
-            <span>CONFIGURE AI</span>
+            <span>{t("CONFIGURE AI")}</span>
           </button>
 
           <button
             type="button"
             onClick={onLogout}
             style={{
-              transitionDelay: isSidebarVisible ? "370ms" : "0ms",
+              transitionDelay: isSidebarVisible ? "500ms" : "0ms",
             }}
             className={`grid min-h-[54px] w-full cursor-pointer grid-cols-[26px_1fr] items-center gap-4 rounded-[12px] px-3 text-left text-[14px] font-black text-[#2f47b8] transition-[opacity,transform,background-color,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#eef3ff] hover:text-[#223aa4] ${
               isSidebarVisible
@@ -369,7 +430,7 @@ export function AccountSidebar({
               style={accountIconTint}
             />
 
-            <span>LOG OUT</span>
+            <span>{t("LOG OUT")}</span>
           </button>
         </div>
       </aside>

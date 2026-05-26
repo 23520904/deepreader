@@ -55,6 +55,7 @@ export function ReviewView({
         >
           <div className="relative min-h-[min(520px,68dvh)] sm:min-h-[470px] lg:min-h-[570px]">
             <div
+              key={`${activeReviewCard.id}-${reviewCardIndex}`}
               className="absolute inset-0 rounded-[20px] transition-transform duration-500 sm:rounded-[28px]"
               style={{
                 transform: isAnswerVisible
