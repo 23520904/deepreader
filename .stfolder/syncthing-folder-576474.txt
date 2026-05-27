@@ -1,0 +1,5 @@
+# This directory is a Syncthing folder marker.
+# Do not delete.
+
+folderID: deepreader
+created: 2026-05-26T16:43:08Z

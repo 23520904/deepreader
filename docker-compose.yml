@@ -69,6 +69,12 @@ services:
     depends_on:
       qdrant:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     ports:
       - "${HAYSTACK_PORT:-8000}:8000"
     restart: unless-stopped
@@ -97,6 +103,7 @@ services:
       DATABASE_URL: ${DOCKER_DATABASE_URL:-${DATABASE_URL:-jdbc:postgresql://postgres:5432/deepreader}}
       DATABASE_USERNAME: ${DOCKER_DATABASE_USERNAME:-${DATABASE_USERNAME:-deepreader}}
       DATABASE_PASSWORD: ${DOCKER_DATABASE_PASSWORD:-${DATABASE_PASSWORD:-deepreader}}
+      FLYWAY_BASELINE_VERSION: ${AI_SERVICE_FLYWAY_BASELINE_VERSION:-0}
       REDIS_HOST: ${DOCKER_REDIS_HOST:-redis}
       REDIS_PORT: ${DOCKER_REDIS_PORT:-6379}
       REDIS_USERNAME: ${DOCKER_REDIS_USERNAME:-}
@@ -129,7 +136,13 @@ services:
       qdrant:
         condition: service_started
       haystack-service:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 45s
     ports:
       - "${AI_SERVICE_HOST_PORT:-18080}:8080"
     restart: unless-stopped
@@ -150,6 +163,12 @@ services:
         condition: service_healthy
       mongodb:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8081/actuator/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 45s
     ports:
       - "${DATA_SERVICE_HOST_PORT:-18081}:8081"
     restart: unless-stopped
@@ -178,9 +197,15 @@ services:
       - ./aiven_connect:/etc/aiven
     depends_on:
       ai-service:
-        condition: service_started
+        condition: service_healthy
       data-service:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8082/actuator/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 45s
     ports:
       - "${BUSINESS_SERVICE_HOST_PORT:-18082}:8082"
     restart: unless-stopped
@@ -196,6 +221,8 @@ services:
       DATABASE_URL: ${DOCKER_DATABASE_URL:-${DATABASE_URL:-jdbc:postgresql://postgres:5432/deepreader}}
       DATABASE_USERNAME: ${DOCKER_DATABASE_USERNAME:-${DATABASE_USERNAME:-deepreader}}
       DATABASE_PASSWORD: ${DOCKER_DATABASE_PASSWORD:-${DATABASE_PASSWORD:-deepreader}}
+      WEB_MODULE_FLYWAY_ENABLED: ${WEB_MODULE_FLYWAY_ENABLED:-true}
+      WEB_MODULE_FLYWAY_BASELINE_VERSION: ${WEB_MODULE_FLYWAY_BASELINE_VERSION:-0}
       REDIS_HOST: ${DOCKER_REDIS_HOST:-redis}
       REDIS_PORT: ${DOCKER_REDIS_PORT:-6379}
       REDIS_USERNAME: ${DOCKER_REDIS_USERNAME:-}
@@ -203,6 +230,19 @@ services:
       REDIS_SSL_ENABLED: ${DOCKER_REDIS_SSL_ENABLED:-false}
       JWT_SECRET: ${JWT_SECRET:-dev-change-me-secret-32-bytes-minimum}
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-86400}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-DeepReader <noreply@deepreader.local>}
+      EMAIL_VERIFICATION_OTP_TTL_MINUTES: ${EMAIL_VERIFICATION_OTP_TTL_MINUTES:-10}
+      EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS: ${EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS:-60}
+      EMAIL_VERIFICATION_MAX_ATTEMPTS: ${EMAIL_VERIFICATION_MAX_ATTEMPTS:-5}
+      PASSWORD_RESET_OTP_TTL_MINUTES: ${PASSWORD_RESET_OTP_TTL_MINUTES:-10}
+      PASSWORD_RESET_MAX_ATTEMPTS: ${PASSWORD_RESET_MAX_ATTEMPTS:-5}
       APP_ADMIN_SEED_ENABLED: ${APP_ADMIN_SEED_ENABLED:-true}
       APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@deepreader.local}
       APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME:-admin}
@@ -215,9 +255,15 @@ services:
       redis:
         condition: service_healthy
       ai-service:
-        condition: service_started
+        condition: service_healthy
       business-service:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8083/actuator/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 45s
     ports:
       - "${WEB_MODULE_HOST_PORT:-8083}:8083"
     restart: unless-stopped

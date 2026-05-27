@@ -14,6 +14,9 @@ RUN --mount=type=cache,target=/root/.m2 mvn -pl ai-service -am package -DskipTes
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/ai-service/target/*.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

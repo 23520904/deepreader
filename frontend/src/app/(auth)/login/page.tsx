@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type SyntheticEvent } from "react";
+import { useCallback, useState, type SyntheticEvent } from "react";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { InputField } from "@/components/InputField";
 import { PasswordField } from "@/components/PasswordField";
 import { saveAuthSession } from "@/lib/authSession";
-import { loginUser } from "@/services/authService";
+import { googleLogin, loginUser } from "@/services/authService";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -33,6 +35,24 @@ export default function LoginPage() {
       setIsSubmitting(false);
     }
   }
+
+  const handleGoogleCredential = useCallback(
+    async (idToken: string) => {
+      setMessage("");
+      setIsGoogleSubmitting(true);
+
+      try {
+        const session = await googleLogin({ idToken });
+        saveAuthSession(session);
+        router.replace(session.role?.toUpperCase() === "ADMIN" ? "/admin" : "/");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Google login failed.");
+      } finally {
+        setIsGoogleSubmitting(false);
+      }
+    },
+    [router],
+  );
 
   return (
     <div className="mx-auto w-full max-w-[406px] lg:mx-0">
@@ -65,6 +85,15 @@ export default function LoginPage() {
           onChange={setPassword}
         />
 
+        <div className="text-right">
+          <Link
+            className="text-sm font-medium text-[#174987] hover:text-[#123a6d]"
+            href="/forgot-password"
+          >
+            Forgot password?
+          </Link>
+        </div>
+
         {message ? (
           <p className="rounded-[8px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {message}
@@ -79,6 +108,17 @@ export default function LoginPage() {
           {isSubmitting ? "Logging in..." : "Login"}
         </button>
       </form>
+
+      <div className="my-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0] text-[#8d929d]">
+        <span className="h-px flex-1 bg-[#d7dce5]" />
+        <span>or</span>
+        <span className="h-px flex-1 bg-[#d7dce5]" />
+      </div>
+
+      <GoogleAuthButton
+        disabled={isSubmitting || isGoogleSubmitting}
+        onCredential={handleGoogleCredential}
+      />
 
       <p className="mt-4 text-center text-[18px] leading-[1.35] text-[#8d929d] sm:mt-5">
         Not a member?{" "}

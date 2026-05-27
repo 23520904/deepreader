@@ -45,6 +45,10 @@ public class AdminBootstrapService implements ApplicationRunner {
 			return;
 		}
 
+		jdbcTemplate.execute("alter table app_users add column if not exists email_verified boolean not null default false");
+		jdbcTemplate.execute("alter table app_users add column if not exists auth_provider varchar(32) not null default 'LOCAL'");
+		jdbcTemplate.execute("alter table app_users add column if not exists provider_subject varchar(255)");
+
 		Integer adminCount = jdbcTemplate.queryForObject(
 				"select count(*) from app_users where role = ?",
 				Integer.class,
@@ -52,6 +56,10 @@ public class AdminBootstrapService implements ApplicationRunner {
 		);
 
 		if (adminCount != null && adminCount > 0) {
+			jdbcTemplate.update(
+					"update app_users set email_verified = true where role = ?",
+					UserRole.ADMIN.name()
+			);
 			return;
 		}
 
@@ -68,8 +76,8 @@ public class AdminBootstrapService implements ApplicationRunner {
 			jdbcTemplate.update(
 					"""
 					insert into app_users
-						(user_id, email, username, avatar_url, password_hash, role)
-					values (?, ?, ?, ?, ?, ?)
+						(user_id, email, username, avatar_url, password_hash, role, email_verified)
+					values (?, ?, ?, ?, ?, ?, true)
 					""",
 					UUID.randomUUID().toString(),
 					email,
@@ -83,7 +91,7 @@ public class AdminBootstrapService implements ApplicationRunner {
 		}
 
 		jdbcTemplate.update(
-				"update app_users set role = ?, username = coalesce(nullif(username, ''), ?) where email = ?",
+				"update app_users set role = ?, username = coalesce(nullif(username, ''), ?), email_verified = true where email = ?",
 				UserRole.ADMIN.name(),
 				username,
 				email

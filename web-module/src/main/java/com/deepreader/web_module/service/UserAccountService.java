@@ -31,7 +31,7 @@ public class UserAccountService {
 		String passwordHash = BCrypt.hashpw(password, BCrypt.gensalt());
 		UserRole role = UserRole.USER;
 		jdbcTemplate.update(
-				"insert into app_users (user_id, email, username, avatar_url, password_hash, role) values (?, ?, ?, ?, ?, ?)",
+				"insert into app_users (user_id, email, username, avatar_url, password_hash, role, email_verified) values (?, ?, ?, ?, ?, ?, false)",
 				userId,
 				normalizedEmail,
 				normalizedUsername,
@@ -48,7 +48,7 @@ public class UserAccountService {
 		List<UserWithHash> users = jdbcTemplate.query(
 				"""
 				select user_id, email, username, avatar_url, full_name, phone_number, location,
-				       password_hash, role, llm_api_token
+				       password_hash, role, llm_api_token, email_verified
 				from app_users
 				where email = ?
 				""",
@@ -62,7 +62,8 @@ public class UserAccountService {
 						rs.getString("location"),
 						rs.getString("password_hash"),
 						UserRole.from(rs.getString("role")),
-						rs.getString("llm_api_token")
+						rs.getString("llm_api_token"),
+						rs.getBoolean("email_verified")
 				),
 				normalizedEmail
 		);
@@ -72,6 +73,9 @@ public class UserAccountService {
 		UserWithHash user = users.getFirst();
 		if (!BCrypt.checkpw(password, user.passwordHash())) {
 			throw new IllegalArgumentException("Invalid email or password");
+		}
+		if (!user.emailVerified()) {
+			throw new IllegalArgumentException("Please verify your email first.");
 		}
 		return new UserRecord(
 				user.userId(),
@@ -84,6 +88,47 @@ public class UserAccountService {
 				user.role(),
 				user.llmApiToken()
 		);
+	}
+
+	public UserRecord findOrCreateGoogleUser(GoogleAuthService.GoogleProfile profile) {
+		ensureProfileColumns();
+		String normalizedEmail = normalizeEmail(profile.email());
+		List<UserRecord> existingUsers = findRecordsByEmail(normalizedEmail);
+		if (!existingUsers.isEmpty()) {
+			jdbcTemplate.update(
+					"""
+					update app_users
+					set email_verified = true,
+					    provider_subject = coalesce(provider_subject, ?),
+					    avatar_url = coalesce(nullif(avatar_url, ''), ?)
+					where email = ?
+					""",
+					profile.subject(),
+					normalizeOptionalText(profile.picture()),
+					normalizedEmail
+			);
+			return findRecordsByEmail(normalizedEmail).getFirst();
+		}
+
+		String userId = UUID.randomUUID().toString();
+		String username = normalizeUsername(profile.name(), normalizedEmail);
+		String passwordHash = BCrypt.hashpw(UUID.randomUUID().toString(), BCrypt.gensalt());
+		UserRole role = UserRole.USER;
+		jdbcTemplate.update(
+				"""
+				insert into app_users
+					(user_id, email, username, avatar_url, password_hash, role, email_verified, auth_provider, provider_subject)
+				values (?, ?, ?, ?, ?, ?, true, 'GOOGLE', ?)
+				""",
+				userId,
+				normalizedEmail,
+				username,
+				normalizeOptionalText(profile.picture()),
+				passwordHash,
+				role.name(),
+				profile.subject()
+		);
+		return new UserRecord(userId, normalizedEmail, username, normalizeOptionalText(profile.picture()), null, null, null, role, null);
 	}
 
 	public UserRecord findById(String userId) {
@@ -170,6 +215,29 @@ public class UserAccountService {
 		return count != null && count > 0;
 	}
 
+	private List<UserRecord> findRecordsByEmail(String email) {
+		return jdbcTemplate.query(
+				"""
+				select user_id, email, username, avatar_url, full_name, phone_number, location,
+				       role, llm_api_token
+				from app_users
+				where email = ?
+				""",
+				(rs, rowNum) -> new UserRecord(
+						rs.getString("user_id"),
+						rs.getString("email"),
+						resolveUsername(rs.getString("username"), rs.getString("email")),
+						normalizeOptionalText(rs.getString("avatar_url")),
+						normalizeOptionalText(rs.getString("full_name")),
+						normalizeOptionalText(rs.getString("phone_number")),
+						normalizeOptionalText(rs.getString("location")),
+						UserRole.from(rs.getString("role")),
+						rs.getString("llm_api_token")
+				),
+				email
+		);
+	}
+
 	public List<String> findAdminUserIds() {
 		ensureProfileColumns();
 		return jdbcTemplate.queryForList(
@@ -192,6 +260,9 @@ public class UserAccountService {
 			jdbcTemplate.execute("alter table app_users add column if not exists full_name varchar(120)");
 			jdbcTemplate.execute("alter table app_users add column if not exists phone_number varchar(30)");
 			jdbcTemplate.execute("alter table app_users add column if not exists location varchar(120)");
+			jdbcTemplate.execute("alter table app_users add column if not exists email_verified boolean not null default false");
+			jdbcTemplate.execute("alter table app_users add column if not exists auth_provider varchar(32) not null default 'LOCAL'");
+			jdbcTemplate.execute("alter table app_users add column if not exists provider_subject varchar(255)");
 			profileColumnsEnsured = true;
 		}
 	}
@@ -247,7 +318,8 @@ public class UserAccountService {
 			String location,
 			String passwordHash,
 			UserRole role,
-			String llmApiToken
+			String llmApiToken,
+			boolean emailVerified
 	) {}
 	public record UserRecord(
 			String userId,

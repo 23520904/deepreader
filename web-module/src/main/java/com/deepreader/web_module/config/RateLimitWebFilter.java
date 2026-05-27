@@ -48,21 +48,21 @@ public class RateLimitWebFilter implements WebFilter {
 		String key = (userKey == null ? "anon" : userKey) + "|" + ip;
 
 		String redisKey = "rate-limit:" + key;
-		Mono<Void> pipeline = redisTemplate.opsForValue().increment(redisKey)
+		Mono<Long> requestCount = redisTemplate.opsForValue().increment(redisKey)
 				.flatMap(count -> {
 					Mono<Boolean> expireUpdate = count != null && count == 1
 							? redisTemplate.expire(redisKey, window)
 							: Mono.just(Boolean.TRUE);
 					return expireUpdate.thenReturn(count);
 				})
-				.flatMap(count -> {
-					if (count != null && count > requestLimit) {
-						exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
-						return exchange.getResponse().setComplete();
-					}
-					return chain.filter(exchange);
-				})
-				.onErrorResume(ex -> chain.filter(exchange));
+				.onErrorResume(ex -> Mono.just(0L));
+		Mono<Void> pipeline = requestCount.flatMap(count -> {
+			if (count != null && count > requestLimit) {
+				exchange.getResponse().setStatusCode(HttpStatus.TOO_MANY_REQUESTS);
+				return exchange.getResponse().setComplete();
+			}
+			return chain.filter(exchange);
+		});
 		return Objects.requireNonNull(pipeline, "rate limit pipeline must not be null");
 	}
 }

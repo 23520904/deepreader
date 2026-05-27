@@ -4,7 +4,13 @@ export type {
   UpdateProfilePayload,
   UserProfile,
 } from "@/types/auth";
-export { loginUser, registerUser } from "@/services/authService";
+export {
+  forgotPassword,
+  googleLogin,
+  loginUser,
+  registerUser,
+  resetPassword,
+} from "@/services/authService";
 export { fetchUserProfile, updateUserProfile } from "@/services/profileService";
 export {
   clearAuthSession,

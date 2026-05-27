@@ -2,33 +2,39 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type SyntheticEvent } from "react";
+import { useCallback, useRef, useState, type SyntheticEvent } from "react";
+import { GoogleAuthButton } from "@/components/GoogleAuthButton";
 import { InputField } from "@/components/InputField";
 import { PasswordField } from "@/components/PasswordField";
-import { clearAuthSession } from "@/lib/authSession";
-import { registerUser } from "@/services/authService";
-import type { AuthCredentials } from "@/types/auth";
+import { clearAuthSession, saveAuthSession } from "@/lib/authSession";
+import { googleLogin, registerUser } from "@/services/authService";
 
 export default function SignupPage() {
   const router = useRouter();
+  const registerInFlightRef = useRef(false);
   const [userName, setUserName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pendingCredentials, setPendingCredentials] =
-    useState<AuthCredentials | null>(null);
-  const [verificationCode, setVerificationCode] = useState("");
-  const [verificationInput, setVerificationInput] = useState("");
-  const [verificationMessage, setVerificationMessage] = useState("");
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
 
-  function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
 
+    if (registerInFlightRef.current) {
+      return;
+    }
+
     if (!userName.trim()) {
       setMessage("Please enter a user name.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setMessage("Password must contain at least 8 characters.");
       return;
     }
 
@@ -37,216 +43,136 @@ export default function SignupPage() {
       return;
     }
 
-    setPendingCredentials({
+    const credentials = {
       email: email.trim(),
       password,
       username: userName.trim(),
+    };
+
+    console.log("[DeepReader signup direct register]", {
+      email: credentials.email,
+      username: credentials.username,
     });
-    setVerificationCode(String(Math.floor(1000 + Math.random() * 9000)));
-    setVerificationInput("");
-    setVerificationMessage("");
-  }
 
-  async function handleVerificationSubmit(
-    event: SyntheticEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault();
-    setVerificationMessage("");
-
-    if (!pendingCredentials) {
-      setVerificationMessage("Please submit the form again.");
-      return;
-    }
-
-    if (verificationInput.length !== 4) {
-      setVerificationMessage("Please enter 4 digits.");
-      return;
-    }
-
-    if (verificationInput !== verificationCode) {
-      setVerificationMessage("Verification code is not correct.");
-      return;
-    }
-
+    registerInFlightRef.current = true;
     setIsSubmitting(true);
 
     try {
-      await registerUser(pendingCredentials);
+      const response = await registerUser(credentials);
       clearAuthSession();
-      router.push("/login");
+      sessionStorage.setItem(
+        "deepreader.pendingVerificationEmail",
+        response.email || credentials.email,
+      );
+      router.push(`/verify-email?email=${encodeURIComponent(response.email || credentials.email)}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Sign up failed.");
-      setPendingCredentials(null);
-      setVerificationCode("");
     } finally {
+      registerInFlightRef.current = false;
       setIsSubmitting(false);
     }
   }
 
-  function handleVerificationInputChange(value: string) {
-    setVerificationInput(value.replace(/\D/g, "").slice(0, 4));
-    setVerificationMessage("");
-  }
+  const handleGoogleCredential = useCallback(
+    async (idToken: string) => {
+      setMessage("");
+      setIsGoogleSubmitting(true);
 
-  function closeVerification() {
-    if (isSubmitting) {
-      return;
-    }
-
-    setPendingCredentials(null);
-    setVerificationCode("");
-    setVerificationInput("");
-    setVerificationMessage("");
-  }
+      try {
+        const session = await googleLogin({ idToken });
+        saveAuthSession(session);
+        router.replace(session.role?.toUpperCase() === "ADMIN" ? "/admin" : "/");
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Google signup failed.");
+      } finally {
+        setIsGoogleSubmitting(false);
+      }
+    },
+    [router],
+  );
 
   return (
-    <>
-      <div className="mx-auto w-full max-w-[406px] lg:mx-0">
-        <h1 className="whitespace-nowrap text-center text-[clamp(28px,8.4vw,46px)] font-extrabold leading-[1.05] tracking-[0] text-[#1e4f8d]">
-          Create an account
-        </h1>
+    <div className="mx-auto w-full max-w-[406px] lg:mx-0">
+      <h1 className="whitespace-nowrap text-center text-[clamp(28px,8.4vw,46px)] font-extrabold leading-[1.05] tracking-[0] text-[#1e4f8d]">
+        Create an account
+      </h1>
 
-        <p className="mt-3 text-center text-[18px] leading-[1.35] text-[#8b909a]">
-          Join DeepReader to read, summarize and learn with AI.
-        </p>
+      <p className="mt-3 text-center text-[18px] leading-[1.35] text-[#8b909a]">
+        Join DeepReader to read, summarize and learn with AI.
+      </p>
 
-        <form
-          className="mt-4 space-y-3 sm:mt-5 sm:space-y-4"
-          onSubmit={handleSubmit}
+      <form
+        className="mt-4 space-y-3 sm:mt-5 sm:space-y-4"
+        onSubmit={handleSubmit}
+      >
+        <InputField
+          id="userName"
+          label="User Name"
+          value={userName}
+          autoComplete="name"
+          onChange={setUserName}
+        />
+
+        <InputField
+          id="email"
+          label="Email"
+          type="email"
+          value={email}
+          autoComplete="email"
+          onChange={setEmail}
+        />
+
+        <PasswordField
+          id="password"
+          label="Password"
+          value={password}
+          autoComplete="new-password"
+          onChange={setPassword}
+        />
+
+        <PasswordField
+          id="confirmPassword"
+          label="Confirm Password"
+          value={confirmPassword}
+          autoComplete="new-password"
+          onChange={setConfirmPassword}
+        />
+
+        {message ? (
+          <p className="rounded-[8px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {message}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="flex h-12 w-full cursor-pointer items-center justify-center rounded-[7px] bg-[#245895] px-5 text-[16px] font-bold text-white transition hover:bg-[#1d4d86] disabled:cursor-not-allowed disabled:bg-[#8aa8cc]"
         >
-          <InputField
-            id="userName"
-            label="User Name"
-            value={userName}
-            autoComplete="name"
-            onChange={setUserName}
-          />
+          {isSubmitting ? "Creating..." : "Create Account"}
+        </button>
+      </form>
 
-          <InputField
-            id="email"
-            label="Email"
-            type="email"
-            value={email}
-            autoComplete="email"
-            onChange={setEmail}
-          />
-
-          <PasswordField
-            id="password"
-            label="Password"
-            value={password}
-            autoComplete="new-password"
-            onChange={setPassword}
-          />
-
-          <PasswordField
-            id="confirmPassword"
-            label="Confirm Password"
-            value={confirmPassword}
-            autoComplete="new-password"
-            onChange={setConfirmPassword}
-          />
-
-          {message ? (
-            <p className="rounded-[8px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-              {message}
-            </p>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex h-12 w-full cursor-pointer items-center justify-center rounded-[7px] bg-[#245895] px-5 text-[16px] font-bold text-white transition hover:bg-[#1d4d86] disabled:cursor-not-allowed disabled:bg-[#8aa8cc]"
-          >
-            Create Account
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-[18px] leading-[1.35] text-[#8d929d] sm:mt-5">
-          Already have an account?{" "}
-          <Link
-            className="cursor-pointer font-medium text-[#174987] hover:text-[#123a6d]"
-            href="/login"
-          >
-            Login now
-          </Link>
-        </p>
+      <div className="my-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0] text-[#8d929d]">
+        <span className="h-px flex-1 bg-[#d7dce5]" />
+        <span>or</span>
+        <span className="h-px flex-1 bg-[#d7dce5]" />
       </div>
 
-      {pendingCredentials ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f172a]/35 px-4 backdrop-blur-[6px]">
-          <form
-            onSubmit={handleVerificationSubmit}
-            className="w-full max-w-[360px] rounded-[14px] bg-white px-7 py-7 text-center shadow-[0_24px_70px_rgba(15,23,42,0.25)]"
-          >
-            <h2 className="text-[28px] font-extrabold leading-tight text-[#1e4f8d]">
-              Verify sign up
-            </h2>
+      <GoogleAuthButton
+        disabled={isSubmitting || isGoogleSubmitting}
+        onCredential={handleGoogleCredential}
+      />
 
-            <p className="mt-3 text-[15px] leading-6 text-[#7f8794]">
-              Enter the 4-digit code to finish creating your account.
-            </p>
-
-            <div
-              aria-label="Verification code image"
-              className="relative mt-4 h-16 overflow-hidden rounded-[10px] border border-[#c8d4e6] bg-[#eef3fb]"
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_18px_18px,rgba(36,88,149,0.18)_1px,transparent_1px)] bg-[length:18px_18px]" />
-              <div className="absolute left-[-8%] top-1/2 h-[2px] w-[116%] -rotate-6 bg-[#245895]/15" />
-              <div className="absolute left-[-8%] top-1/3 h-[2px] w-[116%] rotate-3 bg-[#245895]/10" />
-
-              <div className="relative flex h-full select-none items-center justify-center">
-                <span className="rotate-[-2deg] text-[32px] font-extrabold tracking-[0.35em] text-[#245895]/75 blur-[0.7px] [text-shadow:0_1px_0_rgba(255,255,255,0.75)]">
-                  {verificationCode}
-                </span>
-              </div>
-            </div>
-
-            <label className="sr-only" htmlFor="verificationCode">
-              Verification code
-            </label>
-
-            <input
-              id="verificationCode"
-              value={verificationInput}
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={4}
-              autoFocus
-              placeholder="0000"
-              onChange={(event) =>
-                handleVerificationInputChange(event.target.value)
-              }
-              className="mt-5 h-14 w-full rounded-[8px] border border-[#c8ccd6] bg-white px-4 text-center text-[28px] font-bold tracking-[0.35em] text-[#17213a] outline-none transition placeholder:text-[#c1c7d0]/70 focus:border-[#255895] focus:ring-4 focus:ring-[#255895]/10"
-            />
-
-            {verificationMessage ? (
-              <p className="mt-3 rounded-[8px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                {verificationMessage}
-              </p>
-            ) : null}
-
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={closeVerification}
-                disabled={isSubmitting}
-                className="h-12 flex-1 cursor-pointer rounded-[7px] border border-[#c8ccd6] text-[15px] font-bold text-[#667085] transition hover:bg-[#f3f5f9] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-12 flex-1 cursor-pointer rounded-[7px] bg-[#245895] text-[15px] font-bold text-white transition hover:bg-[#1d4d86] disabled:cursor-not-allowed disabled:bg-[#8aa8cc]"
-              >
-                {isSubmitting ? "Creating..." : "Confirm"}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
-    </>
+      <p className="mt-4 text-center text-[18px] leading-[1.35] text-[#8d929d] sm:mt-5">
+        Already have an account?{" "}
+        <Link
+          className="cursor-pointer font-medium text-[#174987] hover:text-[#123a6d]"
+          href="/login"
+        >
+          Login now
+        </Link>
+      </p>
+    </div>
   );
 }

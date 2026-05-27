@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["192.168.0.110", "localhost"],
+  env: {
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID:
+      process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID ?? "",
+  },
   experimental: {
     inlineCss: true,
   },

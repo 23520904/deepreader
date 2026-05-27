@@ -38,6 +38,28 @@ export function resolveApiUrl(path: string) {
   return `${apiBaseUrl}${path}`;
 }
 
+function isApiDebugEnabled() {
+  return process.env.NEXT_PUBLIC_AUTH_DEBUG === "true";
+}
+
+function redactRequestBody(body: BodyInit | null | undefined) {
+  if (typeof body !== "string") {
+    return body ? "[non-string body]" : undefined;
+  }
+
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+
+    if ("password" in parsed) {
+      parsed.password = "[redacted]";
+    }
+
+    return parsed;
+  } catch {
+    return body;
+  }
+}
+
 export function unwrapErrorMessage(value: string, maxDepth = 4) {
   let message = value;
 
@@ -82,15 +104,104 @@ export async function parseErrorMessage(
 ) {
   try {
     const payload = (await response.json()) as {
-      error?: string;
-      message?: string;
+      error?: unknown;
+      message?: unknown;
+      detail?: unknown;
+      title?: unknown;
+      errors?: unknown;
     };
-    const message = unwrapErrorMessage(payload.error ?? payload.message ?? fallback);
+    const message = unwrapErrorMessage(extractErrorMessage(payload, fallback));
 
     return transformErrorMessage ? transformErrorMessage(message) : message;
   } catch {
     return transformErrorMessage ? transformErrorMessage(fallback) : fallback;
   }
+}
+
+function extractErrorMessage(
+  payload: {
+    error?: unknown;
+    message?: unknown;
+    detail?: unknown;
+    title?: unknown;
+    errors?: unknown;
+  },
+  fallback: string,
+) {
+  const directMessage =
+    firstString(payload.error) ??
+    firstString(payload.message) ??
+    firstString(payload.detail);
+
+  if (directMessage) {
+    return directMessage;
+  }
+
+  const errorsMessage = formatErrors(payload.errors);
+
+  if (errorsMessage) {
+    return errorsMessage;
+  }
+
+  return firstString(payload.title) ?? fallback;
+}
+
+function firstString(value: unknown) {
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      value.find(
+        (item): item is string => typeof item === "string" && item.trim().length > 0,
+      ) ?? null
+    );
+  }
+
+  return null;
+}
+
+function formatErrors(value: unknown) {
+  if (!value) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    const messages = value
+      .map((item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+
+        if (item && typeof item === "object") {
+          const error = item as { field?: unknown; message?: unknown; defaultMessage?: unknown };
+          const message = firstString(error.message) ?? firstString(error.defaultMessage);
+          const field = firstString(error.field);
+
+          return field && message ? `${field} ${message}` : message;
+        }
+
+        return null;
+      })
+      .filter((item): item is string => Boolean(item));
+
+    return messages.length > 0 ? messages.join("; ") : null;
+  }
+
+  if (typeof value === "object") {
+    const messages = Object.entries(value)
+      .map(([field, message]) => {
+        const text = firstString(message);
+
+        return text ? `${field} ${text}` : null;
+      })
+      .filter((item): item is string => Boolean(item));
+
+    return messages.length > 0 ? messages.join("; ") : null;
+  }
+
+  return null;
 }
 
 export async function apiRequestJson<T>(
@@ -107,10 +218,55 @@ export async function apiRequestJson<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(resolveApiUrl(path), {
-    ...options,
-    headers,
-  });
+  const requestUrl = resolveApiUrl(path);
+
+  if (isApiDebugEnabled()) {
+    console.debug("[DeepReader API request]", {
+      url: requestUrl,
+      method: options.method ?? "GET",
+      body: redactRequestBody(options.body),
+    });
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(requestUrl, {
+      ...options,
+      headers,
+      body: options.body,
+    });
+  } catch (error) {
+    if (isApiDebugEnabled()) {
+      console.debug("[DeepReader API network error]", {
+        url: requestUrl,
+        method: options.method ?? "GET",
+        error,
+      });
+    }
+
+    throw error;
+  }
+
+  if (isApiDebugEnabled()) {
+    const responseClone = response.clone();
+    responseClone
+      .text()
+      .then((body) => {
+        console.debug("[DeepReader API response]", {
+          url: requestUrl,
+          status: response.status,
+          body,
+        });
+      })
+      .catch(() => {
+        console.debug("[DeepReader API response]", {
+          url: requestUrl,
+          status: response.status,
+          body: "[unavailable]",
+        });
+      });
+  }
 
   if (!response.ok) {
     throw new ApiError(

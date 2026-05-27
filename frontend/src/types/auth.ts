@@ -14,6 +14,30 @@ export type AuthCredentials = {
   username?: string;
 };
 
+export type AuthMessageResponse = {
+  message: string;
+  email: string;
+};
+
+export type VerifyEmailPayload = {
+  email: string;
+  otp: string;
+};
+
+export type GoogleAuthPayload = {
+  idToken: string;
+};
+
+export type ForgotPasswordPayload = {
+  email: string;
+};
+
+export type ResetPasswordPayload = {
+  email: string;
+  otp: string;
+  newPassword: string;
+};
+
 export type UserProfile = {
   userId: string;
   email: string;

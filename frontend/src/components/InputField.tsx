@@ -4,6 +4,7 @@ type InputFieldProps = {
   value: string;
   type?: "text" | "email" | "tel" | "number";
   autoComplete?: string;
+  inputMode?: "text" | "email" | "tel" | "numeric" | "decimal" | "search";
   required?: boolean;
   minLength?: number;
   maxLength?: number;
@@ -16,6 +17,7 @@ export function InputField({
   value,
   type = "text",
   autoComplete,
+  inputMode,
   required = true,
   minLength,
   maxLength,
@@ -32,6 +34,7 @@ export function InputField({
         type={type}
         value={value}
         autoComplete={autoComplete}
+        inputMode={inputMode}
         required={required}
         minLength={minLength}
         maxLength={maxLength}
