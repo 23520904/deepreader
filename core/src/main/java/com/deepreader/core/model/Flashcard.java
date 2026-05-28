@@ -11,5 +11,8 @@ public class Flashcard {
     private String userId;
     private String question;
     private String answer;
+    private Boolean isHidden = false;
+    private String editedQuestion;
+    private String editedAnswer;
     private LocalDateTime createdAt;
 }

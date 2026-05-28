@@ -73,4 +73,31 @@ public class DataServiceClient {
 				.retrieve()
 				.bodyToMono(Void.class);
 	}
+
+	public Mono<Void> editFlashcard(String cardId, Object request) {
+		return webClient.patch()
+				.uri("/internal/data/v1/flashcards/{cardId}/edit", cardId)
+				.bodyValue(request)
+				.retrieve()
+				.bodyToMono(Void.class);
+	}
+
+	public Mono<Void> hideFlashcard(String cardId, Object request) {
+		return webClient.patch()
+				.uri("/internal/data/v1/flashcards/{cardId}/hide", cardId)
+				.bodyValue(request)
+				.retrieve()
+				.bodyToMono(Void.class);
+	}
+
+	public Mono<Void> addReadingSeconds(String userId, String bookId, int seconds) {
+		return webClient.post()
+				.uri(uriBuilder -> uriBuilder.path("/internal/data/v1/reading-sessions/add-seconds")
+						.queryParam("userId", userId)
+						.queryParam("bookId", bookId)
+						.queryParam("seconds", seconds)
+						.build())
+				.retrieve()
+				.bodyToMono(Void.class);
+	}
 }

@@ -5,6 +5,9 @@ import jakarta.validation.constraints.Min;
 
 public record BookFlashcardCommand(
 		String provider,
-		@Min(1) @Max(50) Integer count
+		@Min(1) @Max(50) Integer count,
+		String language,
+		String type,
+		String scope
 ) {
 }

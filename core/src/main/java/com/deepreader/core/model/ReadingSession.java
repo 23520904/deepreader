@@ -13,4 +13,5 @@ public class ReadingSession {
     private LocalDateTime endTime;
     private Long wordsRead;
     private Double wpm;
+    private Long secondsSpent;
 }

@@ -63,30 +63,38 @@ public class GenerationService {
 	}
 
 	public Mono<FlashcardResponse> createFlashcards(String userId, String documentId, String provider, Integer requestedCount) {
+		return createFlashcards(userId, documentId, provider, requestedCount, "en", "mixed", "all");
+	}
+
+	public Mono<FlashcardResponse> createFlashcards(String userId, String documentId, String provider, Integer requestedCount, String language, String type, String scope) {
 		return Mono.fromCallable(() -> {
 			int count = requestedCount == null || requestedCount <= 0 ? 10 : Math.min(requestedCount, 25);
 			IndexedDocument document = documentIndexStoreService.requireById(userId, documentId);
 			String prompt = promptBuilderService.buildFlashcardPrompt(
 					document.fileName(),
-					combinedStudyContent(document, contentBudget(STUDY_PROVIDER)),
-					count
+					combinedStudyContent(document, contentBudget(STUDY_PROVIDER), scope),
+					count,
+					language,
+					type
 			);
 			LlmClientService.GeneratedAnswer generated = llmClientService.generateAnswer(userId, prompt);
 			String response = generated.answer();
 			String responseProvider = generated.provider();
-			List<Flashcard> flashcards = filterStudyFlashcards(parseFlashcards(response, count), count);
+			List<Flashcard> flashcards = filterStudyFlashcards(parseFlashcards(response, count, language), count, language);
 
 			if (flashcards.size() < count) {
 				String repairPrompt = promptBuilderService.buildFlashcardRepairPrompt(
 					document.fileName(),
-					combinedStudyContent(document, contentBudget(STUDY_PROVIDER)),
+					combinedStudyContent(document, contentBudget(STUDY_PROVIDER), scope),
 					response,
-					count
+					count,
+					language,
+					type
 				);
 
 				LlmClientService.GeneratedAnswer repaired = llmClientService.generateAnswer(userId, repairPrompt);
 				responseProvider = repaired.provider();
-				flashcards = filterStudyFlashcards(parseFlashcards(repaired.answer(), count), count);
+				flashcards = filterStudyFlashcards(parseFlashcards(repaired.answer(), count, language), count, language);
 			}
 
 			return new FlashcardResponse(documentId, responseProvider, flashcards);
@@ -110,15 +118,26 @@ public class GenerationService {
 	}
 
 	private String combinedStudyContent(IndexedDocument document, int maxChars) {
+		return combinedStudyContent(document, maxChars, "all");
+	}
+
+	private String combinedStudyContent(IndexedDocument document, int maxChars, String scope) {
 		if (document == null || document.sections() == null || document.sections().isEmpty()) {
 			return "";
 		}
 
 		StringBuilder content = new StringBuilder();
-		int sectionCount = Math.max(1, document.sections().size());
+		var sections = document.sections();
+		if (scope != null && !scope.isBlank() && !"all".equalsIgnoreCase(scope)) {
+			sections = sections.stream()
+					.filter(s -> scope.equals(s.sectionId()))
+					.toList();
+		}
+
+		int sectionCount = Math.max(1, sections.size());
 		int perSectionChars = Math.max(160, maxChars / sectionCount);
 
-		for (var section : document.sections()) {
+		for (var section : sections) {
 			String sectionContent = cleanFlashcardText(section.content());
 
 			if (!StringUtils.hasText(sectionContent)) {
@@ -163,13 +182,18 @@ public class GenerationService {
 						candidate.answer(),
 						flashcards,
 						seenQuestions,
-						limit
+						limit,
+						"en"
 				));
 
 		return flashcards;
 	}
 
 	List<Flashcard> filterStudyFlashcards(List<Flashcard> flashcards, int limit) {
+		return filterStudyFlashcards(flashcards, limit, "en");
+	}
+
+	List<Flashcard> filterStudyFlashcards(List<Flashcard> flashcards, int limit, String language) {
 		List<Flashcard> filtered = new ArrayList<>();
 		Set<String> seenQuestions = new LinkedHashSet<>();
 
@@ -178,7 +202,7 @@ public class GenerationService {
 				continue;
 			}
 
-			addFlashcard(flashcard.question(), flashcard.answer(), filtered, seenQuestions, limit);
+			addFlashcard(flashcard.question(), flashcard.answer(), filtered, seenQuestions, limit, language);
 		}
 
 		return filtered;
@@ -520,17 +544,21 @@ public class GenerationService {
 	}
 
 	List<Flashcard> parseFlashcards(String response, int limit) {
+		return parseFlashcards(response, limit, "en");
+	}
+
+	List<Flashcard> parseFlashcards(String response, int limit, String language) {
 		List<Flashcard> flashcards = new ArrayList<>();
 		Set<String> seenQuestions = new LinkedHashSet<>();
 
-		parseJsonFlashcards(response, flashcards, seenQuestions, limit);
-		parseMarkdownTableFlashcards(response, flashcards, seenQuestions, limit);
-		parseLabelledFlashcards(response, flashcards, seenQuestions, limit);
+		parseJsonFlashcards(response, flashcards, seenQuestions, limit, language);
+		parseMarkdownTableFlashcards(response, flashcards, seenQuestions, limit, language);
+		parseLabelledFlashcards(response, flashcards, seenQuestions, limit, language);
 
 		return flashcards.size() > limit ? flashcards.subList(0, limit) : flashcards;
 	}
 
-	private void parseJsonFlashcards(String response, List<Flashcard> flashcards, Set<String> seenQuestions, int limit) {
+	private void parseJsonFlashcards(String response, List<Flashcard> flashcards, Set<String> seenQuestions, int limit, String language) {
 		String candidate = extractJsonCandidate(response);
 
 		if (!StringUtils.hasText(candidate)) {
@@ -551,7 +579,8 @@ public class GenerationService {
 						textValue(cardNode, "answer", "back", "definition", "explanation"),
 						flashcards,
 						seenQuestions,
-						limit
+						limit,
+						language
 				);
 			}
 		} catch (Exception ignored) {
@@ -559,7 +588,7 @@ public class GenerationService {
 		}
 	}
 
-	private void parseMarkdownTableFlashcards(String response, List<Flashcard> flashcards, Set<String> seenQuestions, int limit) {
+	private void parseMarkdownTableFlashcards(String response, List<Flashcard> flashcards, Set<String> seenQuestions, int limit, String language) {
 		for (String rawLine : normalizedResponse(response).split("\n")) {
 			String line = rawLine.trim();
 
@@ -586,11 +615,11 @@ public class GenerationService {
 				continue;
 			}
 
-			addFlashcard(firstCell, secondCell, flashcards, seenQuestions, limit);
+			addFlashcard(firstCell, secondCell, flashcards, seenQuestions, limit, language);
 		}
 	}
 
-	private void parseLabelledFlashcards(String response, List<Flashcard> flashcards, Set<String> seenQuestions, int limit) {
+	private void parseLabelledFlashcards(String response, List<Flashcard> flashcards, Set<String> seenQuestions, int limit, String language) {
 		String pendingQuestion = null;
 		StringBuilder pendingAnswer = new StringBuilder();
 		Pattern sameLinePattern = Pattern.compile("(?i)^(?:Q|Question|Front)\\s*[:\\-]\\s*(.+?)\\s*(?:\\||;)\\s*(?:A|Answer|Back)\\s*[:\\-]\\s*(.+)$");
@@ -607,7 +636,7 @@ public class GenerationService {
 			Matcher sameLineMatcher = sameLinePattern.matcher(line);
 
 			if (sameLineMatcher.matches()) {
-				addFlashcard(sameLineMatcher.group(1), sameLineMatcher.group(2), flashcards, seenQuestions, limit);
+				addFlashcard(sameLineMatcher.group(1), sameLineMatcher.group(2), flashcards, seenQuestions, limit, language);
 				pendingQuestion = null;
 				pendingAnswer = new StringBuilder();
 				continue;
@@ -617,7 +646,7 @@ public class GenerationService {
 
 			if (questionMatcher.matches()) {
 				if (StringUtils.hasText(pendingQuestion) && StringUtils.hasText(pendingAnswer)) {
-					addFlashcard(pendingQuestion, pendingAnswer.toString(), flashcards, seenQuestions, limit);
+					addFlashcard(pendingQuestion, pendingAnswer.toString(), flashcards, seenQuestions, limit, language);
 				}
 
 				pendingQuestion = questionMatcher.group(1);
@@ -629,18 +658,22 @@ public class GenerationService {
 
 			if (answerMatcher.matches() && StringUtils.hasText(pendingQuestion)) {
 				pendingAnswer = new StringBuilder(answerMatcher.group(1));
-				addFlashcard(pendingQuestion, pendingAnswer.toString(), flashcards, seenQuestions, limit);
+				addFlashcard(pendingQuestion, pendingAnswer.toString(), flashcards, seenQuestions, limit, language);
 				pendingQuestion = null;
 				pendingAnswer = new StringBuilder();
 			}
 		}
 
 		if (StringUtils.hasText(pendingQuestion) && StringUtils.hasText(pendingAnswer)) {
-			addFlashcard(pendingQuestion, pendingAnswer.toString(), flashcards, seenQuestions, limit);
+			addFlashcard(pendingQuestion, pendingAnswer.toString(), flashcards, seenQuestions, limit, language);
 		}
 	}
 
 	private void addFlashcard(String question, String answer, List<Flashcard> flashcards, Set<String> seenQuestions, int limit) {
+		addFlashcard(question, answer, flashcards, seenQuestions, limit, "en");
+	}
+
+	private void addFlashcard(String question, String answer, List<Flashcard> flashcards, Set<String> seenQuestions, int limit, String language) {
 		if (flashcards.size() >= limit) {
 			return;
 		}
@@ -652,7 +685,7 @@ public class GenerationService {
 			return;
 		}
 
-		if (isWeakFlashcardQuestion(safeQuestion) || isWeakFlashcardAnswer(safeAnswer)) {
+		if (isWeakFlashcardQuestion(safeQuestion) || isWeakFlashcardAnswer(safeAnswer, language)) {
 			return;
 		}
 
@@ -666,8 +699,13 @@ public class GenerationService {
 	}
 
 	private boolean isWeakFlashcardAnswer(String answer) {
+		return isWeakFlashcardAnswer(answer, "en");
+	}
+
+	private boolean isWeakFlashcardAnswer(String answer, String language) {
 		String cleanAnswer = cleanFlashcardText(answer);
 		String normalized = cleanAnswer.toLowerCase(Locale.ROOT);
+		boolean isVietnamese = "vi".equalsIgnoreCase(language);
 
 		return cleanAnswer.length() < 20
 				|| normalized.contains("slide ")
@@ -675,7 +713,7 @@ public class GenerationService {
 				|| normalized.contains("the document says")
 				|| normalized.contains("this section")
 				|| normalized.contains("this slide")
-				|| containsVietnameseCharacters(cleanAnswer);
+				|| (!isVietnamese && containsVietnameseCharacters(cleanAnswer));
 	}
 
 	private boolean containsVietnameseCharacters(String value) {

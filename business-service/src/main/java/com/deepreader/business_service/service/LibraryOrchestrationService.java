@@ -192,7 +192,7 @@ public class LibraryOrchestrationService {
 
 	public Mono<AiServiceClient.AiFlashcardResponse> generateFlashcards(String userId, String bookId, BookFlashcardCommand command) {
 		return requireOwnedBook(userId, bookId)
-				.flatMap(book -> aiServiceClient.flashcards(userId, book.getAiDocumentId(), null, command.count())
+				.flatMap(book -> aiServiceClient.flashcards(userId, book.getAiDocumentId(), null, command.count(), command.language(), command.type(), command.scope())
 						.flatMap(response -> dataServiceClient.saveFlashcards(response.flashcards().stream().map(card -> {
 									Flashcard flashcard = new Flashcard();
 									flashcard.setBookId(bookId);
@@ -208,6 +208,18 @@ public class LibraryOrchestrationService {
 										bookId,
 										Map.of("count", response.flashcards().size())))
 								.thenReturn(response)));
+	}
+
+	public Mono<Void> editFlashcard(String userId, String cardId, Object request) {
+		return dataServiceClient.editFlashcard(cardId, request);
+	}
+
+	public Mono<Void> hideFlashcard(String userId, String cardId, Object request) {
+		return dataServiceClient.hideFlashcard(cardId, request);
+	}
+
+	public Mono<Void> addReadingSeconds(String userId, String bookId, int seconds) {
+		return dataServiceClient.addReadingSeconds(userId, bookId, seconds);
 	}
 
 	public Flux<ChapterSummary> listSummaries(String userId, String bookId) {

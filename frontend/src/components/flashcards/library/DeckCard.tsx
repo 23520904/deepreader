@@ -18,6 +18,40 @@ export function DeckCard({ deck, deckRoute }: DeckCardProps) {
   const statusLabel = deckStatusLabel(learningStatus);
   const primaryLabel = learningStatus === "new" ? "Start learning" : "Study now";
 
+  if (deck.totalCards === 0) {
+    return (
+      <article className="min-w-0 overflow-hidden rounded-[18px] border border-[#cbd5e1] border-dashed bg-[#f8fafc] p-5 shadow-[0_14px_34px_rgba(15,23,42,0.03)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.06)] max-[420px]:p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-[#f1f5f9] px-3 py-1 text-[12px] font-black text-[#64748b]">
+            {deck.format}
+          </span>
+          <span className="rounded-full bg-[#f1f5f9] px-3 py-1 text-[12px] font-black text-[#64748b] ring-1 ring-[#cbd5e1]">
+            Empty
+          </span>
+        </div>
+
+        <h2 className="mt-4 line-clamp-2 break-words text-[22px] font-black leading-snug text-[#475569] opacity-75 max-[420px]:text-[19px]">
+          {deck.title}
+        </h2>
+        <p className="mt-2 min-w-0 truncate text-[14px] font-semibold text-[#94a3b8]">
+          Source: {deck.sourceTitle}
+        </p>
+        <p className="mt-4 text-[14px] font-bold text-[#f59e0b]">
+          ⚠️ Chưa có thẻ ghi nhớ
+        </p>
+
+        <div className="mt-6">
+          <Link
+            href={`/library?bookId=${deck.id}&action=generate`}
+            className="col-span-2 inline-flex w-full h-10 min-w-0 items-center justify-center rounded-[8px] bg-[#2563eb] px-4 text-center text-[14px] font-black text-white transition hover:bg-[#1d4ed8]"
+          >
+            ✨ Tạo thẻ bằng AI
+          </Link>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article className="min-w-0 overflow-hidden rounded-[18px] border border-[#dbe7f5] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_18px_42px_rgba(15,23,42,0.09)] max-[420px]:p-4">
       <div className="flex flex-wrap items-center gap-2">

@@ -288,11 +288,37 @@ export default function FlashcardsPage() {
     setIsGenerating(true);
     setCreateErrorMessage("");
 
+    let languageCode = "en";
+    if (createLanguage === "Vietnamese") {
+      languageCode = "vi";
+    } else if (createLanguage === "Bilingual") {
+      languageCode = "bilingual";
+    }
+
+    let typeCode = "mixed";
+    if (createType === "Definition" || createType === "Concept") {
+      typeCode = "concept";
+    } else if (createType === "Comparison") {
+      typeCode = "question";
+    } else if (createType === "Example") {
+      typeCode = "practical";
+    }
+
+    let scopeCode = "all";
+    if (createScope === "Key sections") {
+      scopeCode = "key-sections";
+    } else if (createScope === "Weak topics") {
+      scopeCode = "weak-topics";
+    }
+
     try {
       const payload = await generateDocumentFlashcards({
         token: session.token,
         bookId: selectedDocument.id,
         count: createCount,
+        language: languageCode,
+        type: typeCode,
+        scope: scopeCode,
       });
       const generatedCards = createGeneratedFlashcardViews(
         selectedDocument.id,

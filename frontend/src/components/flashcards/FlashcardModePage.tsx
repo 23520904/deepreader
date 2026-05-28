@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -39,7 +39,11 @@ import {
 import { mapBackendBook } from "@/lib/library";
 import { normalizeFlashcardRecords } from "@/lib/reading";
 import { fetchLibraryBooks } from "@/services/libraryService";
-import { fetchDocumentFlashcards } from "@/services/readingService";
+import {
+  fetchDocumentFlashcards,
+  patchCardEdit,
+  patchCardHide,
+} from "@/services/readingService";
 import {
   fetchStudyProgress,
   saveStudyProgress,
@@ -302,25 +306,44 @@ export function FlashcardModePage({ mode }: { mode: FlashcardRouteMode }) {
     setEditAnswer(card.answer);
   }
 
-  function saveCardEdit() {
+  async function saveCardEdit() {
     if (!editingCard) {
       return;
     }
 
+    const nextQuestion = editQuestion.trim() || editingCard.question;
+    const nextAnswer = editAnswer.trim() || editingCard.answer;
+
     setCardEdits((currentEdits) => ({
       ...currentEdits,
       [editingCard.id]: {
-        question: editQuestion.trim() || editingCard.question,
-        answer: editAnswer.trim() || editingCard.answer,
+        question: nextQuestion,
+        answer: nextAnswer,
       },
     }));
     setEditingCard(null);
+
+    if (session) {
+      try {
+        await patchCardEdit(session.token, editingCard.id, nextQuestion, nextAnswer);
+      } catch (err) {
+        console.error("Failed to sync card edit to server:", err);
+      }
+    }
   }
 
-  function deleteCard(cardId: string) {
+  async function deleteCard(cardId: string) {
     setHiddenCardIds((cardIds) =>
       cardIds.includes(cardId) ? cardIds : [...cardIds, cardId],
     );
+
+    if (session) {
+      try {
+        await patchCardHide(session.token, cardId, true);
+      } catch (err) {
+        console.error("Failed to sync hidden card status to server:", err);
+      }
+    }
   }
 
   return (

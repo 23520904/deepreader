@@ -130,18 +130,59 @@ export function generateDocumentFlashcards({
   token,
   bookId,
   count,
+  language,
+  type,
+  scope,
 }: {
   token: string;
   bookId: string;
   count: number;
+  language?: string;
+  type?: string;
+  scope?: string;
 }) {
   return apiRequestJson<FlashcardGenerationResponse>(
     `/api/v1/books/${encodeURIComponent(bookId)}/flashcards`,
     {
       token,
       method: "POST",
-      body: JSON.stringify({ count }),
+      body: JSON.stringify({ count, language, type, scope }),
       fallbackError: "Could not generate flashcards.",
+      transformErrorMessage: friendlyProviderError,
+    },
+  );
+}
+
+export function patchCardEdit(
+  token: string,
+  cardId: string,
+  question: string,
+  answer: string,
+) {
+  return apiRequestJson<unknown>(
+    `/api/v1/flashcards/${encodeURIComponent(cardId)}/edit`,
+    {
+      token,
+      method: "PATCH",
+      body: JSON.stringify({ question, answer }),
+      fallbackError: "Could not edit this flashcard.",
+      transformErrorMessage: friendlyProviderError,
+    },
+  );
+}
+
+export function patchCardHide(
+  token: string,
+  cardId: string,
+  hidden: boolean,
+) {
+  return apiRequestJson<unknown>(
+    `/api/v1/flashcards/${encodeURIComponent(cardId)}/hide`,
+    {
+      token,
+      method: "PATCH",
+      body: JSON.stringify({ hidden }),
+      fallbackError: "Could not hide this flashcard.",
       transformErrorMessage: friendlyProviderError,
     },
   );

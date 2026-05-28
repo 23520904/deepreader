@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -111,6 +112,36 @@ public class LibraryBusinessController {
 			@RequestBody BookChatThreadDeleteCommand command
 	) {
 		return libraryOrchestrationService.deleteChatThread(userId, bookId, command)
+				.thenReturn(ResponseEntity.noContent().build());
+	}
+
+	@PostMapping("/reading-sessions/add-seconds")
+	public Mono<ResponseEntity<Void>> addReadingSeconds(
+			@RequestParam String userId,
+			@RequestParam String bookId,
+			@RequestParam int seconds
+	) {
+		return libraryOrchestrationService.addReadingSeconds(userId, bookId, seconds)
+				.thenReturn(ResponseEntity.noContent().build());
+	}
+
+	@PatchMapping(value = "/flashcards/{cardId}/edit", consumes = MediaType.APPLICATION_JSON_VALUE)
+	public Mono<ResponseEntity<Void>> editFlashcard(
+			@PathVariable String cardId,
+			@RequestParam String userId,
+			@RequestBody Object request
+	) {
+		return libraryOrchestrationService.editFlashcard(userId, cardId, request)
+				.thenReturn(ResponseEntity.noContent().build());
+	}
+
+	@PatchMapping(value = "/flashcards/{cardId}/hide", consumes = MediaType.APPLICATION_JSON_VALUE)
+	public Mono<ResponseEntity<Void>> hideFlashcard(
+			@PathVariable String cardId,
+			@RequestParam String userId,
+			@RequestBody Object request
+	) {
+		return libraryOrchestrationService.hideFlashcard(userId, cardId, request)
 				.thenReturn(ResponseEntity.noContent().build());
 	}
 

@@ -87,12 +87,12 @@ public class AiServiceClient {
 				.bodyToMono(AiSummaryResponse.class);
 	}
 
-	public Mono<AiFlashcardResponse> flashcards(String userId, String documentId, String provider, Integer count) {
+	public Mono<AiFlashcardResponse> flashcards(String userId, String documentId, String provider, Integer count, String language, String type, String scope) {
 		return webClient.post()
 				.uri("/internal/ai/v1/documents/flashcards")
 				.header("X-User-Id", userId)
 				.contentType(MediaType.APPLICATION_JSON)
-				.bodyValue(new AiFlashcardRequest(documentId, provider, count))
+				.bodyValue(new AiFlashcardRequest(documentId, provider, count, language, type, scope))
 				.retrieve()
 				.bodyToMono(AiFlashcardResponse.class);
 	}
@@ -157,7 +157,7 @@ public class AiServiceClient {
 	public record AiSourceReference(String documentId, String chunkId, String fileName, String sectionId, String title, Integer chunkIndex, String content, float score) {}
 	public record AiSummaryRequest(String documentId, String provider) {}
 	public record AiSummaryResponse(String documentId, String provider, String summary) {}
-	public record AiFlashcardRequest(String documentId, String provider, Integer count) {}
+	public record AiFlashcardRequest(String documentId, String provider, Integer count, String language, String type, String scope) {}
 	public record AiFlashcardResponse(String documentId, String provider, java.util.List<AiFlashcard> flashcards) {}
 	public record AiFlashcard(String question, String answer) {}
 }

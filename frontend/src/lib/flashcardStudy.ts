@@ -474,6 +474,5 @@ export function buildStudyDecks({
           : null,
         lastStudied,
       } satisfies StudyDeck;
-    })
-    .filter((deck) => deck.totalCards > 0);
+    });
 }

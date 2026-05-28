@@ -21,6 +21,7 @@ import reactor.core.publisher.Mono;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.time.LocalDateTime;
 
 @Service
 public class LibraryDataService {
@@ -73,7 +74,25 @@ public class LibraryDataService {
 	public Flux<ChapterSummary> findSummariesByBook(String bookId) { return summaryRepository.findByBookId(bookId); }
 
 	public Mono<Flashcard> saveFlashcard(Flashcard flashcard) { return flashcardRepository.save(flashcard); }
-	public Flux<Flashcard> findFlashcardsByBook(String bookId) { return flashcardRepository.findByBookId(bookId); }
+	public Flux<Flashcard> findFlashcardsByBook(String bookId) {
+		return flashcardRepository.findByBookId(bookId)
+				.filter(card -> card.getIsHidden() == null || !card.getIsHidden());
+	}
+	public Mono<Flashcard> editFlashcard(String id, String question, String answer) {
+		return flashcardRepository.findById(id)
+				.flatMap(card -> {
+					card.setEditedQuestion(question);
+					card.setEditedAnswer(answer);
+					return flashcardRepository.save(card);
+				});
+	}
+	public Mono<Flashcard> setFlashcardHidden(String id, boolean isHidden) {
+		return flashcardRepository.findById(id)
+				.flatMap(card -> {
+					card.setIsHidden(isHidden);
+					return flashcardRepository.save(card);
+				});
+	}
 
 	public Mono<ChatHistory> saveChatHistory(ChatHistory chatHistory) { return chatHistoryRepository.save(chatHistory); }
 	public Flux<ChatHistory> findChatHistoryByBook(String bookId) { return chatHistoryRepository.findByBookIdOrderByTimestampAsc(bookId); }
@@ -110,4 +129,27 @@ public class LibraryDataService {
 
 	public Mono<ReadingSession> saveReadingSession(ReadingSession readingSession) { return readingSessionRepository.save(readingSession); }
 	public Flux<ReadingSession> findReadingSessionsByBook(String bookId) { return readingSessionRepository.findByBookId(bookId); }
+
+	public Mono<Void> addReadingSeconds(String userId, String bookId, int secondsSpent) {
+		LocalDateTime oneHourAgo = LocalDateTime.now().minusHours(1);
+		return readingSessionRepository.findByUserId(userId)
+				.filter(session -> bookId.equals(session.getBookId()) && session.getStartTime() != null && session.getStartTime().isAfter(oneHourAgo))
+				.next()
+				.flatMap(session -> {
+					Long currentSeconds = session.getSecondsSpent();
+					session.setSecondsSpent(currentSeconds == null ? secondsSpent : currentSeconds + secondsSpent);
+					session.setEndTime(LocalDateTime.now());
+					return readingSessionRepository.save(session);
+				})
+				.switchIfEmpty(Mono.defer(() -> {
+					ReadingSession session = new ReadingSession();
+					session.setUserId(userId);
+					session.setBookId(bookId);
+					session.setStartTime(LocalDateTime.now().minusSeconds(secondsSpent));
+					session.setEndTime(LocalDateTime.now());
+					session.setSecondsSpent((long) secondsSpent);
+					return readingSessionRepository.save(session);
+				}))
+				.then();
+	}
 }

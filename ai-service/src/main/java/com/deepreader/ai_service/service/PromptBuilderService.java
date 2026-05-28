@@ -124,6 +124,66 @@ public class PromptBuilderService {
 			+ "Document content:\n" + content + "\n\n"
 			+ "Previous bad response:\n" + nullSafe(previousResponse);
 	}
+
+	public String buildFlashcardPrompt(String fileName, String content, int count, String language, String type) {
+		String langInstruction = switch (language != null ? language.toLowerCase().trim() : "en") {
+			case "vi" -> "Respond entirely in Vietnamese. Every question and every answer must be written in standard Vietnamese only. Do not use English unless it is a necessary technical term.";
+			case "ja" -> "Respond entirely in Japanese. Every question and every answer must be written in standard Japanese only.";
+			default  -> "Respond entirely in English. Every question and every answer must be written in standard English only.";
+		};
+
+		String typeInstruction = switch (type != null ? type.toLowerCase().trim() : "mixed") {
+			case "concept"   -> "Focus only on definitions and key concepts. Each card must test a definition, terminology, or a fundamental concept.";
+			case "question"  -> "Generate question-answer pairs only. Each card should ask a direct question and provide a direct answer.";
+			case "practical" -> "Focus on practical application, coding examples, and concrete syntax or logic scenarios.";
+			default         -> "Mix definitions/concepts, question-answer pairs, and practical application examples.";
+		};
+
+		return "You are an expert study-card generator for a learning application. "
+			+ "Create exactly " + count + " high-quality flashcards from the document content below. "
+			+ "The flashcards must help students review the most important concepts, definitions, syntax rules, processes, comparisons, examples, and common mistakes. "
+			+ "Use only facts that appear in the document. Do not invent information. "
+			+ "Language rule: " + langInstruction + " "
+			+ "Content category: " + typeInstruction + " "
+			+ "Each question must be specific, standalone, and name the exact concept being tested. "
+			+ "Avoid vague questions such as: \"What is this?\", \"What is one important point?\", \"What does the slide say?\". "
+			+ "Each answer must be clear, useful, and 1 to 3 sentences long. "
+			+ "Do not create page-based, slide-based, section-based, or file-name-based cards. "
+			+ "Return only valid JSON with this exact shape and no Markdown, no code block, no commentary, and no extra keys: "
+			+ "{\"flashcards\":[{\"question\":\"...\",\"answer\":\"...\"}]}.\n\n"
+			+ "Document: " + nullSafe(fileName) + "\n\n"
+			+ content;
+	}
+
+	public String buildFlashcardRepairPrompt(String fileName, String content, String previousResponse, int count, String language, String type) {
+		String langInstruction = switch (language != null ? language.toLowerCase().trim() : "en") {
+			case "vi" -> "Respond entirely in Vietnamese. Every question and every answer must be written in standard Vietnamese only. Do not use English unless it is a necessary technical term.";
+			case "ja" -> "Respond entirely in Japanese. Every question and every answer must be written in standard Japanese only.";
+			default  -> "Respond entirely in English. Every question and every answer must be written in standard English only.";
+		};
+
+		String typeInstruction = switch (type != null ? type.toLowerCase().trim() : "mixed") {
+			case "concept"   -> "Focus only on definitions and key concepts. Each card must test a definition, terminology, or a fundamental concept.";
+			case "question"  -> "Generate question-answer pairs only. Each card should ask a direct question and provide a direct answer.";
+			case "practical" -> "Focus on practical application, coding examples, and concrete syntax or logic scenarios.";
+			default         -> "Mix definitions/concepts, question-answer pairs, and practical application examples.";
+		};
+
+		return "The previous flashcard generation result was invalid, incomplete, vague, or in the wrong language. "
+			+ "Regenerate the flashcards from scratch. "
+			+ "Create exactly " + count + " high-quality study flashcards from the document content below. "
+			+ "Use only facts from the document. "
+			+ "Language rule: " + langInstruction + " "
+			+ "Content category: " + typeInstruction + " "
+			+ "Each question must be specific and name the concept directly. "
+			+ "Each answer must be concise, correct, and useful for studying. "
+			+ "Reject vague cards, broken keyword cards, duplicated cards, and cards about pages/slides/sections. "
+			+ "Return only valid JSON with this exact shape: "
+			+ "{\"flashcards\":[{\"question\":\"...\",\"answer\":\"...\"}]}.\n\n"
+			+ "Document: " + nullSafe(fileName) + "\n\n"
+			+ "Document content:\n" + content + "\n\n"
+			+ "Previous bad response:\n" + nullSafe(previousResponse);
+	}
 	
 	public String truncate(String value, int maxChars) {
 		if (value == null || maxChars <= 0 || value.length() <= maxChars) {

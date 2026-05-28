@@ -9,6 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { useReadingSession } from "@/hooks/useReadingSession";
 import { AiStudyPanel } from "@/components/library/AiStudyPanel";
 import { ReadDocumentHeader } from "@/components/library/read/ReadDocumentHeader";
 import { ReadingWorkspace } from "@/components/library/read/ReadingWorkspace";
@@ -66,6 +67,9 @@ export default function ReadBookPage() {
   );
 
   const bookId = Array.isArray(params.bookId) ? params.bookId[0] : params.bookId;
+
+  // Track active reading sessions duration
+  useReadingSession(bookId, session?.token ?? "");
 
   const [documentContent, setDocumentContent] =
     useState<DocumentContentResponse | null>(null);

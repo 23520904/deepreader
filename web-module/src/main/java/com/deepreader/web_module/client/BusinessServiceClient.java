@@ -205,4 +205,35 @@ public class BusinessServiceClient {
 				.retrieve()
 				.bodyToMono(java.util.Map.class);
 	}
+
+	public Mono<Void> editFlashcard(String userId, String cardId, Object request) {
+		return webClient.patch()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/flashcards/{cardId}/edit")
+						.queryParam("userId", userId)
+						.build(cardId))
+				.bodyValue(request)
+				.retrieve()
+				.bodyToMono(Void.class);
+	}
+
+	public Mono<Void> hideFlashcard(String userId, String cardId, Object request) {
+		return webClient.patch()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/flashcards/{cardId}/hide")
+						.queryParam("userId", userId)
+						.build(cardId))
+				.bodyValue(request)
+				.retrieve()
+				.bodyToMono(Void.class);
+	}
+
+	public Mono<Void> addReadingSeconds(String userId, String bookId, int seconds) {
+		return webClient.post()
+				.uri(uriBuilder -> uriBuilder.path("/internal/business/v1/books/reading-sessions/add-seconds")
+						.queryParam("userId", userId)
+						.queryParam("bookId", bookId)
+						.queryParam("seconds", seconds)
+						.build())
+				.retrieve()
+				.bodyToMono(Void.class);
+	}
 }

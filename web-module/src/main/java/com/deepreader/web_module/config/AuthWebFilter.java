@@ -37,7 +37,9 @@ public class AuthWebFilter implements WebFilter {
 		boolean protectedPath = matcher.match("/api/v1/admin/**", path)
 				|| matcher.match("/api/v1/books/**", path)
 				|| matcher.match("/api/v1/study-progress/**", path)
-				|| matcher.match("/api/v1/users/**", path);
+				|| matcher.match("/api/v1/users/**", path)
+				|| matcher.match("/api/v1/flashcards/**", path)
+				|| matcher.match("/api/v1/reading-sessions/**", path);
 		if (!protectedPath) {
 			return chain.filter(exchange);
 		}
@@ -63,6 +65,7 @@ public class AuthWebFilter implements WebFilter {
 
 	private boolean isPublicPath(String path) {
 		return matcher.match("/api/v1/auth/**", path)
+				|| matcher.match("/api/v1/reading-sessions/sync-beacon", path)
 				|| matcher.match("/actuator/**", path)
 				|| matcher.match("/v3/api-docs/**", path)
 				|| matcher.match("/swagger-ui/**", path)

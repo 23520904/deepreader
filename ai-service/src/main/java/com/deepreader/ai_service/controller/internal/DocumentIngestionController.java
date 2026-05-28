@@ -217,7 +217,7 @@ public class DocumentIngestionController {
 	) {
 		String userId = requireUserId(userIdHeader);
 		guardrailService.enforceDailyLimit(userId, "LLM_REQUESTS", 1, guardrailProperties.getMaxLlmRequestsPerDay());
-		return generationService.createFlashcards(userId, request.documentId(), request.provider(), request.count());
+		return generationService.createFlashcards(userId, request.documentId(), request.provider(), request.count(), request.language(), request.type(), request.scope());
 	}
 
 	@ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
