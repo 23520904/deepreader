@@ -31,7 +31,11 @@ public class UserAccountService {
 		String passwordHash = BCrypt.hashpw(password, BCrypt.gensalt());
 		UserRole role = UserRole.USER;
 		jdbcTemplate.update(
-				"insert into app_users (user_id, email, username, avatar_url, password_hash, role) values (?, ?, ?, ?, ?, ?)",
+				"""
+				insert into app_users
+					(user_id, email, username, avatar_url, password_hash, role, email_verified, auth_provider)
+				values (?, ?, ?, ?, ?, ?, true, 'LOCAL')
+				""",
 				userId,
 				normalizedEmail,
 				normalizedUsername,
@@ -70,7 +74,7 @@ public class UserAccountService {
 			throw new IllegalArgumentException("Invalid email or password");
 		}
 		UserWithHash user = users.getFirst();
-		if (!BCrypt.checkpw(password, user.passwordHash())) {
+		if (!StringUtils.hasText(user.passwordHash()) || !BCrypt.checkpw(password, user.passwordHash())) {
 			throw new IllegalArgumentException("Invalid email or password");
 		}
 		return new UserRecord(
@@ -165,6 +169,104 @@ public class UserAccountService {
 		}
 	}
 
+	public void resetPassword(String email, String password) {
+		ensureProfileColumns();
+		String normalizedEmail = normalizeEmail(email);
+		validatePassword(password);
+		int updated = jdbcTemplate.update(
+				"update app_users set password_hash = ? where email = ?",
+				BCrypt.hashpw(password, BCrypt.gensalt()),
+				normalizedEmail
+		);
+		if (updated == 0) {
+			throw new IllegalArgumentException("Email is not registered");
+		}
+	}
+
+	public void assertEmailAvailable(String email) {
+		ensureProfileColumns();
+		String normalizedEmail = normalizeEmail(email);
+		if (existsByEmail(normalizedEmail)) {
+			throw new IllegalArgumentException("Email already exists");
+		}
+	}
+
+	public void assertEmailRegistered(String email) {
+		ensureProfileColumns();
+		String normalizedEmail = normalizeEmail(email);
+		if (!existsByEmail(normalizedEmail)) {
+			throw new IllegalArgumentException("Email is not registered");
+		}
+	}
+
+	public UserRecord findOrCreateGoogleUser(String providerSubject, String email, String name, String avatarUrl) {
+		ensureProfileColumns();
+		if (!StringUtils.hasText(providerSubject)) {
+			throw new IllegalArgumentException("Google account is missing subject.");
+		}
+		String normalizedEmail = normalizeEmail(email);
+		String normalizedUsername = normalizeExternalUsername(name, normalizedEmail);
+		String normalizedAvatarUrl = normalizeOptionalText(avatarUrl);
+
+		List<UserRecord> linkedUsers = queryUserRecords(
+				"where auth_provider = 'GOOGLE' and provider_subject = ?",
+				providerSubject
+		);
+		if (!linkedUsers.isEmpty()) {
+			UserRecord linkedUser = linkedUsers.getFirst();
+			jdbcTemplate.update(
+					"""
+					update app_users
+					set email = ?, username = ?, avatar_url = ?, email_verified = true
+					where user_id = ?
+					""",
+					normalizedEmail,
+					normalizedUsername,
+					normalizedAvatarUrl,
+					linkedUser.userId()
+			);
+			return findById(linkedUser.userId());
+		}
+
+		List<UserRecord> emailUsers = queryUserRecords("where email = ?", normalizedEmail);
+		if (!emailUsers.isEmpty()) {
+			UserRecord existingUser = emailUsers.getFirst();
+			jdbcTemplate.update(
+					"""
+					update app_users
+					set username = ?, avatar_url = ?, auth_provider = 'GOOGLE',
+					    provider_subject = ?, email_verified = true
+					where user_id = ?
+					""",
+					normalizedUsername,
+					normalizedAvatarUrl,
+					providerSubject,
+					existingUser.userId()
+			);
+			return findById(existingUser.userId());
+		}
+
+		String userId = UUID.randomUUID().toString();
+		String passwordHash = BCrypt.hashpw(UUID.randomUUID().toString(), BCrypt.gensalt());
+		UserRole role = UserRole.USER;
+		jdbcTemplate.update(
+				"""
+				insert into app_users
+					(user_id, email, username, avatar_url, password_hash, role,
+					 email_verified, auth_provider, provider_subject)
+				values (?, ?, ?, ?, ?, ?, true, 'GOOGLE', ?)
+				""",
+				userId,
+				normalizedEmail,
+				normalizedUsername,
+				normalizedAvatarUrl,
+				passwordHash,
+				role.name(),
+				providerSubject
+		);
+		return new UserRecord(userId, normalizedEmail, normalizedUsername, normalizedAvatarUrl, null, null, null, role, null);
+	}
+
 	private boolean existsByEmail(String email) {
 		Integer count = jdbcTemplate.queryForObject("select count(*) from app_users where email = ?", Integer.class, email);
 		return count != null && count > 0;
@@ -192,8 +294,42 @@ public class UserAccountService {
 			jdbcTemplate.execute("alter table app_users add column if not exists full_name varchar(120)");
 			jdbcTemplate.execute("alter table app_users add column if not exists phone_number varchar(30)");
 			jdbcTemplate.execute("alter table app_users add column if not exists location varchar(120)");
+			jdbcTemplate.execute("alter table app_users add column if not exists llm_api_token text");
+			jdbcTemplate.execute("alter table app_users add column if not exists role varchar(32) not null default 'USER'");
+			jdbcTemplate.execute("alter table app_users add column if not exists email_verified boolean not null default false");
+			jdbcTemplate.execute("alter table app_users add column if not exists auth_provider varchar(32) not null default 'LOCAL'");
+			jdbcTemplate.execute("alter table app_users add column if not exists provider_subject varchar(160)");
+			jdbcTemplate.execute(
+					"""
+					create unique index if not exists uq_app_users_auth_provider_subject
+					on app_users(auth_provider, provider_subject)
+					where provider_subject is not null
+					"""
+			);
 			profileColumnsEnsured = true;
 		}
+	}
+
+	private List<UserRecord> queryUserRecords(String whereClause, Object... args) {
+		return jdbcTemplate.query(
+				"""
+				select user_id, email, username, avatar_url, full_name, phone_number, location,
+				       role, llm_api_token
+				from app_users
+				""" + whereClause,
+				(rs, rowNum) -> new UserRecord(
+						rs.getString("user_id"),
+						rs.getString("email"),
+						resolveUsername(rs.getString("username"), rs.getString("email")),
+						normalizeOptionalText(rs.getString("avatar_url")),
+						normalizeOptionalText(rs.getString("full_name")),
+						normalizeOptionalText(rs.getString("phone_number")),
+						normalizeOptionalText(rs.getString("location")),
+						UserRole.from(rs.getString("role")),
+						rs.getString("llm_api_token")
+				),
+				args
+		);
 	}
 
 	private String normalizeEmail(String email) {
@@ -218,6 +354,11 @@ public class UserAccountService {
 			throw new IllegalArgumentException("Username must contain at most 80 characters");
 		}
 		return trimmed;
+	}
+
+	private String normalizeExternalUsername(String username, String email) {
+		String normalized = StringUtils.hasText(username) ? username.trim() : defaultUsernameFromEmail(email);
+		return normalized.length() > 80 ? normalized.substring(0, 80) : normalized;
 	}
 
 	private String resolveUsername(String username, String email) {

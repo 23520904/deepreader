@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type SyntheticEvent } from "react";
+import { AuthDivider } from "@/components/AuthDivider";
+import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import { InputField } from "@/components/InputField";
 import { PasswordField } from "@/components/PasswordField";
 import { saveAuthSession } from "@/lib/authSession";
@@ -65,6 +67,15 @@ export default function LoginPage() {
           onChange={setPassword}
         />
 
+        <div className="text-right">
+          <Link
+            className="text-sm font-bold text-[#174987] hover:text-[#123a6d]"
+            href="/forgot-password"
+          >
+            Forgot Password?
+          </Link>
+        </div>
+
         {message ? (
           <p className="rounded-[8px] bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             {message}
@@ -79,6 +90,9 @@ export default function LoginPage() {
           {isSubmitting ? "Logging in..." : "Login"}
         </button>
       </form>
+
+      <AuthDivider />
+      <GoogleOAuthButton disabled={isSubmitting} />
 
       <p className="mt-4 text-center text-[18px] leading-[1.35] text-[#8d929d] sm:mt-5">
         Not a member?{" "}

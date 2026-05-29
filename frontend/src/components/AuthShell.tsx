@@ -11,14 +11,20 @@ type AuthShellProps = {
 
 export function AuthShell({ children }: AuthShellProps) {
   const pathname = usePathname();
+  const isTallAuth = pathname === "/signup" || pathname === "/forgot-password";
 
   return (
     <main className="flex min-h-screen flex-col bg-[#e9ecf4] text-[#1c4d89]">
       <SiteNavbar />
 
-      <section className="mx-auto flex w-full max-w-[1144px] flex-1 items-center justify-center px-3 py-6 sm:px-5 sm:py-8 lg:py-10">
-        <div className="relative w-full max-w-[440px] overflow-hidden rounded-[20px] bg-white shadow-[0_22px_70px_rgba(20,45,80,0.14)] sm:max-w-[520px] lg:grid lg:h-[min(572px,calc(100dvh-120px))] lg:max-w-none lg:grid-cols-2 lg:rounded-[24px]">
-          <div className="relative z-20 flex min-h-[520px] w-full items-center bg-white px-5 py-6 min-[380px]:px-7 sm:px-14 sm:py-8 lg:min-h-0 lg:px-[76px] lg:py-6">
+      <section className="mx-auto flex w-full max-w-[1320px] flex-1 items-center justify-center px-3 py-5 sm:px-5 sm:py-7 lg:py-8">
+        <div className="relative w-full max-w-[460px] overflow-hidden rounded-[20px] bg-white shadow-[0_22px_70px_rgba(20,45,80,0.14)] sm:max-w-[560px] lg:grid lg:min-h-[660px] lg:max-w-none lg:grid-cols-2 lg:rounded-[24px] xl:min-h-[700px]">
+          <div
+            className={[
+              "relative z-20 flex w-full items-center bg-white px-5 py-7 min-[380px]:px-7 sm:px-14 sm:py-9 lg:px-[88px] lg:py-10",
+              isTallAuth ? "min-h-[720px] lg:min-h-[700px]" : "min-h-[560px] lg:min-h-[660px]",
+            ].join(" ")}
+          >
             <div
               key={pathname}
               className="w-full animate-[authFormIn_220ms_cubic-bezier(0.16,1,0.3,1)] motion-reduce:animate-none"
@@ -45,7 +51,7 @@ export function AuthShell({ children }: AuthShellProps) {
                   className="mx-auto h-auto w-[275px] object-contain"
                 />
 
-                <h2 className="mt-2 max-w-[440px] text-[30px] font-extrabold leading-[1.18] tracking-[-0.02em] text-[#1d4f8e]">
+                <h2 className="mt-2 max-w-[480px] text-[34px] font-extrabold leading-[1.18] tracking-[0] text-[#1d4f8e]">
                   Read smarter and learn faster with DeepReader AI
                 </h2>
 

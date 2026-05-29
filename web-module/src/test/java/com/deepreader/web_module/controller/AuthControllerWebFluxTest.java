@@ -4,6 +4,8 @@ import com.deepreader.web_module.config.AuthWebFilter;
 import com.deepreader.web_module.config.RateLimitWebFilter;
 import com.deepreader.web_module.model.UserRole;
 import com.deepreader.web_module.service.AuditLogService;
+import com.deepreader.web_module.service.EmailOtpService;
+import com.deepreader.web_module.service.GoogleOAuthService;
 import com.deepreader.web_module.service.JwtService;
 import com.deepreader.web_module.service.SessionService;
 import com.deepreader.web_module.service.UserAccountService;
@@ -52,6 +54,12 @@ class AuthControllerWebFluxTest {
 	private SessionService sessionService;
 
 	@MockBean
+	private EmailOtpService emailOtpService;
+
+	@MockBean
+	private GoogleOAuthService googleOAuthService;
+
+	@MockBean
 	@SuppressWarnings("unused")
 	private AuditLogService auditLogService;
 
@@ -84,7 +92,7 @@ class AuthControllerWebFluxTest {
 		webTestClient.post()
 				.uri("/api/v1/auth/register")
 				.header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-				.bodyValue("{\"username\":\"K6 User\",\"email\":\"k6@example.com\",\"password\":\"password123\"}")
+				.bodyValue("{\"username\":\"K6 User\",\"email\":\"k6@example.com\",\"password\":\"password123\",\"verificationCode\":\"1234\"}")
 				.exchange()
 				.expectStatus().isOk()
 				.expectBody()

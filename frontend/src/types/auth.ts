@@ -12,6 +12,21 @@ export type AuthCredentials = {
   email: string;
   password: string;
   username?: string;
+  verificationCode?: string;
+};
+
+export type AuthMessageResponse = {
+  message: string;
+};
+
+export type EmailOtpPayload = {
+  email: string;
+};
+
+export type PasswordResetPayload = {
+  email: string;
+  verificationCode: string;
+  password: string;
 };
 
 export type UserProfile = {
