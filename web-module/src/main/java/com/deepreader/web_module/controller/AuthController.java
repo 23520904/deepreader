@@ -15,6 +15,7 @@ import com.deepreader.web_module.service.AuditLogService;
 import com.deepreader.web_module.service.EmailVerificationService;
 import com.deepreader.web_module.service.GoogleAuthService;
 import com.deepreader.web_module.service.JwtService;
+import com.deepreader.web_module.service.LoginHistoryService;
 import com.deepreader.web_module.service.PasswordResetService;
 import com.deepreader.web_module.service.SessionService;
 import com.deepreader.web_module.service.UserAccountService;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -46,6 +48,7 @@ public class AuthController {
 	private final EmailVerificationService emailVerificationService;
 	private final GoogleAuthService googleAuthService;
 	private final PasswordResetService passwordResetService;
+	private final LoginHistoryService loginHistoryService;
 	private final Counter registerCounter;
 	private final Counter loginCounter;
 
@@ -57,6 +60,7 @@ public class AuthController {
 			EmailVerificationService emailVerificationService,
 			GoogleAuthService googleAuthService,
 			PasswordResetService passwordResetService,
+			LoginHistoryService loginHistoryService,
 			MeterRegistry meterRegistry
 	) {
 		this.userAccountService = userAccountService;
@@ -66,6 +70,7 @@ public class AuthController {
 		this.emailVerificationService = emailVerificationService;
 		this.googleAuthService = googleAuthService;
 		this.passwordResetService = passwordResetService;
+		this.loginHistoryService = loginHistoryService;
 		this.registerCounter = meterRegistry.counter("deepreader.auth.register.success");
 		this.loginCounter = meterRegistry.counter("deepreader.auth.login.success");
 	}
@@ -106,22 +111,36 @@ public class AuthController {
 
 	@PostMapping(value = "/login", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Login and get JWT")
-	public Mono<AuthResponse> login(@Valid @RequestBody AuthLoginRequest request) {
+	public Mono<AuthResponse> login(@Valid @RequestBody AuthLoginRequest request, ServerWebExchange exchange) {
 		return Mono.fromCallable(() -> {
-			UserAccountService.UserRecord user = userAccountService.login(request.email(), request.password());
-			auditLogService.log(user.userId(), "AUTH_LOGIN", "email=" + user.email());
-			return issueAuthResponse(user);
+			try {
+				UserAccountService.UserRecord user = userAccountService.login(request.email(), request.password());
+				loginHistoryService.record(exchange, request.email(), user.userId(), true, null);
+				auditLogService.log(user.userId(), "AUTH_LOGIN", "email=" + user.email());
+				return issueAuthResponse(user);
+			} catch (RuntimeException ex) {
+				loginHistoryService.record(exchange, request.email(), loginHistoryService.findUserIdByEmail(request.email()), false, ex.getMessage());
+				throw ex;
+			}
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
 	@PostMapping(value = "/google", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Login or register with Google idToken")
-	public Mono<AuthResponse> google(@Valid @RequestBody GoogleAuthRequest request) {
+	public Mono<AuthResponse> google(@Valid @RequestBody GoogleAuthRequest request, ServerWebExchange exchange) {
 		return Mono.fromCallable(() -> {
-			GoogleAuthService.GoogleProfile profile = googleAuthService.verifyIdToken(request.idToken());
-			UserAccountService.UserRecord user = userAccountService.findOrCreateGoogleUser(profile);
-			auditLogService.log(user.userId(), "AUTH_GOOGLE_LOGIN", "email=" + user.email());
-			return issueAuthResponse(user);
+			String email = null;
+			try {
+				GoogleAuthService.GoogleProfile profile = googleAuthService.verifyIdToken(request.idToken());
+				email = profile.email();
+				UserAccountService.UserRecord user = userAccountService.findOrCreateGoogleUser(profile);
+				loginHistoryService.record(exchange, user.email(), user.userId(), true, null);
+				auditLogService.log(user.userId(), "AUTH_GOOGLE_LOGIN", "email=" + user.email());
+				return issueAuthResponse(user);
+			} catch (RuntimeException ex) {
+				loginHistoryService.record(exchange, email, loginHistoryService.findUserIdByEmail(email), false, ex.getMessage());
+				throw ex;
+			}
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 

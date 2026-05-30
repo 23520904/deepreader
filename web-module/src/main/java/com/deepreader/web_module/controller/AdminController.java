@@ -2,17 +2,29 @@ package com.deepreader.web_module.controller;
 
 import com.deepreader.core.model.Book;
 import com.deepreader.web_module.client.BusinessServiceClient;
+import com.deepreader.web_module.model.admin.AdminDtos;
+import com.deepreader.web_module.model.admin.AdminDtos.AdminAuditLogRow;
+import com.deepreader.web_module.model.admin.AdminDtos.AdminUserDetail;
+import com.deepreader.web_module.model.admin.AdminDtos.AdminUserRow;
+import com.deepreader.web_module.model.admin.AdminDtos.AiUsageSummary;
+import com.deepreader.web_module.model.admin.AdminDtos.LoginHistoryRow;
+import com.deepreader.web_module.model.admin.AdminDtos.PageResponse;
 import com.deepreader.web_module.service.AuditLogService;
+import com.deepreader.web_module.service.AdminManagementService;
 import com.deepreader.web_module.service.RequestUserContext;
 import com.deepreader.web_module.service.StudyProgressService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,17 +44,20 @@ public class AdminController {
 	private final BusinessServiceClient businessServiceClient;
 	private final StudyProgressService studyProgressService;
 	private final AuditLogService auditLogService;
+	private final AdminManagementService adminManagementService;
 
 	public AdminController(
 			JdbcTemplate jdbcTemplate,
 			BusinessServiceClient businessServiceClient,
 			StudyProgressService studyProgressService,
-			AuditLogService auditLogService
+			AuditLogService auditLogService,
+			AdminManagementService adminManagementService
 	) {
 		this.jdbcTemplate = jdbcTemplate;
 		this.businessServiceClient = businessServiceClient;
 		this.studyProgressService = studyProgressService;
 		this.auditLogService = auditLogService;
+		this.adminManagementService = adminManagementService;
 	}
 
 	@GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -64,23 +79,85 @@ public class AdminController {
 	}
 
 	@GetMapping(value = "/users", produces = MediaType.APPLICATION_JSON_VALUE)
-	@Operation(summary = "List user accounts with document counts (admin only)")
-	public Mono<List<Map<String, Object>>> users(@RequestParam(name = "limit", defaultValue = "100") int limit, ServerWebExchange exchange) {
+	@Operation(summary = "List user accounts with filters and pagination (admin only)")
+	public Mono<PageResponse<AdminUserRow>> users(
+			@RequestParam(name = "search", required = false) String search,
+			@RequestParam(name = "role", required = false) String role,
+			@RequestParam(name = "status", required = false) String status,
+			@RequestParam(name = "page", defaultValue = "0") int page,
+			@RequestParam(name = "size", defaultValue = "25") int size,
+			@RequestParam(name = "sort", defaultValue = "desc") String sort,
+			ServerWebExchange exchange
+	) {
 		return Mono.fromCallable(() -> {
 			RequestUserContext.requireAdmin(exchange);
-			int safeLimit = Math.min(Math.max(limit, 1), 500);
-			return jdbcTemplate.queryForList(
-					"""
-					select u.user_id, u.email, u.username, u.role, u.created_at,
-					       count(d.document_id) as document_count
-					from app_users u
-					left join indexed_documents d on d.user_id = u.user_id
-					group by u.user_id, u.email, u.username, u.role, u.created_at
-					order by u.created_at desc
-					limit ?
-					""",
-					safeLimit
-			);
+			return adminManagementService.listUsers(search, role, status, page, size, sort);
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@GetMapping(value = "/users/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Get admin user detail (admin only)")
+	public Mono<AdminUserDetail> userDetail(@PathVariable String userId, ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			return adminManagementService.getUser(userId);
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@PutMapping(value = "/users/{userId}/status", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Ban or unban a user (admin only)")
+	public Mono<AdminUserRow> changeStatus(@PathVariable String userId, @Valid @RequestBody AdminDtos.ChangeStatusRequest request, ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			return adminManagementService.changeStatus(RequestUserContext.requireUserId(exchange), userId, request.status());
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@PutMapping(value = "/users/{userId}/role", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Change a user role (admin only)")
+	public Mono<AdminUserRow> changeRole(@PathVariable String userId, @Valid @RequestBody AdminDtos.ChangeRoleRequest request, ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			return adminManagementService.changeRole(RequestUserContext.requireUserId(exchange), userId, request.role());
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@PostMapping(value = "/users/{userId}/force-logout")
+	@Operation(summary = "Revoke all refresh sessions for a user (admin only)")
+	public Mono<ResponseEntity<Void>> forceLogout(@PathVariable String userId, ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			adminManagementService.forceLogout(RequestUserContext.requireUserId(exchange), userId);
+			return ResponseEntity.noContent().<Void>build();
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@PostMapping(value = "/users/{userId}/reset-password", consumes = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Reset a user password and revoke sessions (admin only)")
+	public Mono<ResponseEntity<Void>> resetPassword(@PathVariable String userId, @Valid @RequestBody AdminDtos.AdminResetPasswordRequest request, ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			adminManagementService.resetPassword(RequestUserContext.requireUserId(exchange), userId, request.newPassword());
+			return ResponseEntity.noContent().<Void>build();
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@PutMapping(value = "/users/{userId}/quota", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Update user AI quota settings (admin only)")
+	public Mono<AdminUserRow> updateQuota(@PathVariable String userId, @Valid @RequestBody AdminDtos.UpdateQuotaRequest request, ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			return adminManagementService.updateQuota(RequestUserContext.requireUserId(exchange), userId, request);
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@PostMapping(value = "/users/{userId}/quota/reset")
+	@Operation(summary = "Reset today's tracked AI usage for a user (admin only)")
+	public Mono<ResponseEntity<Void>> resetUsage(@PathVariable String userId, ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			adminManagementService.resetUsage(RequestUserContext.requireUserId(exchange), userId);
+			return ResponseEntity.noContent().<Void>build();
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
@@ -158,6 +235,45 @@ public class AdminController {
 			RequestUserContext.requireAdmin(exchange);
 			int safeLimit = Math.min(Math.max(limit, 1), 500);
 			return jdbcTemplate.queryForList("select user_id, action, details, created_at from audit_logs order by created_at desc limit ?", safeLimit);
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@GetMapping(value = "/audit-log", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "List structured admin audit logs (admin only)")
+	public Mono<PageResponse<AdminAuditLogRow>> structuredAuditLogs(
+			@RequestParam(name = "targetUserId", required = false) String targetUserId,
+			@RequestParam(name = "page", defaultValue = "0") int page,
+			@RequestParam(name = "size", defaultValue = "25") int size,
+			ServerWebExchange exchange
+	) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			return adminManagementService.listAdminAuditLogs(targetUserId, page, size);
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@GetMapping(value = "/login-history", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "List login history (admin only)")
+	public Mono<PageResponse<LoginHistoryRow>> loginHistory(
+			@RequestParam(name = "userId", required = false) String userId,
+			@RequestParam(name = "from", required = false) Instant from,
+			@RequestParam(name = "to", required = false) Instant to,
+			@RequestParam(name = "page", defaultValue = "0") int page,
+			@RequestParam(name = "size", defaultValue = "25") int size,
+			ServerWebExchange exchange
+	) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			return adminManagementService.listLoginHistory(userId, from, to, page, size);
+		}).subscribeOn(Schedulers.boundedElastic());
+	}
+
+	@GetMapping(value = "/ai-usage", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "Get AI usage analytics (admin only)")
+	public Mono<AiUsageSummary> aiUsage(ServerWebExchange exchange) {
+		return Mono.fromCallable(() -> {
+			RequestUserContext.requireAdmin(exchange);
+			return adminManagementService.aiUsageSummary();
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 

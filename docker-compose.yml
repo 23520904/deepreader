@@ -109,7 +109,7 @@ services:
       REDIS_USERNAME: ${DOCKER_REDIS_USERNAME:-}
       REDIS_PASSWORD: ${DOCKER_REDIS_PASSWORD:-}
       REDIS_SSL_ENABLED: ${DOCKER_REDIS_SSL_ENABLED:-false}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3001,http://127.0.0.1:3001,http://192.168.0.110:3001}
       SPRING_CODEC_MAX_IN_MEMORY_SIZE: ${SPRING_CODEC_MAX_IN_MEMORY_SIZE:-32MB}
       INGESTION_MAX_FILE_SIZE_BYTES: ${INGESTION_MAX_FILE_SIZE_BYTES:-26214400}
       INGESTION_MAX_RETRIES: ${INGESTION_MAX_RETRIES:-3}
@@ -247,7 +247,7 @@ services:
       APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL:-admin@deepreader.local}
       APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME:-admin}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:-admin12345}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3001,http://127.0.0.1:3001,http://192.168.0.110:3001}
       SPRING_CODEC_MAX_IN_MEMORY_SIZE: ${SPRING_CODEC_MAX_IN_MEMORY_SIZE:-32MB}
     depends_on:
       postgres:
@@ -266,6 +266,35 @@ services:
       start_period: 45s
     ports:
       - "${WEB_MODULE_HOST_PORT:-8083}:8083"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://web-module:8083}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+    container_name: deepreader-frontend
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3001
+      BACKEND_INTERNAL_URL: ${BACKEND_INTERNAL_URL:-http://web-module:8083}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+    depends_on:
+      web-module:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+    ports:
+      - "${FRONTEND_HOST_PORT:-3001}:3001"
     restart: unless-stopped
 
 volumes:

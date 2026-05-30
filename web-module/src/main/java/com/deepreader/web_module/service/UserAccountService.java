@@ -1,6 +1,7 @@
 package com.deepreader.web_module.service;
 
 import com.deepreader.web_module.model.UserRole;
+import com.deepreader.web_module.model.UserStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Service;
@@ -48,7 +49,7 @@ public class UserAccountService {
 		List<UserWithHash> users = jdbcTemplate.query(
 				"""
 				select user_id, email, username, avatar_url, full_name, phone_number, location,
-				       password_hash, role, llm_api_token, email_verified
+				       password_hash, role, llm_api_token, email_verified, status
 				from app_users
 				where email = ?
 				""",
@@ -63,7 +64,8 @@ public class UserAccountService {
 						rs.getString("password_hash"),
 						UserRole.from(rs.getString("role")),
 						rs.getString("llm_api_token"),
-						rs.getBoolean("email_verified")
+						rs.getBoolean("email_verified"),
+						UserStatus.from(rs.getString("status"))
 				),
 				normalizedEmail
 		);
@@ -73,6 +75,9 @@ public class UserAccountService {
 		UserWithHash user = users.getFirst();
 		if (!BCrypt.checkpw(password, user.passwordHash())) {
 			throw new IllegalArgumentException("Invalid email or password");
+		}
+		if (user.status() == UserStatus.BANNED) {
+			throw new IllegalArgumentException("Account is banned.");
 		}
 		if (!user.emailVerified()) {
 			throw new IllegalArgumentException("Please verify your email first.");
@@ -95,6 +100,7 @@ public class UserAccountService {
 		String normalizedEmail = normalizeEmail(profile.email());
 		List<UserRecord> existingUsers = findRecordsByEmail(normalizedEmail);
 		if (!existingUsers.isEmpty()) {
+			ensureUserIsActive(existingUsers.getFirst().userId());
 			jdbcTemplate.update(
 					"""
 					update app_users
@@ -156,6 +162,7 @@ public class UserAccountService {
 		if (users.isEmpty()) {
 			throw new IllegalArgumentException("User not found: " + userId);
 		}
+		ensureUserIsActive(users.getFirst().userId());
 		return users.getFirst();
 	}
 
@@ -263,7 +270,22 @@ public class UserAccountService {
 			jdbcTemplate.execute("alter table app_users add column if not exists email_verified boolean not null default false");
 			jdbcTemplate.execute("alter table app_users add column if not exists auth_provider varchar(32) not null default 'LOCAL'");
 			jdbcTemplate.execute("alter table app_users add column if not exists provider_subject varchar(255)");
+			jdbcTemplate.execute("alter table app_users add column if not exists status varchar(32) not null default 'ACTIVE'");
+			jdbcTemplate.execute("alter table app_users add column if not exists daily_requests_limit integer");
+			jdbcTemplate.execute("alter table app_users add column if not exists daily_tokens_limit integer");
+			jdbcTemplate.execute("alter table app_users add column if not exists quota_disabled boolean not null default false");
 			profileColumnsEnsured = true;
+		}
+	}
+
+	private void ensureUserIsActive(String userId) {
+		List<String> statuses = jdbcTemplate.queryForList(
+				"select status from app_users where user_id = ?",
+				String.class,
+				userId
+		);
+		if (!statuses.isEmpty() && UserStatus.from(statuses.getFirst()) == UserStatus.BANNED) {
+			throw new IllegalArgumentException("Account is banned.");
 		}
 	}
 
@@ -319,7 +341,8 @@ public class UserAccountService {
 			String passwordHash,
 			UserRole role,
 			String llmApiToken,
-			boolean emailVerified
+			boolean emailVerified,
+			UserStatus status
 	) {}
 	public record UserRecord(
 			String userId,

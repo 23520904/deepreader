@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAppPreferences } from "@/lib/appPreferences";
+import { apiRequestJson } from "@/services/apiClient";
 
 export const AI_PROVIDERS = [
   {
@@ -87,34 +88,12 @@ async function saveLlmToken(
   token: string,
   llmApiToken: string,
 ): Promise<void> {
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-    "http://localhost:8083";
-
-  const response = await fetch(`${apiBase}/api/v1/users/me/llm-token`, {
+  await apiRequestJson<void>("/api/v1/users/me/llm-token", {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    token,
     body: JSON.stringify({ llmApiToken }),
+    fallbackError: "Could not save API key.",
   });
-
-  if (!response.ok) {
-    let message = "Could not save API key.";
-
-    try {
-      const data = (await response.json()) as {
-        error?: string;
-        message?: string;
-      };
-      message = data.error ?? data.message ?? message;
-    } catch {
-      /* Keep the default user-facing message. */
-    }
-
-    throw new Error(message);
-  }
 }
 
 export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) {

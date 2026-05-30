@@ -31,11 +31,38 @@ export function resolveApiUrl(path: string) {
     return path;
   }
 
-  const apiBaseUrl =
-    process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-    "http://localhost:8083";
+  const apiBaseUrl = normalizeApiBaseUrl();
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
-  return `${apiBaseUrl}${path}`;
+  if (!apiBaseUrl) {
+    return hasApiBasePath(normalizedPath)
+      ? normalizedPath
+      : `/api/v1${normalizedPath}`;
+  }
+
+  if (apiBaseUrl.endsWith("/api/v1") && hasApiBasePath(normalizedPath)) {
+    return `${apiBaseUrl}${normalizedPath.slice("/api/v1".length)}`;
+  }
+
+  if (apiBaseUrl.startsWith("/") && normalizedPath.startsWith(`${apiBaseUrl}/`)) {
+    return normalizedPath;
+  }
+
+  return `${apiBaseUrl}${normalizedPath}`;
+}
+
+function normalizeApiBaseUrl() {
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+
+  if (!configured || configured === "/") {
+    return "";
+  }
+
+  return configured.replace(/\/$/, "");
+}
+
+function hasApiBasePath(path: string) {
+  return path === "/api/v1" || path.startsWith("/api/v1/");
 }
 
 function isApiDebugEnabled() {

@@ -1,7 +1,9 @@
 package com.deepreader.web_module.service;
 
 import com.deepreader.web_module.model.UserRole;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.ResponseStatusException;
 
 public final class RequestUserContext {
 	public static final String USER_ID_ATTRIBUTE = "deepreader.userId";
@@ -27,7 +29,7 @@ public final class RequestUserContext {
 
 	public static void requireAdmin(ServerWebExchange exchange) {
 		if (requireUserRole(exchange) != UserRole.ADMIN) {
-			throw new IllegalArgumentException("Admin role required");
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required");
 		}
 	}
 }

@@ -11,6 +11,7 @@ import com.deepreader.core.model.ChapterSummary;
 import com.deepreader.core.model.ChatHistory;
 import com.deepreader.core.model.Flashcard;
 import com.deepreader.web_module.client.BusinessServiceClient;
+import com.deepreader.web_module.service.AdminManagementService;
 import com.deepreader.web_module.service.RequestUserContext;
 import com.deepreader.web_module.service.UserAccountService;
 import org.springframework.http.MediaType;
@@ -41,11 +42,14 @@ public class PublicGatewayController {
 
 	private final BusinessServiceClient businessServiceClient;
 	private final UserAccountService userAccountService;
+	private final AdminManagementService adminManagementService;
 
 	public PublicGatewayController(BusinessServiceClient businessServiceClient,
-			UserAccountService userAccountService) {
+			UserAccountService userAccountService,
+			AdminManagementService adminManagementService) {
 		this.businessServiceClient = businessServiceClient;
 		this.userAccountService = userAccountService;
+		this.adminManagementService = adminManagementService;
 	}
 
 	@PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -101,25 +105,73 @@ public class PublicGatewayController {
 	@PostMapping(value = "/{bookId}/search", consumes = MediaType.APPLICATION_JSON_VALUE)
 	public Mono<AiServiceClient.AiSearchResponse> search(@PathVariable String bookId, @RequestBody BookQueryRequest request, ServerWebExchange exchange) {
 		String userId = RequestUserContext.requireUserId(exchange);
-		return businessServiceClient.search(userId, bookId, request);
+		int promptTokens = estimateTokens(request.query());
+		adminManagementService.enforceAiQuota(userId, promptTokens);
+		long startedAt = System.nanoTime();
+		return businessServiceClient.search(userId, bookId, request)
+				.doOnSuccess(response -> adminManagementService.recordAiUsage(
+						userId,
+						response == null ? providerOrAuto(request.provider()) : response.provider(),
+						null,
+						promptTokens,
+						0,
+						elapsedMillis(startedAt),
+						true
+				));
 	}
 
 	@PostMapping(value = "/{bookId}/chat", consumes = MediaType.APPLICATION_JSON_VALUE)
 	public Mono<AiServiceClient.AiChatResponse> chat(@PathVariable String bookId, @RequestBody BookQueryRequest request, ServerWebExchange exchange) {
 		String userId = RequestUserContext.requireUserId(exchange);
-		return businessServiceClient.chat(userId, bookId, request);
+		int promptTokens = estimateTokens(request.query());
+		adminManagementService.enforceAiQuota(userId, promptTokens);
+		long startedAt = System.nanoTime();
+		return businessServiceClient.chat(userId, bookId, request)
+				.doOnSuccess(response -> adminManagementService.recordAiUsage(
+						userId,
+						providerOrAuto(request.provider()),
+						null,
+						promptTokens,
+						estimateTokens(response == null ? null : response.answer()),
+						elapsedMillis(startedAt),
+						true
+				));
 	}
 
 	@PostMapping(value = "/{bookId}/summary", consumes = MediaType.APPLICATION_JSON_VALUE)
 	public Mono<AiServiceClient.AiSummaryResponse> summary(@PathVariable String bookId, @RequestBody BookSummaryCommand command, ServerWebExchange exchange) {
 		String userId = RequestUserContext.requireUserId(exchange);
-		return businessServiceClient.summary(userId, bookId, command);
+		int promptTokens = 120;
+		adminManagementService.enforceAiQuota(userId, promptTokens);
+		long startedAt = System.nanoTime();
+		return businessServiceClient.summary(userId, bookId, command)
+				.doOnSuccess(response -> adminManagementService.recordAiUsage(
+						userId,
+						response == null ? providerOrAuto(command.provider()) : response.provider(),
+						null,
+						promptTokens,
+						estimateTokens(response == null ? null : response.summary()),
+						elapsedMillis(startedAt),
+						true
+				));
 	}
 
 	@PostMapping(value = "/{bookId}/flashcards", consumes = MediaType.APPLICATION_JSON_VALUE)
 	public Mono<AiServiceClient.AiFlashcardResponse> flashcards(@PathVariable String bookId, @RequestBody BookFlashcardCommand command, ServerWebExchange exchange) {
 		String userId = RequestUserContext.requireUserId(exchange);
-		return businessServiceClient.flashcards(userId, bookId, command);
+		int promptTokens = Math.max(1, command.count() == null ? 10 : command.count()) * 20;
+		adminManagementService.enforceAiQuota(userId, promptTokens);
+		long startedAt = System.nanoTime();
+		return businessServiceClient.flashcards(userId, bookId, command)
+				.doOnSuccess(response -> adminManagementService.recordAiUsage(
+						userId,
+						response == null ? providerOrAuto(command.provider()) : response.provider(),
+						null,
+						promptTokens,
+						estimateTokens(response == null || response.flashcards() == null ? null : response.flashcards().toString()),
+						elapsedMillis(startedAt),
+						true
+				));
 	}
 
 	@GetMapping("/{bookId}/summaries")
@@ -160,5 +212,17 @@ public class PublicGatewayController {
 				: HttpStatus.valueOf(ex.getStatusCode().value());
 
 		return ResponseEntity.status(status).body(Map.of("error", message));
+	}
+
+	private int estimateTokens(String value) {
+		return !StringUtils.hasText(value) ? 0 : Math.max(1, (int) Math.ceil(value.length() / 4.0d));
+	}
+
+	private long elapsedMillis(long startedAt) {
+		return Math.max(0L, (System.nanoTime() - startedAt) / 1_000_000L);
+	}
+
+	private String providerOrAuto(String provider) {
+		return StringUtils.hasText(provider) ? provider : "AUTO";
 	}
 }

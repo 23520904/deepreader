@@ -7,6 +7,7 @@ import com.deepreader.web_module.service.AuditLogService;
 import com.deepreader.web_module.service.EmailVerificationService;
 import com.deepreader.web_module.service.GoogleAuthService;
 import com.deepreader.web_module.service.JwtService;
+import com.deepreader.web_module.service.LoginHistoryService;
 import com.deepreader.web_module.service.PasswordResetService;
 import com.deepreader.web_module.service.SessionService;
 import com.deepreader.web_module.service.UserAccountService;
@@ -67,6 +68,10 @@ class AuthControllerWebFluxTest {
 
 	@MockBean
 	private PasswordResetService passwordResetService;
+
+	@MockBean
+	@SuppressWarnings("unused")
+	private LoginHistoryService loginHistoryService;
 
 	@TestConfiguration
 	@SuppressWarnings("unused")

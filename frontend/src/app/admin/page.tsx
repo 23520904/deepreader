@@ -1,33 +1,27 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, useSyncExternalStore } from "react";
+import { useSearchParams } from "next/navigation";
+import { AdminManagementShell } from "@/components/admin/AdminManagementShell";
 import {
-  clearAuthSession,
   getAuthSessionSnapshot,
   subscribeAuthSession,
 } from "@/lib/authSession";
 import {
   deleteAdminDocument,
-  deleteAdminUser,
   fetchAdminAuditLogs,
   fetchAdminDocuments,
   fetchAdminSummary,
-  fetchAdminUsers,
   type AdminAuditLog,
   type AdminDocumentRow,
   type AdminSummary,
-  type AdminUserRow,
 } from "@/services/adminService";
 
-type AdminSection = "dashboard" | "accounts" | "documents" | "activity";
+type AdminSection = "dashboard" | "documents";
 type TimelineRange = "day" | "week" | "month" | "year";
 
-type DeleteDialog =
-  | { kind: "user"; user: AdminUserRow }
-  | { kind: "document"; document: AdminDocumentRow }
-  | null;
+type DeleteDialog = { kind: "document"; document: AdminDocumentRow } | null;
 
 type Notice = {
   type: "success" | "error";
@@ -37,7 +31,6 @@ type Notice = {
 
 type AdminBundle = {
   summary?: AdminSummary;
-  users?: AdminUserRow[];
   documents?: AdminDocumentRow[];
   auditLogs?: AdminAuditLog[];
   errorMessage: string;
@@ -59,52 +52,40 @@ const navItems: Array<{
   label: string;
   description: string;
   iconSrc: string;
+  href: string;
 }> = [
   {
     id: "dashboard",
     label: "Dashboard",
     description: "Overview",
     iconSrc: "/assets/icons/admin/dashboard-icon.png",
-  },
-  {
-    id: "accounts",
-    label: "Account management",
-    description: "Users and roles",
-    iconSrc: "/assets/icons/admin/account-management-icon.png",
+    href: "/admin",
   },
   {
     id: "documents",
-    label: "Document management",
+    label: "Documents",
     description: "Uploaded files",
     iconSrc: "/assets/icons/admin/document-management-icon.png",
-  },
-  {
-    id: "activity",
-    label: "Activity logs",
-    description: "Audit events",
-    iconSrc: "/assets/icons/admin/log-icon.png",
+    href: "/admin?section=documents",
   },
 ];
 
 async function fetchAdminBundle(token: string): Promise<AdminBundle> {
-  const [summaryResult, usersResult, documentsResult, auditLogsResult] =
+  const [summaryResult, documentsResult, auditLogsResult] =
     await Promise.allSettled([
       fetchAdminSummary(token),
-      fetchAdminUsers(token),
       fetchAdminDocuments(token),
       fetchAdminAuditLogs(token),
     ]);
 
   const errors = [
     resultError(summaryResult, "summary"),
-    resultError(usersResult, "users"),
     resultError(documentsResult, "documents"),
     resultError(auditLogsResult, "activity logs"),
   ].filter(Boolean);
 
   return {
     summary: resultValue(summaryResult),
-    users: resultValue(usersResult),
     documents: resultValue(documentsResult),
     auditLogs: resultValue(auditLogsResult),
     errorMessage: errors.length
@@ -132,7 +113,6 @@ function applyAdminBundle(
   bundle: AdminBundle,
   setters: {
     setSummary: (value: AdminSummary) => void;
-    setUsers: (value: AdminUserRow[]) => void;
     setDocuments: (value: AdminDocumentRow[]) => void;
     setAuditLogs: (value: AdminAuditLog[]) => void;
     setErrorMessage: (value: string) => void;
@@ -140,10 +120,6 @@ function applyAdminBundle(
 ) {
   if (bundle.summary) {
     setters.setSummary(bundle.summary);
-  }
-
-  if (bundle.users) {
-    setters.setUsers(bundle.users);
   }
 
   if (bundle.documents) {
@@ -158,26 +134,31 @@ function applyAdminBundle(
 }
 
 export default function AdminPage() {
-  const router = useRouter();
+  return (
+    <Suspense fallback={<AdminLoadingView />}>
+      <AdminPageContent />
+    </Suspense>
+  );
+}
+
+function AdminPageContent() {
+  const searchParams = useSearchParams();
   const session = useSyncExternalStore(
     subscribeAuthSession,
     getAuthSessionSnapshot,
     () => null,
   );
-  const [activeSection, setActiveSection] =
-    useState<AdminSection>("dashboard");
   const [summary, setSummary] = useState<AdminSummary>(emptySummary);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [documents, setDocuments] = useState<AdminDocumentRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [deletingUserId, setDeletingUserId] = useState("");
   const [deletingDocumentId, setDeletingDocumentId] = useState("");
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialog>(null);
   const [notice, setNotice] = useState<Notice>(null);
-
   const isAdmin = session?.role?.toUpperCase() === "ADMIN";
+  const activeSection: AdminSection =
+    searchParams.get("section") === "documents" ? "documents" : "dashboard";
 
   function refreshAdminData(token: string) {
     setIsLoading(true);
@@ -186,7 +167,6 @@ export default function AdminPage() {
       .then((bundle) =>
         applyAdminBundle(bundle, {
           setSummary,
-          setUsers,
           setDocuments,
           setAuditLogs,
           setErrorMessage,
@@ -223,7 +203,6 @@ export default function AdminPage() {
 
         applyAdminBundle(bundle, {
           setSummary,
-          setUsers,
           setDocuments,
           setAuditLogs,
           setErrorMessage,
@@ -250,12 +229,6 @@ export default function AdminPage() {
     };
   }, [isAdmin, session?.token]);
 
-  const recentLogs = useMemo(() => auditLogs.slice(0, 10), [auditLogs]);
-  function handleLogout() {
-    clearAuthSession();
-    router.replace("/login");
-  }
-
   function showNotice(nextNotice: NonNullable<Notice>) {
     setNotice(nextNotice);
     window.setTimeout(() => {
@@ -265,74 +238,12 @@ export default function AdminPage() {
     }, 3600);
   }
 
-  function requestDeleteUser(user: AdminUserRow) {
-    if (!session?.token || deletingUserId) {
-      return;
-    }
-
-    if (user.user_id === session.userId) {
-      showNotice({
-        type: "error",
-        title: "Delete blocked",
-        message: "You cannot delete the currently signed-in admin account.",
-      });
-      return;
-    }
-
-    setDeleteDialog({ kind: "user", user });
-  }
-
   function requestDeleteDocument(document: AdminDocumentRow) {
     if (!session?.token || deletingDocumentId) {
       return;
     }
 
     setDeleteDialog({ kind: "document", document });
-  }
-
-  async function executeDeleteUser(user: AdminUserRow) {
-    if (!session?.token || deletingUserId) {
-      return;
-    }
-
-    if (user.user_id === session.userId) {
-      showNotice({
-        type: "error",
-        title: "Delete blocked",
-        message: "You cannot delete the currently signed-in admin account.",
-      });
-      return;
-    }
-
-    setDeletingUserId(user.user_id);
-    setDeleteDialog(null);
-    setErrorMessage("");
-
-    try {
-      await deleteAdminUser(user.user_id, session.token);
-      const bundle = await fetchAdminBundle(session.token);
-      applyAdminBundle(bundle, {
-        setSummary,
-        setUsers,
-        setDocuments,
-        setAuditLogs,
-        setErrorMessage,
-      });
-      showNotice({
-        type: "success",
-        title: "User deleted",
-        message: `${user.username || user.email} was removed from DeepReader.`,
-      });
-    } catch (error) {
-      showNotice({
-        type: "error",
-        title: "Delete failed",
-        message:
-          error instanceof Error ? error.message : "Could not delete this user.",
-      });
-    } finally {
-      setDeletingUserId("");
-    }
   }
 
   async function executeDeleteDocument(document: AdminDocumentRow) {
@@ -349,7 +260,6 @@ export default function AdminPage() {
       const bundle = await fetchAdminBundle(session.token);
       applyAdminBundle(bundle, {
         setSummary,
-        setUsers,
         setDocuments,
         setAuditLogs,
         setErrorMessage,
@@ -374,171 +284,67 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#edf3fb] text-[#0f172a]">
-      <div className="flex min-h-screen">
-        <aside className="fixed inset-y-0 left-0 z-40 hidden w-[292px] border-r border-[#dbe7f5] bg-white/94 px-5 py-6 shadow-[18px_0_44px_rgba(30,64,175,0.08)] backdrop-blur-xl lg:flex lg:flex-col">
-          <AdminBrand />
+    <AdminManagementShell>
+      <div className="grid gap-6">
+        <AdminPageHeader
+          activeSection={activeSection}
+          isLoading={isLoading}
+          onRefresh={() => {
+            if (session?.token && isAdmin) {
+              refreshAdminData(session.token);
+            }
+          }}
+        />
 
-          <nav className="mt-8 grid gap-2">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveSection(item.id)}
-                className={`flex cursor-pointer items-center gap-3 rounded-[14px] px-4 py-3 text-left transition ${
-                  activeSection === item.id
-                    ? "bg-[#2563eb] text-white shadow-[0_16px_34px_rgba(37,99,235,0.22)]"
-                    : "bg-transparent text-[#475569] hover:bg-[#eff6ff] hover:text-[#1d4ed8]"
-                }`}
-              >
-                <span
-                  className={`grid h-10 w-10 shrink-0 place-items-center rounded-[12px] ${
-                    activeSection === item.id
-                      ? "bg-white/22"
-                      : "bg-[#eff6ff] ring-1 ring-[#dbeafe]"
-                  }`}
-                >
-                  <img
-                    src={item.iconSrc}
-                    alt=""
-                    className="h-7 w-7 object-contain"
-                    aria-hidden="true"
-                  />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[14px] font-black">
-                    {item.label}
-                  </span>
-                  <span
-                    className={`mt-0.5 block text-[12px] font-semibold ${
-                      activeSection === item.id
-                        ? "text-white/72"
-                        : "text-[#94a3b8]"
-                    }`}
-                  >
-                    {item.description}
-                  </span>
-                </span>
-              </button>
-            ))}
-          </nav>
-
-          <div className="mt-auto">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="h-12 w-full cursor-pointer rounded-[14px] bg-[#fff1f2] text-[14px] font-black text-[#be123c] ring-1 ring-[#fecdd3] transition hover:bg-[#ffe4e6]"
-            >
-              Logout
-            </button>
+        {errorMessage ? (
+          <div className="rounded-[12px] border border-[#fecdd3] bg-[#fff1f2] px-5 py-4 text-[14px] font-bold text-[#be123c]">
+            {errorMessage}
           </div>
-        </aside>
+        ) : null}
 
-        <section className="min-w-0 flex-1 lg:pl-[292px]">
-          <div className="sticky top-0 z-30 border-b border-[#dbe7f5] bg-[#edf3fb]/90 px-4 py-3 backdrop-blur-xl lg:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <AdminBrand compact />
-              <select
-                value={activeSection}
-                onChange={(event) =>
-                  setActiveSection(event.target.value as AdminSection)
-                }
-                className="h-11 rounded-[12px] border border-[#dbe7f5] bg-white px-3 text-[13px] font-black text-[#0f172a]"
-                aria-label="Admin section"
-              >
-                {navItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="mx-auto grid w-[min(1240px,calc(100%_-_48px))] gap-6 py-7 max-[700px]:w-[min(100%_-_28px,1240px)]">
-            <AdminPageHeader
-              activeSection={activeSection}
-              isLoading={isLoading}
-              onRefresh={() => {
-                if (session?.token && isAdmin) {
-                  refreshAdminData(session.token);
-                }
-              }}
-            />
-
-            {errorMessage ? (
-              <div className="rounded-[12px] border border-[#fecdd3] bg-[#fff1f2] px-5 py-4 text-[14px] font-bold text-[#be123c]">
-                {errorMessage}
-              </div>
-            ) : null}
-
-            {activeSection === "dashboard" ? (
-              <DashboardSection
-                summary={summary}
-                documents={documents}
-                auditLogs={auditLogs}
-              />
-            ) : activeSection === "accounts" ? (
-              <AccountsSection
-                users={users}
-                isLoading={isLoading}
-                currentUserId={session?.userId || ""}
-                deletingUserId={deletingUserId}
-                onDeleteUser={requestDeleteUser}
-              />
-            ) : activeSection === "documents" ? (
-              <DocumentsSection
-                documents={documents}
-                isLoading={isLoading}
-                deletingDocumentId={deletingDocumentId}
-                onDeleteDocument={requestDeleteDocument}
-              />
-            ) : (
-              <ActivitySection logs={recentLogs} isLoading={isLoading} />
-            )}
-          </div>
-        </section>
+        {activeSection === "documents" ? (
+          <DocumentsSection
+            documents={documents}
+            isLoading={isLoading}
+            deletingDocumentId={deletingDocumentId}
+            onDeleteDocument={requestDeleteDocument}
+          />
+        ) : (
+          <DashboardSection
+            summary={summary}
+            documents={documents}
+            auditLogs={auditLogs}
+          />
+        )}
       </div>
       <AdminDeleteDialog
         dialog={deleteDialog}
-        isBusy={Boolean(deletingUserId || deletingDocumentId)}
+        isBusy={Boolean(deletingDocumentId)}
         onCancel={() => setDeleteDialog(null)}
         onConfirm={() => {
-          if (deleteDialog?.kind === "user") {
-            void executeDeleteUser(deleteDialog.user);
-          } else if (deleteDialog?.kind === "document") {
+          if (deleteDialog?.kind === "document") {
             void executeDeleteDocument(deleteDialog.document);
           }
         }}
       />
       <AdminNotice notice={notice} onClose={() => setNotice(null)} />
-    </main>
+    </AdminManagementShell>
   );
 }
 
-function AdminBrand({ compact = false }: { compact?: boolean }) {
+function AdminLoadingView() {
   return (
-    <div className="flex items-center gap-3">
-      <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[14px] bg-[#eff6ff] ring-1 ring-[#dbeafe]">
-        <img
-          src="/assets/images/brand/deepreader-favicon.png"
-          alt=""
-          className="h-10 w-10 object-contain"
-        />
-      </div>
-      {!compact ? (
-        <div>
-          <p className="text-[18px] font-black leading-none text-[#0f172a]">
-            DeepReader
-          </p>
-          <p className="mt-1 text-[12px] font-black uppercase tracking-[0.12em] text-[#2563eb]">
-            Admin Panel
-          </p>
+    <AdminManagementShell>
+      <div className="grid gap-6">
+        <div className="h-[176px] animate-pulse rounded-[24px] bg-white/70 shadow-[0_24px_70px_rgba(20,40,90,0.08)]" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((item) => (
+            <div key={item} className="h-[132px] animate-pulse rounded-[20px] bg-white/70" />
+          ))}
         </div>
-      ) : (
-        <p className="text-[16px] font-black text-[#0f172a]">Admin</p>
-      )}
-    </div>
+        <div className="h-[360px] animate-pulse rounded-[22px] bg-white/70" />
+      </div>
+    </AdminManagementShell>
   );
 }
 
@@ -560,13 +366,13 @@ function AdminPageHeader({
       : item?.description || "Manage DeepReader";
 
   return (
-    <header className="rounded-[22px] border border-[#dbe7f5] bg-white px-7 py-6 shadow-[0_18px_46px_rgba(15,23,42,0.06)] max-[520px]:px-5">
+    <header className="overflow-hidden rounded-[24px] border border-white/70 bg-white/72 px-7 py-6 shadow-[0_24px_70px_rgba(20,40,90,0.12)] backdrop-blur-xl max-[520px]:px-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#2563eb]">
+          <p className="inline-flex rounded-full bg-[#e9f2ff] px-3 py-1 text-[12px] font-black uppercase tracking-[0.14em] text-[#244fbe] ring-1 ring-[#cfe0ff]">
             Admin Workspace
           </p>
-          <h1 className="mt-3 text-[clamp(34px,6vw,52px)] font-black leading-tight text-[#0f172a]">
+          <h1 className="mt-4 text-[clamp(34px,6vw,52px)] font-black leading-tight text-[#0f1f3d]">
             {title}
           </h1>
           <p className="mt-2 max-w-[680px] text-[15px] font-semibold leading-7 text-[#64748b]">
@@ -577,7 +383,7 @@ function AdminPageHeader({
           type="button"
           onClick={onRefresh}
           disabled={isLoading}
-          className="h-11 cursor-pointer rounded-[12px] bg-[#2563eb] px-5 text-[14px] font-black text-white shadow-[0_14px_30px_rgba(37,99,235,0.2)] transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-11 cursor-pointer rounded-[14px] bg-[#102f7f] px-5 text-[14px] font-black text-white shadow-[0_14px_34px_rgba(36,79,190,0.22)] transition hover:bg-[#244fbe] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isLoading ? "Refreshing..." : "Refresh"}
         </button>
@@ -652,7 +458,7 @@ function DashboardSection({
         </AdminPanel>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+      <section className="grid min-w-0 gap-6 xl:grid-cols-2">
         <AdminPanel title="Document ownership" description="Indexed files by owner">
           <HorizontalBarChart
             rows={ownerRows}
@@ -702,33 +508,6 @@ function DashboardSection({
   );
 }
 
-function AccountsSection({
-  users,
-  isLoading,
-  currentUserId,
-  deletingUserId,
-  onDeleteUser,
-}: {
-  users: AdminUserRow[];
-  isLoading: boolean;
-  currentUserId: string;
-  deletingUserId: string;
-  onDeleteUser: (user: AdminUserRow) => void;
-}) {
-  return (
-    <AdminPanel title="Account management" description="Manage users and roles">
-      <CompactUserList
-        users={users}
-        isLoading={isLoading}
-        expanded
-        currentUserId={currentUserId}
-        deletingUserId={deletingUserId}
-        onDeleteUser={onDeleteUser}
-      />
-    </AdminPanel>
-  );
-}
-
 function DocumentsSection({
   documents,
   isLoading,
@@ -742,8 +521,8 @@ function DocumentsSection({
 }) {
   return (
     <AdminPanel
-      title="Document management"
-      description="Track documents indexed by the system"
+      title="Documents"
+      description="Document cards with owner, upload date, and moderation actions"
     >
       <CompactDocumentList
         documents={documents}
@@ -753,109 +532,6 @@ function DocumentsSection({
         onDeleteDocument={onDeleteDocument}
       />
     </AdminPanel>
-  );
-}
-
-function ActivitySection({
-  logs,
-  isLoading,
-}: {
-  logs: AdminAuditLog[];
-  isLoading: boolean;
-}) {
-  return (
-    <AdminPanel title="Activity logs" description="Recent security and usage events">
-      {isLoading && !logs.length ? (
-        <AdminSkeleton />
-      ) : logs.length ? (
-        <div className="grid gap-3">
-          {logs.map((log, index) => (
-            <div
-              key={`${log.created_at}-${index}`}
-              className="rounded-[14px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3"
-            >
-              <div className="flex flex-wrap justify-between gap-2">
-                <p className="text-[14px] font-black text-[#0f172a]">
-                  {log.action}
-                </p>
-                <p className="text-[12px] font-bold text-[#64748b]">
-                  {formatAdminDate(log.created_at)}
-                </p>
-              </div>
-              <p className="mt-1 line-clamp-2 text-[13px] font-semibold text-[#64748b]">
-                {log.details || "No details"}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <EmptyAdminState text="No audit logs found." />
-      )}
-    </AdminPanel>
-  );
-}
-
-function CompactUserList({
-  users,
-  isLoading,
-  expanded = false,
-  currentUserId = "",
-  deletingUserId = "",
-  onDeleteUser,
-}: {
-  users: AdminUserRow[];
-  isLoading: boolean;
-  expanded?: boolean;
-  currentUserId?: string;
-  deletingUserId?: string;
-  onDeleteUser?: (user: AdminUserRow) => void;
-}) {
-  const visibleUsers = expanded ? users : users.slice(0, 6);
-
-  if (isLoading && !visibleUsers.length) {
-    return <AdminSkeleton />;
-  }
-
-  if (!visibleUsers.length) {
-    return <EmptyAdminState text="No users found." />;
-  }
-
-  return (
-    <div className="grid gap-3">
-      {visibleUsers.map((user) => (
-        <div
-          key={user.user_id}
-          className={`grid gap-3 rounded-[14px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 ${
-            onDeleteUser
-              ? "md:grid-cols-[minmax(0,1fr)_110px_100px_46px]"
-              : "md:grid-cols-[minmax(0,1fr)_110px_100px]"
-          }`}
-        >
-          <div className="min-w-0">
-            <p className="truncate text-[15px] font-black text-[#0f172a]">
-              {user.username || user.email}
-            </p>
-            <p className="truncate text-[13px] font-semibold text-[#64748b]">
-              {user.email}
-            </p>
-          </div>
-          <span className="h-fit rounded-full bg-white px-3 py-1 text-center text-[12px] font-black text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
-            {user.role}
-          </span>
-          <span className="h-fit rounded-full bg-white px-3 py-1 text-center text-[12px] font-black text-[#64748b] ring-1 ring-[#e2e8f0]">
-            {user.document_count} docs
-          </span>
-          {onDeleteUser ? (
-            <TrashButton
-              label={`Delete ${user.username || user.email}`}
-              disabled={user.user_id === currentUserId || deletingUserId === user.user_id}
-              isBusy={deletingUserId === user.user_id}
-              onClick={() => onDeleteUser(user)}
-            />
-          ) : null}
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -883,23 +559,25 @@ function CompactDocumentList({
   }
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {visibleDocuments.map((document) => (
         <div
           key={document.document_id}
-          className="grid min-w-0 gap-3 rounded-[14px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-4"
+          className="grid min-w-0 gap-4 rounded-[20px] border border-white/80 bg-[linear-gradient(135deg,#ffffff,#f8fbff)] p-4 shadow-[0_16px_36px_rgba(20,40,90,0.08)]"
         >
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="line-clamp-2 text-[15px] font-black leading-6 text-[#0f172a]">
-                {document.file_name}
-              </p>
-              <p className="mt-2 truncate text-[13px] font-semibold text-[#64748b]">
-                Owner: {document.username || document.email || "Unknown"}
-              </p>
-              <p className="mt-1 text-[12px] font-bold text-[#94a3b8]">
-                {formatAdminDate(document.created_at)}
-              </p>
+            <div className="flex min-w-0 gap-3">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px] bg-[#e9f2ff] text-[11px] font-black text-[#244fbe] ring-1 ring-[#cfe0ff]">
+                {fileExtension(document.file_name)}
+              </div>
+              <div className="min-w-0">
+                <p className="line-clamp-2 text-[15px] font-black leading-6 text-[#0f1f3d]">
+                  {document.file_name}
+                </p>
+                <p className="mt-2 truncate text-[13px] font-semibold text-[#64748b]">
+                  {document.username || document.email || "Unknown owner"}
+                </p>
+              </div>
             </div>
             {onDeleteDocument ? (
               <TrashButton
@@ -909,6 +587,14 @@ function CompactDocumentList({
                 onClick={() => onDeleteDocument(document)}
               />
             ) : null}
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[#f8fbff] px-3 py-2 ring-1 ring-[#e2e8f0]">
+            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-[#94a3b8]">
+              Uploaded
+            </span>
+            <span className="text-[12px] font-black text-[#52637a]">
+              {formatAdminDate(document.created_at)}
+            </span>
           </div>
         </div>
       ))}
@@ -965,14 +651,9 @@ function AdminDeleteDialog({
     return null;
   }
 
-  const isUser = dialog.kind === "user";
-  const title = isUser ? "Delete user?" : "Delete document?";
-  const name = isUser
-    ? dialog.user.username || dialog.user.email
-    : dialog.document.file_name;
-  const message = isUser
-    ? "This will remove the account and the data owned by this user. This action cannot be undone."
-    : "This will remove the indexed document from the system. This action cannot be undone.";
+  const title = "Delete document?";
+  const name = dialog.document.file_name;
+  const message = "This will remove the indexed document from the system. This action cannot be undone.";
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-[#0f172a]/38 px-4 backdrop-blur-sm">
@@ -1144,13 +825,13 @@ function DonutChart({
   centerText: string;
 }) {
   return (
-    <div className="grid gap-5 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
-      <div className="grid place-items-center">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(160px,220px)_minmax(0,1fr)] lg:items-center">
+      <div className="grid min-w-0 place-items-center">
         <div
-          className="grid h-48 w-48 place-items-center rounded-full"
+          className="grid h-44 w-44 max-w-full place-items-center rounded-full sm:h-48 sm:w-48"
           style={{ background: buildConicGradient(rows) }}
         >
-          <div className="grid h-[136px] w-[136px] place-items-center rounded-full bg-white text-center shadow-inner">
+          <div className="grid h-[124px] w-[124px] place-items-center rounded-full bg-white text-center shadow-inner sm:h-[136px] sm:w-[136px]">
             <div>
               <p className="text-[34px] font-black text-[#0f172a]">
                 {centerLabel}
@@ -1162,7 +843,9 @@ function DonutChart({
           </div>
         </div>
       </div>
-      <ChartLegend rows={rows} />
+      <div className="min-w-0 overflow-hidden">
+        <ChartLegend rows={rows} />
+      </div>
     </div>
   );
 }
@@ -1257,22 +940,22 @@ function ChartLegend({
   rows: Array<{ label: string; value: number; color: string }>;
 }) {
   return (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 gap-3 overflow-hidden">
       {rows.map((row) => (
         <div
           key={row.label}
-          className="flex items-center justify-between gap-3 rounded-[12px] bg-[#f8fafc] px-3 py-2 ring-1 ring-[#e2e8f0]"
+          className="flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded-[12px] bg-[#f8fafc] px-3 py-2 ring-1 ring-[#e2e8f0]"
         >
-          <span className="flex min-w-0 items-center gap-2">
+          <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             <span
               className="h-3 w-3 shrink-0 rounded-full"
               style={{ backgroundColor: row.color }}
             />
-            <span className="truncate text-[13px] font-black text-[#0f172a]">
+            <span className="block min-w-0 truncate text-[13px] font-black text-[#0f172a]" title={row.label}>
               {row.label}
             </span>
           </span>
-          <span className="text-[13px] font-black text-[#64748b]">
+          <span className="shrink-0 text-[13px] font-black text-[#64748b]">
             {row.value}
           </span>
         </div>
@@ -1301,11 +984,11 @@ function AdminMetric({
   }[tone];
 
   return (
-    <div className={`rounded-[18px] px-5 py-5 ring-1 ${toneClass}`}>
+    <div className={`rounded-[20px] bg-[linear-gradient(135deg,#ffffff,rgba(255,255,255,0.72))] px-5 py-5 shadow-[0_18px_46px_rgba(20,40,90,0.08)] ring-1 ${toneClass}`}>
       <p className="text-[13px] font-black uppercase tracking-[0.08em] opacity-80">
         {label}
       </p>
-      <p className="mt-3 text-[36px] font-black leading-none">
+      <p className="mt-3 text-[36px] font-black leading-none text-[#0f1f3d]">
         {value}
         {suffix}
       </p>
@@ -1323,7 +1006,7 @@ function AdminPanel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="min-w-0 rounded-[18px] border border-[#dbe7f5] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.055)] max-[520px]:p-4">
+    <section className="min-w-0 overflow-hidden rounded-[22px] border border-white/70 bg-white/76 p-5 shadow-[0_22px_60px_rgba(20,40,90,0.1)] backdrop-blur-xl max-[520px]:p-4">
       <div className="mb-4">
         <h2 className="text-[22px] font-black text-[#0f172a]">{title}</h2>
         <p className="mt-1 text-[14px] font-semibold text-[#64748b]">
@@ -1341,7 +1024,7 @@ function AdminSkeleton() {
       {[0, 1, 2].map((item) => (
         <div
           key={item}
-          className="h-[76px] animate-pulse rounded-[14px] bg-[#eef4fb]"
+          className="h-[76px] animate-pulse rounded-[18px] bg-[linear-gradient(90deg,#eef4ff,#ffffff,#eef4ff)]"
         />
       ))}
     </div>
@@ -1350,8 +1033,11 @@ function AdminSkeleton() {
 
 function EmptyAdminState({ text }: { text: string }) {
   return (
-    <div className="rounded-[14px] border border-dashed border-[#cbd5e1] bg-[#f8fafc] px-4 py-8 text-center text-[14px] font-bold text-[#64748b]">
-      {text}
+    <div className="rounded-[18px] border border-dashed border-[#cbd5e1] bg-white/58 px-4 py-8 text-center">
+      <p className="text-[15px] font-black text-[#0f1f3d]">{text}</p>
+      <p className="mx-auto mt-1 max-w-[360px] text-[13px] font-semibold leading-6 text-[#64748b]">
+        Try refreshing or changing the current filters.
+      </p>
     </div>
   );
 }
@@ -1530,4 +1216,9 @@ function formatAdminDate(value: string | null | undefined) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function fileExtension(fileName: string) {
+  const extension = fileName.split(".").pop()?.slice(0, 4).toUpperCase();
+  return extension || "FILE";
 }

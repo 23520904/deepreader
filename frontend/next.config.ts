@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
 
+const backendInternalUrl =
+  process.env.BACKEND_INTERNAL_URL?.replace(/\/$/, "") ||
+  "http://localhost:8083";
+
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.0.110", "localhost"],
   env: {
@@ -21,13 +25,14 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    const apiBaseUrl =
-      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8083";
-
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${apiBaseUrl}/api/v1/:path*`,
+        destination: `${backendInternalUrl}/api/v1/:path*`,
+      },
+      {
+        source: "/actuator/:path*",
+        destination: `${backendInternalUrl}/actuator/:path*`,
       },
     ];
   },
