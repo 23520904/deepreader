@@ -12,17 +12,27 @@ import reactor.core.publisher.Mono;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Tests provider fallback behavior in LlmClientService.
+ */
 class LlmClientServiceTest {
 
+	/**
+	 * Checks that the service uses Gemini when Groq returns a quota error.
+	 */
 	@Test
 	void fallsBackToGeminiWhenGroqQuotaIsExceeded() {
 		GroqProperties groqProperties = new GroqProperties();
 		groqProperties.setApiKey("gsk_test");
+
 		GeminiProperties geminiProperties = new GeminiProperties();
 		geminiProperties.setApiKey("AIza-test");
 
+		// Mock WebClient responses for both Groq and Gemini requests.
 		WebClient.Builder builder = WebClient.builder().exchangeFunction(request -> {
 			String path = request.url().getPath();
+
+			// Simulate Groq quota exceeded response.
 			if (path.endsWith("/chat/completions")) {
 				return Mono.just(ClientResponse.create(HttpStatus.TOO_MANY_REQUESTS)
 						.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -30,6 +40,7 @@ class LlmClientServiceTest {
 						.build());
 			}
 
+			// Simulate successful Gemini fallback response.
 			return Mono.just(ClientResponse.create(HttpStatus.OK)
 					.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 					.body("""

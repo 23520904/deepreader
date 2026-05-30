@@ -19,23 +19,49 @@ import {
   type StudyFlashcard,
 } from "@/lib/flashcardStudy";
 import type { GameFlowStatus, GameResult, GameSettings } from "../types";
+
+// Main view for the flashcard game area.
+// It controls the game flow: lobby -> setup -> playing -> result.
 export function GamesView({
   deck,
   activeGame,
   onGameChange,
 }: {
+  // Current deck used for all game modes.
   deck: StudyDeck;
+
+  // Currently selected game mode.
   activeGame: GameMode;
+
+  // Updates the active game mode in the parent component.
   onGameChange: (game: GameMode) => void;
 }) {
+  // Tracks which screen the user is currently seeing.
+  // "lobby" shows game choices, "setup" shows settings, "playing" starts the game,
+  // and "result" shows the final game result.
   const [gameStatus, setGameStatus] = useState<GameFlowStatus>("lobby");
+
+  // Stores settings for the current game, such as number of cards, pairs, time, and mode.
+  // The initial settings are based on how many cards are available in this deck.
   const [gameSettings, setGameSettings] = useState<GameSettings>(() =>
     defaultGameSettings(deck.cards.length),
   );
-  const [gameCards, setGameCards] = useState<StudyFlashcard[]>([]);
-  const [gameResult, setGameResult] = useState<GameResult | null>(null);
-  const activeConfig = gameConfigs.find((game) => game.id === activeGame) ?? gameConfigs[0];
 
+  // Cards selected for the current round.
+  // These are shuffled and sliced when the user starts a game.
+  const [gameCards, setGameCards] = useState<StudyFlashcard[]>([]);
+
+  // Stores the completed game result.
+  // It stays null until a game finishes.
+  const [gameResult, setGameResult] = useState<GameResult | null>(null);
+
+  // Finds the config for the current active game.
+  // If no config is found, it falls back to the first game config.
+  const activeConfig =
+    gameConfigs.find((game) => game.id === activeGame) ?? gameConfigs[0];
+
+  // Called when the user selects a game from the lobby.
+  // It updates the active game, resets settings for that game, and opens the setup modal.
   function selectGame(game: GameMode) {
     onGameChange(game);
     setGameSettings((currentSettings) => ({
@@ -45,16 +71,21 @@ export function GamesView({
     setGameStatus("setup");
   }
 
+  // Starts the selected game with the current settings.
+  // It chooses the correct number of cards, shuffles them, and moves the UI to playing mode.
   function startGame() {
     const count =
       activeGame === "memory"
         ? Math.min(gameSettings.pairs, deck.cards.length)
         : Math.min(gameSettings.cardCount, deck.cards.length);
+
     setGameCards(shuffleItems(deck.cards).slice(0, Math.max(1, count)));
     setGameResult(null);
     setGameStatus("playing");
   }
 
+  // Called when a game mode finishes.
+  // It saves the best score in local storage and then shows the result screen.
   function finishGame(result: GameResult) {
     const scoreKey = `${deck.id}:${result.game}`;
     const currentScores = safeReadStorage<Record<string, number>>(
@@ -70,6 +101,8 @@ export function GamesView({
     setGameStatus("result");
   }
 
+  // Playing screen.
+  // The actual game component depends on the selected activeGame value.
   if (gameStatus === "playing") {
     return (
       <section className="min-w-0 overflow-hidden rounded-[18px] border border-[#dbe7f5] bg-white p-5 shadow-[0_18px_44px_rgba(15,23,42,0.08)] max-[520px]:p-4">
@@ -79,6 +112,8 @@ export function GamesView({
           description={activeConfig.playingDescription}
           onBack={() => setGameStatus("lobby")}
         />
+
+        {/* Render the selected game mode. */}
         {activeGame === "speed" ? (
           <SpeedChallengeGame
             cards={gameCards}
@@ -104,6 +139,7 @@ export function GamesView({
     );
   }
 
+  // Result screen shown after a game finishes successfully.
   if (gameStatus === "result" && gameResult) {
     return (
       <GameResultView
@@ -116,9 +152,13 @@ export function GamesView({
   }
 
   return (
+    // Lobby screen with hero banner, deck summary, game cards, and optional setup modal.
     <section className="grid min-w-0 gap-6">
+      {/* Hero banner introducing the game zone. */}
       <div className="relative min-w-0 overflow-hidden rounded-[24px] bg-[linear-gradient(135deg,#dbeafe_0%,#cffafe_48%,#ede9fe_100%)] px-7 py-8 text-[#0f172a] shadow-[0_24px_64px_rgba(30,64,175,0.12)] ring-1 ring-white/70 max-[520px]:rounded-[18px] max-[520px]:px-5 max-[520px]:py-6">
         <div className="absolute -right-12 -top-16 h-64 w-64 rounded-full bg-white/38 blur-2xl" />
+
+        {/* Decorative robot image on large screens. */}
         <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 lg:block">
           <div className="relative grid h-[360px] w-[520px] place-items-center">
             <Image
@@ -131,6 +171,8 @@ export function GamesView({
             />
           </div>
         </div>
+
+        {/* Hero text and deck badges. */}
         <div className="relative max-w-[920px] lg:pr-[520px]">
           <p className="text-[13px] font-black uppercase text-[#2563eb]/70">
             Learning Games
@@ -153,6 +195,7 @@ export function GamesView({
         </div>
       </div>
 
+      {/* Current deck summary card with basic learning stats. */}
       <div className="min-w-0 overflow-hidden rounded-[18px] border border-[#dbe7f5] bg-white/92 px-5 py-4 shadow-[0_14px_34px_rgba(15,23,42,0.055)] max-[520px]:px-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-4">
@@ -174,6 +217,8 @@ export function GamesView({
               </h2>
             </div>
           </div>
+
+          {/* Small stat badges for the current deck. */}
           <div className="flex min-w-0 flex-wrap gap-2">
             <span className="rounded-full bg-[#eff6ff] px-3 py-1.5 text-[12px] font-black text-[#1d4ed8]">
               {deck.totalCards} cards
@@ -188,6 +233,7 @@ export function GamesView({
         </div>
       </div>
 
+      {/* Game lobby cards. Each card opens the setup modal for that game. */}
       <div className="grid min-w-0 gap-5 pt-1 lg:grid-cols-2 xl:grid-cols-3">
         {gameConfigs.map((game) => (
           <GameLobbyCard
@@ -199,6 +245,7 @@ export function GamesView({
         ))}
       </div>
 
+      {/* Setup modal appears only after the user selects a game. */}
       {gameStatus === "setup" ? (
         <GameSetupModal
           game={activeConfig}
@@ -213,13 +260,20 @@ export function GamesView({
   );
 }
 
+// Card shown in the game lobby.
+// It displays one game mode and opens the setup modal when selected.
 function GameLobbyCard({
   game,
   isSelected,
   onSelect,
 }: {
+  // Game configuration used for title, icon, description, colors, and button label.
   game: (typeof gameConfigs)[number];
+
+  // True when this card represents the currently selected game.
   isSelected: boolean;
+
+  // Called when the user clicks this game card.
   onSelect: () => void;
 }) {
   return (
@@ -230,7 +284,10 @@ function GameLobbyCard({
         isSelected ? "ring-2 ring-[#93c5fd]" : "ring-1 ring-white/70"
       }`}
     >
+      {/* Decorative background shape. */}
       <div className="absolute -bottom-12 -right-12 h-40 w-40 rounded-full bg-white/32 blur-sm" />
+
+      {/* Game icon shown in the top-right corner. */}
       <div className="absolute right-4 top-4 grid h-[84px] w-[84px] place-items-center rounded-[24px] bg-white/58 shadow-[0_16px_34px_rgba(15,23,42,0.1)] ring-1 ring-white/75 transition duration-300 group-hover:-rotate-3 group-hover:scale-[1.03] max-[420px]:h-[70px] max-[420px]:w-[70px] max-[420px]:rounded-[18px]">
         <Image
           src={game.iconSrc}
@@ -240,6 +297,8 @@ function GameLobbyCard({
           className="h-16 w-16 object-contain max-[420px]:h-12 max-[420px]:w-12"
         />
       </div>
+
+      {/* Game title and short description. */}
       <div className="relative pr-20">
         <h3 className="break-words text-[26px] font-black leading-tight max-[420px]:text-[22px]">
           {game.title}
@@ -248,6 +307,8 @@ function GameLobbyCard({
           {game.description}
         </p>
       </div>
+
+      {/* Call-to-action label for opening the selected game setup. */}
       <div
         className={`relative mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-[14px] bg-white/74 px-4 text-[14px] font-black ${game.accentClass} shadow-[0_14px_28px_rgba(15,23,42,0.1)] ring-1 ring-white/80`}
       >

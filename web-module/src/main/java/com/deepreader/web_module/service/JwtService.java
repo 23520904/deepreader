@@ -14,6 +14,11 @@ import java.util.Date;
 import java.util.Objects;
 import javax.crypto.SecretKey;
 
+/**
+ * Generates and validates JWT access tokens for authenticated web clients.
+ *
+ * <p>Only tokens with claim type "access" are accepted by the application gateway.
+ */
 @Service
 public class JwtService {
 	private final JwtProperties jwtProperties;
@@ -22,6 +27,9 @@ public class JwtService {
 		this.jwtProperties = jwtProperties;
 	}
 
+	/**
+	 * Builds a signed JWT access token containing user id and role claims.
+	 */
 	public String generateAccessToken(String userId, UserRole role) {
 		Instant issuedAt = Instant.now();
 		Instant expiresAt = issuedAt.plusSeconds(jwtProperties.getTtlSeconds());
@@ -35,6 +43,9 @@ public class JwtService {
 				.compact();
 	}
 
+	/**
+	 * Verifies a token signature and returns the resolved authenticated principal.
+	 */
 	public AuthPrincipal verifyAndGetPrincipal(String token) {
 		try {
 			Claims claims = Jwts.parserBuilder()

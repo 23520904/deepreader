@@ -17,6 +17,11 @@ import reactor.core.scheduler.Schedulers;
 
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Protects web endpoints by validating Bearer JWTs and loading the authenticated user context.
+ *
+ * <p>Public paths such as authentication and health checks are excluded from token validation.
+ */
 @Component
 public class AuthWebFilter implements WebFilter {
 	private final JwtService jwtService;
@@ -28,12 +33,22 @@ public class AuthWebFilter implements WebFilter {
 		this.userAccountService = userAccountService;
 	}
 
+	/**
+	 * Applies authentication only to protected API paths.
+	 *
+	 * <p>When the token is valid, the authenticated user's ID and role are stored
+	 * in the exchange attributes so later handlers can access them.
+	 */
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
 		String path = exchange.getRequest().getPath().value();
+
+		// Public endpoints can pass through without JWT validation.
 		if (isPublicPath(path)) {
 			return chain.filter(exchange);
 		}
+
+		// Only selected API groups require authentication.
 		boolean protectedPath = matcher.match("/api/v1/admin/**", path)
 				|| matcher.match("/api/v1/books/**", path)
 				|| matcher.match("/api/v1/study-progress/**", path)
@@ -43,16 +58,21 @@ public class AuthWebFilter implements WebFilter {
 		if (!protectedPath) {
 			return chain.filter(exchange);
 		}
+
 		String auth = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 		if (!StringUtils.hasText(auth) || !auth.startsWith("Bearer ")) {
 			return unauthorized(exchange, "Missing Bearer token");
 		}
+
 		String token = auth.substring("Bearer ".length()).trim();
 		try {
 			JwtService.AuthPrincipal principal = jwtService.verifyAndGetPrincipal(token);
+
+			// User lookup may use blocking storage, so it is moved off the reactive event loop.
 			return Mono.fromCallable(() -> userAccountService.findById(principal.userId()))
 					.subscribeOn(Schedulers.boundedElastic())
 					.flatMap(user -> {
+						// Store authenticated user data for controllers and services later in the request.
 						exchange.getAttributes().put(RequestUserContext.USER_ID_ATTRIBUTE, user.userId());
 						exchange.getAttributes().put(RequestUserContext.USER_ROLE_ATTRIBUTE, user.role());
 						return chain.filter(exchange);
@@ -63,6 +83,9 @@ public class AuthWebFilter implements WebFilter {
 		}
 	}
 
+	/**
+	 * Checks paths that should stay accessible without authentication.
+	 */
 	private boolean isPublicPath(String path) {
 		return matcher.match("/api/v1/auth/**", path)
 				|| matcher.match("/api/v1/reading-sessions/sync-beacon", path)
@@ -72,9 +95,14 @@ public class AuthWebFilter implements WebFilter {
 				|| matcher.match("/swagger-ui.html", path);
 	}
 
+	/**
+	 * Writes a consistent JSON response for unauthorized requests.
+	 */
 	private Mono<Void> unauthorized(ServerWebExchange exchange, String message) {
 		exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
 		exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
+
+		// Remove quotes from the message to keep the small JSON body valid.
 		String body = "{\"error\":\"" + message.replace("\"", "") + "\"}";
 		byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
 		return exchange.getResponse().writeWith(Mono.just(exchange.getResponse().bufferFactory().wrap(bytes)));

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { MobileFooterAccordion } from "@/components/MobileFooterAccordion";
 
+// Footer navigation groups displayed in desktop view
+// and passed to the mobile accordion component
 const footerGroups = [
   {
     title: "Support",
@@ -38,7 +40,8 @@ export function SiteFooter() {
       className="flow-root bg-[#101b31] pt-16 pb-10 text-[#a8b2c4] max-[700px]:pt-12 max-[700px]:pb-8"
     >
       <div className="mx-auto grid w-[min(1180px,calc(100%_-_48px))] grid-cols-[minmax(280px,1.35fr)_repeat(3,minmax(130px,1fr))] items-start gap-[74px] max-[1200px]:gap-[56px] max-[1050px]:grid-cols-2 max-[1050px]:gap-[42px] max-[700px]:w-[min(calc(100%_-_32px),1180px)] max-[700px]:grid-cols-1 max-[700px]:gap-10">
-        {/* Brand Section */}
+        
+        {/* Brand information and email subscription section */}
         <div className="max-[700px]:max-w-[420px]">
           <h2 className="text-[43px] font-extrabold leading-none tracking-[0] text-[#78e7d8] max-[700px]:text-[34px]">
             DeepReader
@@ -48,6 +51,7 @@ export function SiteFooter() {
             Get started now and build a smarter reading journey.
           </p>
 
+          {/* Email input and submit button */}
           <div className="mt-[28px] flex min-h-[54px] w-[min(320px,100%)] items-center overflow-hidden rounded-full border border-[#aabcdb]/20 bg-white/[0.03] shadow-[0_10px_28px_rgba(0,0,0,0.16)] max-[700px]:mt-6 max-[420px]:w-full">
             <input
               type="email"
@@ -66,13 +70,14 @@ export function SiteFooter() {
           </div>
         </div>
 
-        {/* Desktop Footer Groups */}
+        {/* Desktop footer navigation groups */}
         {footerGroups.map((group) => (
           <div key={group.title} className="max-[700px]:hidden">
             <h3 className="mb-[22px] text-[14px] font-extrabold uppercase tracking-[0.04em] text-white">
               {group.title}
             </h3>
 
+            {/* Links inside each footer group */}
             <div className="grid gap-3.5 text-[14px] text-[#9aa6ba]">
               {group.links.map((link) => (
                 <Link
@@ -87,16 +92,17 @@ export function SiteFooter() {
           </div>
         ))}
 
-        {/* Mobile Accordion Footer Groups */}
+        {/* Mobile version of footer links using accordion layout */}
         <MobileFooterAccordion groups={footerGroups} />
       </div>
 
-      {/* Bottom Footer */}
+      {/* Footer bottom section with copyright and legal links */}
       <div className="mx-auto mt-12 flex w-[min(1180px,calc(100%_-_48px))] items-center justify-between gap-6 border-t border-[#b8c7e2]/15 pt-7 text-[13px] text-[#8b97aa] max-[1050px]:w-[min(calc(100%_-_36px),1200px)] max-[700px]:mt-10 max-[700px]:w-[min(calc(100%_-_32px),1180px)] max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-4 max-[460px]:items-center max-[460px]:text-center">
         <span>
           &copy; 2026 DeepReader Inc. Copyright and rights reserved
         </span>
 
+        {/* Legal and policy links */}
         <div className="flex flex-wrap items-center gap-[24px] max-[700px]:gap-x-5 max-[700px]:gap-y-2 max-[460px]:justify-center">
           <Link href="#" className="transition hover:text-white">
             Terms and Conditions

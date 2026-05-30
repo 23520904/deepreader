@@ -8,6 +8,7 @@ export function HelpCenterContent() {
   return (
     <section className="px-6 pb-24 pt-20 max-[700px]:px-4 max-[700px]:pt-14">
       <div className="mx-auto grid w-[min(1120px,100%)] gap-8">
+        {/* Hero section that introduces the Help Center page. */}
         <div className="overflow-hidden rounded-[28px] border border-white/80 bg-[linear-gradient(135deg,#dbeafe_0%,#cffafe_52%,#eef2ff_100%)] px-8 py-10 shadow-[0_24px_70px_rgba(30,64,175,0.13)] max-[700px]:px-5">
           <p className="text-[13px] font-black uppercase tracking-[0.08em] text-[#2563eb]">
             Help Center
@@ -23,6 +24,8 @@ export function HelpCenterContent() {
           </div>
         </div>
 
+        {/* Guide cards section.
+            Each guide links to a detailed help page using its slug. */}
         <div className="grid gap-4 md:grid-cols-3">
           {helpGuides.map((guide) => (
             <Link
@@ -43,12 +46,15 @@ export function HelpCenterContent() {
           ))}
         </div>
 
+        {/* FAQ sections.
+            The data comes from helpCenterSections, so new sections can be added from the data file. */}
         <div className="grid gap-5">
           {helpCenterSections.map((section) => (
               <article
                 key={section.title}
                 className="rounded-[24px] border border-[#dbe7f5] bg-white p-6 shadow-[0_16px_36px_rgba(15,23,42,0.055)] max-[700px]:p-4"
               >
+                {/* Section heading and short description. */}
                 <div className="mb-5">
                   <h2 className="text-[26px] font-black text-[#0f172a]">
                     {section.title}
@@ -57,6 +63,9 @@ export function HelpCenterContent() {
                     {section.description}
                   </p>
                 </div>
+
+                {/* FAQ question list.
+                    Each item uses the native details/summary element to expand and collapse the answer. */}
                 <div className="grid gap-3">
                   {section.items.map((item) => (
                     <details
@@ -79,6 +88,7 @@ export function HelpCenterContent() {
             ))}
         </div>
 
+        {/* Support call-to-action section at the bottom of the page. */}
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-[24px] bg-[#101b31] p-6 text-white shadow-[0_20px_46px_rgba(15,23,42,0.18)]">
           <div>
             <h2 className="text-[24px] font-black">Still need help?</h2>

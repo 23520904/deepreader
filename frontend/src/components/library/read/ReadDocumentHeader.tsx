@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import type { FormEvent } from "react";
 
+// Props used by the document reader header.
+// These values control document info, reading progress, navigation buttons, and page actions.
 type ReadDocumentHeaderProps = {
   title: string;
   format: string;
@@ -41,8 +43,13 @@ export function ReadDocumentHeader({
   onJumpToPage,
   onMarkActivePageRead,
 }: ReadDocumentHeaderProps) {
+  // Get the current page number from a label like "Page 3".
+  // This value is used as the default value in the "Go to page" input.
   const activePageNumber = /Page\s+(\d+)/i.exec(activePageLabel)?.[1] ?? "";
 
+  // Handles the page jump form.
+  // It reads the user input, keeps the page number inside the valid range,
+  // then calls the parent function to change the active page.
   function handleJumpToPage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -64,6 +71,7 @@ export function ReadDocumentHeader({
 
   return (
     <>
+      {/* Back link to return from the reader screen to the library page. */}
       <Link
         href="/library"
         className="inline-flex items-center gap-3 text-[16px] font-extrabold text-[#0f2442] transition hover:text-[#245895]"
@@ -74,8 +82,10 @@ export function ReadDocumentHeader({
         Back to Library
       </Link>
 
+      {/* Document summary card with title, file type, page count, and reading progress. */}
       <div className="mt-5 grid gap-7 rounded-[16px] bg-[#245895] px-8 py-7 text-white shadow-[0_18px_36px_rgba(36,88,149,0.22)] lg:grid-cols-[1fr_320px] max-[700px]:px-5">
         <div className="flex items-center gap-6 max-[700px]:flex-col max-[700px]:items-start">
+          {/* Document format icon. */}
           <div className="grid h-[88px] w-[88px] shrink-0 place-items-center rounded-[16px] bg-white shadow-[0_18px_28px_rgba(8,31,66,0.20)]">
             <Image
               src={formatIconSrc}
@@ -87,6 +97,7 @@ export function ReadDocumentHeader({
             />
           </div>
 
+          {/* Document title and basic status badges. */}
           <div>
             <h1 className="max-w-[620px] text-[34px] font-black leading-tight tracking-[0] text-white max-[700px]:text-[28px]">
               {title}
@@ -106,6 +117,7 @@ export function ReadDocumentHeader({
           </div>
         </div>
 
+        {/* Reading progress panel with percentage and progress bar. */}
         <div className="rounded-[14px] border border-white/35 bg-[#6578d8]/55 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
           <p className="text-[14px] font-bold text-white/90">
             Reading Progress
@@ -120,7 +132,9 @@ export function ReadDocumentHeader({
         </div>
       </div>
 
+      {/* Reader control bar for focus mode, page navigation, page jump, and read status. */}
       <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[14px] bg-white px-5 py-4 shadow-[0_12px_28px_rgba(18,24,38,0.08)] ring-1 ring-[#dce6f4]">
+        {/* Toggle button for focus mode. */}
         <button
           type="button"
           onClick={onToggleFocusMode}
@@ -133,7 +147,9 @@ export function ReadDocumentHeader({
           Focus mode
         </button>
 
+        {/* Page navigation controls in the center of the header. */}
         <div className="flex flex-wrap items-center justify-center gap-3">
+          {/* Go to the previous page when available. */}
           <button
             type="button"
             onClick={onPreviousPage}
@@ -151,10 +167,12 @@ export function ReadDocumentHeader({
             />
           </button>
 
+          {/* Current active page label. */}
           <span className="rounded-[999px] bg-[#f4f8ff] px-5 py-2 text-[14px] font-black text-[#5f6c82]">
             {activePageLabel}
           </span>
 
+          {/* Form for jumping directly to a specific page number. */}
           <form
             onSubmit={handleJumpToPage}
             className="flex items-center gap-2 rounded-[999px] bg-[#f4f8ff] px-3 py-2"
@@ -184,6 +202,7 @@ export function ReadDocumentHeader({
             </button>
           </form>
 
+          {/* Go to the next page when available. */}
           <button
             type="button"
             onClick={onNextPage}
@@ -202,6 +221,7 @@ export function ReadDocumentHeader({
           </button>
         </div>
 
+        {/* Button for marking the current page as read or unread. */}
         <button
           type="button"
           onClick={onMarkActivePageRead}

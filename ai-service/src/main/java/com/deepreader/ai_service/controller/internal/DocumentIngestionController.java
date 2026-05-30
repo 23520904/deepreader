@@ -45,6 +45,13 @@ import reactor.core.scheduler.Schedulers;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Internal REST controller for document ingestion and AI-powered document features.
+ *
+ * This controller exposes endpoints for uploading documents, checking ingestion jobs,
+ * retrieving indexed content, downloading original files, searching chunks, asking
+ * questions, generating summaries, and creating flashcards.
+ */
 @RestController
 @RequestMapping("/internal/ai/v1/documents")
 @Tag(name = "Documents")
@@ -60,6 +67,13 @@ public class DocumentIngestionController {
 	private final GuardrailService guardrailService;
 	private final GuardrailProperties guardrailProperties;
 
+	/**
+	 * Creates the document ingestion controller with all required services.
+	 *
+	 * Each service is injected through the constructor so the controller can delegate
+	 * ingestion, retrieval, generation, storage, rate limiting, and audit logging
+	 * responsibilities to the appropriate application layer.
+	 */
 	public DocumentIngestionController(DocumentIngestionService documentIngestionService, DocumentIndexStoreService documentIndexStoreService, RetrievalService retrievalService, ChatService chatService, GenerationService generationService, IngestionJobService ingestionJobService, AuditLogService auditLogService, ObjectStorageService objectStorageService, GuardrailService guardrailService, GuardrailProperties guardrailProperties) {
 		this.documentIngestionService = documentIngestionService;
 		this.documentIndexStoreService = documentIndexStoreService;
@@ -73,6 +87,12 @@ public class DocumentIngestionController {
 		this.guardrailProperties = guardrailProperties;
 	}
 
+	/**
+	 * Returns the indexed sections of a document owned by the current user.
+	 *
+	 * The lookup is executed on a bounded elastic scheduler because it may involve
+	 * blocking storage or database access.
+	 */
 	@GetMapping(value = "/{documentId}/content", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Return indexed sections for a document")
 	public Mono<DocumentContentResponse> getDocumentContent(
@@ -84,6 +104,12 @@ public class DocumentIngestionController {
 				.subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Returns the original uploaded document as a downloadable or inline response.
+	 *
+	 * The file is loaded from object storage using the document's stored object key,
+	 * then returned with a content type inferred from the original file name.
+	 */
 	@GetMapping(value = "/{documentId}/source", produces = {
 			MediaType.APPLICATION_PDF_VALUE,
 			MediaType.APPLICATION_OCTET_STREAM_VALUE,
@@ -120,6 +146,12 @@ public class DocumentIngestionController {
 				.subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Uploads a document and performs ingestion synchronously.
+	 *
+	 * This endpoint applies the user's daily upload limit before delegating the
+	 * file processing flow to the ingestion service.
+	 */
 	@PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	@Operation(summary = "Upload and synchronously ingest a PDF or EPUB")
 	public Mono<IngestionResult> uploadDocument(
@@ -133,6 +165,12 @@ public class DocumentIngestionController {
 				.doOnSuccess(result -> auditLogService.log(userId, "INGESTION_SYNC_SUCCEEDED", "documentId=" + result.documentId()));
 	}
 
+	/**
+	 * Uploads a document and creates an asynchronous ingestion job.
+	 *
+	 * The uploaded file is read into memory, validated, stored in object storage,
+	 * and then registered as a pending ingestion job for background processing.
+	 */
 	@PostMapping(value = "/upload/async", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Start async ingestion job for a PDF or EPUB")
 	public Mono<IngestionJobResponse> uploadDocumentAsync(
@@ -145,8 +183,11 @@ public class DocumentIngestionController {
 		return filePart.content()
 				.collectList()
 				.flatMap(buffers -> Mono.fromCallable(() -> {
+					// Calculate the total uploaded size before copying all buffers into one byte array.
 					int size = buffers.stream().mapToInt(buffer -> buffer.readableByteCount()).sum();
 					byte[] bytes = new byte[size];
+
+					// Copy each DataBuffer into the final byte array and release it afterward.
 					int offset = 0;
 					for (org.springframework.core.io.buffer.DataBuffer buffer : buffers) {
 						int length = buffer.readableByteCount();
@@ -154,18 +195,26 @@ public class DocumentIngestionController {
 						offset += length;
 						org.springframework.core.io.buffer.DataBufferUtils.release(buffer);
 					}
+
 					documentIngestionService.validateUpload(fileName, bytes.length);
 					guardrailService.enforceDailyLimit(userId, "UPLOADS", 1, guardrailProperties.getMaxUploadsPerDay());
+
 					String sourceObjectKey = objectStorageService.storeDocument(userId, fileName, bytes);
 					if (sourceObjectKey == null || sourceObjectKey.isBlank()) {
 						throw new IllegalStateException("Async ingestion requires object storage enabled");
 					}
+
 					IngestionJobResponse job = ingestionJobService.createPendingJob(userId, fileName, sourceObjectKey, idempotencyKey);
 					auditLogService.log(userId, "INGESTION_ASYNC_REQUESTED", "jobId=" + job.jobId() + ", fileName=" + fileName);
 					return job;
 				}).subscribeOn(Schedulers.boundedElastic()));
 	}
 
+	/**
+	 * Returns the current status of an asynchronous ingestion job.
+	 *
+	 * The user id is required so users can only access their own ingestion jobs.
+	 */
 	@GetMapping(value = "/jobs/{jobId}", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Get async ingestion job status")
 	public Mono<IngestionJobResponse> getIngestionJob(
@@ -176,6 +225,12 @@ public class DocumentIngestionController {
 				.subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Searches indexed chunks for a document or across the user's indexed content.
+	 *
+	 * This endpoint counts as an LLM-related request because retrieval may be used
+	 * as part of the AI question-answering workflow.
+	 */
 	@PostMapping(value = "/search", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Search indexed chunks")
 	public Mono<SearchResponse> searchDocuments(
@@ -187,6 +242,12 @@ public class DocumentIngestionController {
 		return retrievalService.search(userId, request.documentId(), request.query(), request.limit(), request.provider());
 	}
 
+	/**
+	 * Answers a user question using retrieved document context and source references.
+	 *
+	 * The request is rate-limited to protect the AI provider and prevent excessive
+	 * daily usage per user.
+	 */
 	@PostMapping(value = "/chat/ask", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Ask a question with source references")
 	public Mono<ChatAskResponse> askQuestion(
@@ -198,6 +259,12 @@ public class DocumentIngestionController {
 		return chatService.ask(userId, request.documentId(), request.query(), request.limit(), request.provider());
 	}
 
+	/**
+	 * Generates a summary for an indexed document.
+	 *
+	 * The generation service handles provider-specific summarization behavior,
+	 * while this controller validates the user and applies usage limits.
+	 */
 	@PostMapping(value = "/summary", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Generate a summary for a document")
 	public Mono<SummaryResponse> summarize(
@@ -209,6 +276,12 @@ public class DocumentIngestionController {
 		return generationService.summarize(userId, request.documentId(), request.provider());
 	}
 
+	/**
+	 * Generates flashcards from an indexed document.
+	 *
+	 * Request options such as count, language, type, and scope are forwarded to the
+	 * generation service so the produced flashcards match the user's preferences.
+	 */
 	@PostMapping(value = "/flashcards", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Generate flashcards for a document")
 	public Mono<FlashcardResponse> generateFlashcards(
@@ -220,6 +293,12 @@ public class DocumentIngestionController {
 		return generationService.createFlashcards(userId, request.documentId(), request.provider(), request.count(), request.language(), request.type(), request.scope());
 	}
 
+	/**
+	 * Converts validation and state exceptions into client-friendly error responses.
+	 *
+	 * Rate limit errors are returned with HTTP 429, while other request-related
+	 * errors are returned as HTTP 400.
+	 */
 	@ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
 	public ResponseEntity<Map<String, String>> handleBadRequest(RuntimeException ex) {
 		if (ex.getMessage() != null && ex.getMessage().contains("rate limit exceeded")) {
@@ -228,6 +307,9 @@ public class DocumentIngestionController {
 		return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
 	}
 
+	/**
+	 * Maps an indexed document entity into the API response format.
+	 */
 	private DocumentContentResponse toContentResponse(IndexedDocument document) {
 		return new DocumentContentResponse(
 				document.documentId(),
@@ -236,6 +318,9 @@ public class DocumentIngestionController {
 		);
 	}
 
+	/**
+	 * Maps a document section entity into the section response format.
+	 */
 	private DocumentContentSection toContentSection(DocumentSection section) {
 		return new DocumentContentSection(
 				section.sectionId(),
@@ -246,6 +331,9 @@ public class DocumentIngestionController {
 		);
 	}
 
+	/**
+	 * Reads and validates the user id header required by internal document endpoints.
+	 */
 	private String requireUserId(String userIdHeader) {
 		if (userIdHeader == null || userIdHeader.isBlank()) {
 			throw new IllegalArgumentException("Missing X-User-Id header");
@@ -253,6 +341,12 @@ public class DocumentIngestionController {
 		return userIdHeader.trim();
 	}
 
+	/**
+	 * Resolves the response media type from the original file name.
+	 *
+	 * Unknown extensions fall back to application/octet-stream so the file can
+	 * still be returned safely.
+	 */
 	private MediaType mediaTypeByFileName(String fileName) {
 		String lower = fileName == null ? "" : fileName.toLowerCase();
 
@@ -267,6 +361,13 @@ public class DocumentIngestionController {
 		return MediaType.APPLICATION_OCTET_STREAM;
 	}
 
+	/**
+	 * Response body for returning indexed document content.
+	 */
 	public record DocumentContentResponse(String documentId, String fileName, List<DocumentContentSection> sections) {}
+
+	/**
+	 * Response body for a single indexed document section.
+	 */
 	public record DocumentContentSection(String sectionId, String title, Integer pageNumber, String summary, String content) {}
 }

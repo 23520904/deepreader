@@ -9,19 +9,46 @@ import {
 } from "react";
 
 type OtpVerificationPanelProps = {
+  // Main heading displayed on the panel
   title: string;
+
+  // Description shown below the title
   description: string;
+
+  // Current OTP value (4 digits)
   value: string;
+
+  // Optional status message
   message?: string;
+
+  // Style of the status message
   messageTone?: "info" | "error" | "success";
+
+  // Submit button text
   submitLabel?: string;
+
+  // Submit button text while processing
   submittingLabel?: string;
+
+  // Cancel button text
   cancelLabel?: string;
+
+  // Indicates whether verification is in progress
   isSubmitting?: boolean;
+
+  // Optional extra content rendered between OTP section and message section
   children?: ReactNode;
+
+  // Update OTP value in parent component
   onChange: (value: string) => void;
+
+  // Handle form submission
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+
+  // Handle cancel action
   onCancel: () => void;
+
+  // Handle resend OTP request
   onResend: () => Promise<void> | void;
 };
 
@@ -41,10 +68,16 @@ export function OtpVerificationPanel({
   onCancel,
   onResend,
 }: OtpVerificationPanelProps) {
+  // Store references to OTP input fields for focus management
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+
+  // Countdown timer for OTP resend
   const [remainingSeconds, setRemainingSeconds] = useState(60);
+
+  // Track resend request state
   const [isResending, setIsResending] = useState(false);
 
+  // Start countdown timer when component mounts
   useEffect(() => {
     const timer = window.setInterval(() => {
       setRemainingSeconds((current) => Math.max(0, current - 1));
@@ -53,13 +86,16 @@ export function OtpVerificationPanel({
     return () => window.clearInterval(timer);
   }, []);
 
+  // Keep only numeric characters and limit OTP length to 4 digits
   function updateCode(nextValue: string) {
     onChange(nextValue.replace(/\D/g, "").slice(0, 4));
   }
 
+  // Handle OTP input changes
   function handleInput(index: number, text: string) {
     const digits = text.replace(/\D/g, "");
 
+    // Support pasting multiple digits at once
     if (digits.length > 1) {
       updateCode(digits);
       inputRefs.current[Math.min(3, digits.length - 1)]?.focus();
@@ -70,32 +106,39 @@ export function OtpVerificationPanel({
     nextCode[index] = digits;
     updateCode(nextCode.join("").replace(/\s/g, ""));
 
+    // Automatically move to the next input after entering a digit
     if (digits && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
   }
 
+  // Move focus back when deleting an empty input
   function handleKeyDown(index: number, key: string) {
     if (key === "Backspace" && !value[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   }
 
+  // Request a new OTP code and restart the timer
   async function handleResend() {
     if (isSubmitting || isResending) {
       return;
     }
 
     setIsResending(true);
+
     try {
       await onResend();
       setRemainingSeconds(60);
+
+      // Focus first input after successful resend
       inputRefs.current[0]?.focus();
     } finally {
       setIsResending(false);
     }
   }
 
+  // Select message style based on message type
   const messageClass =
     messageTone === "error"
       ? "bg-red-50 text-red-700"
@@ -108,14 +151,17 @@ export function OtpVerificationPanel({
       onSubmit={onSubmit}
       className="mx-auto w-full max-w-[520px] rounded-[12px] bg-white text-left"
     >
+      {/* Page title */}
       <h1 className="text-[clamp(36px,8vw,52px)] font-extrabold leading-[1.06] tracking-[0] text-[#1e4f8d]">
         {title}
       </h1>
 
+      {/* Description text */}
       <p className="mt-4 text-[18px] font-medium leading-8 text-[#7f8794]">
         {description}
       </p>
 
+      {/* OTP input fields */}
       <div className="mt-12 grid grid-cols-4 gap-4 sm:gap-6">
         {Array.from({ length: 4 }).map((_, index) => (
           <input
@@ -136,6 +182,7 @@ export function OtpVerificationPanel({
         ))}
       </div>
 
+      {/* Countdown timer and resend action */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-[15px] font-semibold text-[#8d929d]">
         <span>
           Remaining time:{" "}
@@ -157,15 +204,19 @@ export function OtpVerificationPanel({
         </span>
       </div>
 
+      {/* Optional custom content */}
       {children ? <div className="mt-7 space-y-3">{children}</div> : null}
 
+      {/* Status message */}
       {message ? (
         <p className={`mt-6 rounded-[8px] px-4 py-3 text-sm font-bold ${messageClass}`}>
           {message}
         </p>
       ) : null}
 
+      {/* Action buttons */}
       <div className="mt-9 space-y-4">
+        {/* Verify button */}
         <button
           type="submit"
           disabled={isSubmitting}
@@ -174,6 +225,7 @@ export function OtpVerificationPanel({
           {isSubmitting ? submittingLabel : submitLabel}
         </button>
 
+        {/* Cancel button */}
         <button
           type="button"
           disabled={isSubmitting}

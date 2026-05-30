@@ -13,6 +13,11 @@ import type {
   SummaryRecord,
 } from "@/types/reading";
 
+/**
+ * Fetches the extracted text/content of a document.
+ * token is used for authentication.
+ * bookId identifies which book/document should be loaded.
+ */
 export function fetchDocumentContent(token: string, bookId: string) {
   return apiRequestJson<DocumentContentResponse>(
     `/api/v1/books/${encodeURIComponent(bookId)}/content`,
@@ -24,6 +29,10 @@ export function fetchDocumentContent(token: string, bookId: string) {
   );
 }
 
+/**
+ * Fetches the original source file of the document as a Blob.
+ * This is useful for showing a PDF preview or downloading the source file.
+ */
 export function fetchDocumentSource(token: string, bookId: string) {
   return apiRequestBlob(`/api/v1/books/${encodeURIComponent(bookId)}/source`, {
     token,
@@ -32,6 +41,10 @@ export function fetchDocumentSource(token: string, bookId: string) {
   });
 }
 
+/**
+ * Loads all saved summaries for a document.
+ * The response is an array because one document can have multiple saved summaries.
+ */
 export function fetchDocumentSummaries(token: string, bookId: string) {
   return apiRequestJson<SummaryRecord[]>(
     `/api/v1/books/${encodeURIComponent(bookId)}/summaries`,
@@ -43,6 +56,10 @@ export function fetchDocumentSummaries(token: string, bookId: string) {
   );
 }
 
+/**
+ * Loads all saved flashcards for a document.
+ * Each flashcard belongs to the selected book/document.
+ */
 export function fetchDocumentFlashcards(token: string, bookId: string) {
   return apiRequestJson<FlashcardRecord[]>(
     `/api/v1/books/${encodeURIComponent(bookId)}/flashcards`,
@@ -54,6 +71,10 @@ export function fetchDocumentFlashcards(token: string, bookId: string) {
   );
 }
 
+/**
+ * Loads saved chat history for a document.
+ * This allows the UI to show previous questions and answers.
+ */
 export function fetchDocumentChats(token: string, bookId: string) {
   return apiRequestJson<ChatHistoryRecord[]>(
     `/api/v1/books/${encodeURIComponent(bookId)}/chats`,
@@ -65,6 +86,11 @@ export function fetchDocumentChats(token: string, bookId: string) {
   );
 }
 
+/**
+ * Deletes a chat thread from a document.
+ * threadId identifies the conversation.
+ * messageIds tells the backend which messages belong to that thread.
+ */
 export function deleteDocumentChatThread({
   token,
   bookId,
@@ -88,6 +114,12 @@ export function deleteDocumentChatThread({
   );
 }
 
+/**
+ * Sends a user's question to the document chat endpoint.
+ * query is the user's message.
+ * threadId keeps the message inside the correct chat conversation.
+ * limit controls how many related document chunks can be used for the answer.
+ */
 export function sendDocumentChatMessage({
   token,
   bookId,
@@ -113,6 +145,10 @@ export function sendDocumentChatMessage({
   );
 }
 
+/**
+ * Requests the backend to generate a new summary for a document.
+ * The empty body is still sent because this endpoint expects a POST request.
+ */
 export function generateDocumentSummary(token: string, bookId: string) {
   return apiRequestJson<SummaryGenerationResponse>(
     `/api/v1/books/${encodeURIComponent(bookId)}/summary`,
@@ -126,6 +162,11 @@ export function generateDocumentSummary(token: string, bookId: string) {
   );
 }
 
+/**
+ * Requests the backend to generate flashcards for a document.
+ * count decides how many flashcards to create.
+ * language, type, and scope are optional settings for the generation.
+ */
 export function generateDocumentFlashcards({
   token,
   bookId,
@@ -153,6 +194,10 @@ export function generateDocumentFlashcards({
   );
 }
 
+/**
+ * Updates the question and answer text of one flashcard.
+ * cardId identifies the flashcard that should be edited.
+ */
 export function patchCardEdit(
   token: string,
   cardId: string,
@@ -171,6 +216,10 @@ export function patchCardEdit(
   );
 }
 
+/**
+ * Updates the hidden status of one flashcard.
+ * hidden decides whether the flashcard should be hidden or shown.
+ */
 export function patchCardHide(
   token: string,
   cardId: string,

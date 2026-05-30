@@ -21,6 +21,12 @@ import {
   type AdminUserRow,
 } from "@/services/adminService";
 
+/**
+ * Admin page for DeepReader web UI.
+ *
+ * This page loads admin metrics and lists, handles user and document deletion,
+ * and protects the admin experience behind an authenticated admin session.
+ */
 type AdminSection = "dashboard" | "accounts" | "documents" | "activity";
 type TimelineRange = "day" | "week" | "month" | "year";
 
@@ -54,6 +60,11 @@ const emptySummary: AdminSummary = {
   deadLettersToday: 0,
 };
 
+/**
+ * Admin sidebar navigation items.
+ *
+ * Each section uses the same items for desktop sidebar and mobile select.
+ */
 const navItems: Array<{
   id: AdminSection;
   label: string;
@@ -86,6 +97,13 @@ const navItems: Array<{
   },
 ];
 
+/**
+ * Load all admin dashboard data in parallel so the page can render summary,
+ * user list, document list, and audit log data together.
+ *
+ * Errors are captured per request to allow partial data display when one
+ * backend call fails.
+ */
 async function fetchAdminBundle(token: string): Promise<AdminBundle> {
   const [summaryResult, usersResult, documentsResult, auditLogsResult] =
     await Promise.allSettled([
@@ -113,10 +131,16 @@ async function fetchAdminBundle(token: string): Promise<AdminBundle> {
   };
 }
 
+/**
+ * Return the successful value from a settled promise or undefined if it failed.
+ */
 function resultValue<T>(result: PromiseSettledResult<T>) {
   return result.status === "fulfilled" ? result.value : undefined;
 }
 
+/**
+ * Create a user-friendly error message for a failed fetch result.
+ */
 function resultError<T>(result: PromiseSettledResult<T>, label: string) {
   if (result.status === "fulfilled") {
     return "";
@@ -128,6 +152,10 @@ function resultError<T>(result: PromiseSettledResult<T>, label: string) {
   return `${label}: ${message}`;
 }
 
+/**
+ * Apply admin data to local component state only when each data set is present.
+ * This allows the page to preserve existing sections if some backend responses fail.
+ */
 function applyAdminBundle(
   bundle: AdminBundle,
   setters: {
@@ -157,6 +185,12 @@ function applyAdminBundle(
   setters.setErrorMessage(bundle.errorMessage);
 }
 
+/**
+ * Main admin page component.
+ *
+ * It reads the authenticated session, verifies admin access, and then loads
+ * the admin dashboard state for metrics, accounts, documents, and activity.
+ */
 export default function AdminPage() {
   const router = useRouter();
   const session = useSyncExternalStore(
@@ -177,8 +211,12 @@ export default function AdminPage() {
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialog>(null);
   const [notice, setNotice] = useState<Notice>(null);
 
+  // The admin role is required to access admin-only data and controls.
   const isAdmin = session?.role?.toUpperCase() === "ADMIN";
 
+  // Refresh the admin dashboard on demand and keep the existing state visible while loading.
+  // This is invoked by the refresh button and after any successful delete action.
+  // The existing summary and list state remain visible while a new data fetch is pending.
   function refreshAdminData(token: string) {
     setIsLoading(true);
     setErrorMessage("");
@@ -203,13 +241,17 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
+    // Do not load admin data unless the signed-in user has an admin role.
     if (!session?.token || !isAdmin) {
       return;
     }
 
+    // Ignore stale fetch results if the component unmounts or the auth token changes.
+    // This prevents old async responses from overwriting newer state.
     let ignore = false;
     const token = session.token;
 
+    // Load admin dashboard state once the authenticated token is available.
     async function loadAdminDashboard() {
       setIsLoading(true);
       setErrorMessage("");
@@ -250,14 +292,22 @@ export default function AdminPage() {
     };
   }, [isAdmin, session?.token]);
 
+  // Only show the most recent audit events in the activity section.
   const recentLogs = useMemo(() => auditLogs.slice(0, 10), [auditLogs]);
+
+  // Clear auth session and navigate back to login.
   function handleLogout() {
     clearAuthSession();
     router.replace("/login");
   }
 
+/**
+ * Show a temporary notification banner for success or error results.
+ * The banner is cleared automatically after a few seconds.
+ */
   function showNotice(nextNotice: NonNullable<Notice>) {
     setNotice(nextNotice);
+    // Automatically clear the notice after a few seconds, but only if the same notice is still active.
     window.setTimeout(() => {
       setNotice((currentNotice) =>
         currentNotice?.title === nextNotice.title ? null : currentNotice,
@@ -265,11 +315,17 @@ export default function AdminPage() {
     }, 3600);
   }
 
+/**
+ * Open the delete dialog for a user, but block self-deletion by the current admin.
+ */
+  // Open the delete confirmation dialog for a user.
+  // This is part of the Accounts UI section and blocks self-deletion.
   function requestDeleteUser(user: AdminUserRow) {
     if (!session?.token || deletingUserId) {
       return;
     }
 
+    // Prevent the currently signed-in admin from deleting their own account.
     if (user.user_id === session.userId) {
       showNotice({
         type: "error",
@@ -287,9 +343,16 @@ export default function AdminPage() {
       return;
     }
 
+    // Ask the admin to confirm document deletion before calling the API.
     setDeleteDialog({ kind: "document", document });
   }
 
+/**
+ * Delete a user through the admin service and refresh dashboard data afterward.
+ * This also shows a success or error notice based on the result.
+ */
+  // Execute a user deletion after the admin confirms the modal.
+  // The delete action is only active for one user at a time and refreshes admin data.
   async function executeDeleteUser(user: AdminUserRow) {
     if (!session?.token || deletingUserId) {
       return;
@@ -304,6 +367,7 @@ export default function AdminPage() {
       return;
     }
 
+    // Mark the delete action as busy and clear the confirmation dialog.
     setDeletingUserId(user.user_id);
     setDeleteDialog(null);
     setErrorMessage("");
@@ -335,11 +399,18 @@ export default function AdminPage() {
     }
   }
 
+/**
+ * Delete a document through the admin service and refresh page data once complete.
+ * Prevents duplicate actions while a deletion is in progress.
+ */
+  // Execute a document deletion after confirmation in the documents UI section.
+  // This refreshes the dashboard state and keeps the deletion button busy until done.
   async function executeDeleteDocument(document: AdminDocumentRow) {
     if (!session?.token || deletingDocumentId) {
       return;
     }
 
+    // Mark this document delete request as busy and clear the existing dialog.
     setDeletingDocumentId(document.document_id);
     setDeleteDialog(null);
     setErrorMessage("");
@@ -542,6 +613,12 @@ function AdminBrand({ compact = false }: { compact?: boolean }) {
   );
 }
 
+/**
+ * Page header that shows the current admin section and provides refresh action.
+ *
+ * This header appears above the main admin panels and updates the title/description
+ * based on the active sidebar section.
+ */
 function AdminPageHeader({
   activeSection,
   isLoading,
@@ -586,6 +663,12 @@ function AdminPageHeader({
   );
 }
 
+/**
+ * Dashboard section with metrics and charts for system status and document activity.
+ *
+ * This UI section renders the top admin metrics, distribution charts, ownership chart,
+ * activity mix, and timeline controls for index volume.
+ */
 function DashboardSection({
   summary,
   documents,
@@ -702,6 +785,11 @@ function DashboardSection({
   );
 }
 
+/**
+ * Account management section showing user list and deletion controls.
+ *
+ * Renders the accounts panel and delegates user delete actions to the admin page state.
+ */
 function AccountsSection({
   users,
   isLoading,
@@ -729,6 +817,11 @@ function AccountsSection({
   );
 }
 
+/**
+ * Document management section showing uploaded files and delete actions.
+ *
+ * Renders a list of indexed documents with delete buttons and fallback empty state.
+ */
 function DocumentsSection({
   documents,
   isLoading,
@@ -756,6 +849,9 @@ function DocumentsSection({
   );
 }
 
+/**
+ * Activity section showing recent audit event entries and fallback state.
+ */
 function ActivitySection({
   logs,
   isLoading,
@@ -795,6 +891,14 @@ function ActivitySection({
   );
 }
 
+/**
+ * Compact user list used in admin accounts section.
+ *
+ * Shows either a small preview or full expanded list depending on props.
+ *
+ * The accounts section uses this component to display users with role, document count,
+ * and delete actions in a grid card layout.
+ */
 function CompactUserList({
   users,
   isLoading,
@@ -859,6 +963,14 @@ function CompactUserList({
   );
 }
 
+/**
+ * Compact document list used in admin documents section.
+ *
+ * Supports a preview layout and delete button per document.
+ *
+ * This component renders document cards with owner and timestamp metadata,
+ * and it is the main list view for the documents section.
+ */
 function CompactDocumentList({
   documents,
   isLoading,
@@ -916,6 +1028,9 @@ function CompactDocumentList({
   );
 }
 
+/**
+ * Button used for deleting users or documents with busy state support.
+ */
 function TrashButton({
   label,
   disabled,
@@ -950,6 +1065,11 @@ function TrashButton({
   );
 }
 
+/**
+ * Confirmation dialog shown before deleting a user or document.
+ *
+ * Renders an overlay modal for delete confirmation, with cancel and confirm actions.
+ */
 function AdminDeleteDialog({
   dialog,
   isBusy,
@@ -1019,6 +1139,11 @@ function AdminDeleteDialog({
   );
 }
 
+/**
+ * Toast notification shown for success or failure messages.
+ *
+ * Displays a fixed banner in the bottom-right corner and supports manual close.
+ */
 function AdminNotice({
   notice,
   onClose,
@@ -1061,6 +1186,11 @@ function AdminNotice({
   );
 }
 
+/**
+ * Simple column chart for numeric dashboard metrics.
+ *
+ * Converts numeric summary rows into vertical bars with value labels above each bar.
+ */
 function ColumnChart({
   rows,
 }: {
@@ -1096,6 +1226,12 @@ function ColumnChart({
   );
 }
 
+/**
+ * Horizontal bar chart used to show ranked values with labels.
+ *
+ * Used in the dashboard section to display document ownership across owners
+ * and to render other ranked value distributions.
+ */
 function HorizontalBarChart({
   rows,
   emptyText,
@@ -1134,6 +1270,11 @@ function HorizontalBarChart({
   );
 }
 
+/**
+ * Donut chart visualization for category distribution data.
+ *
+ * Renders a ring chart with a center label and a legend describing each slice.
+ */
 function DonutChart({
   rows,
   centerLabel,
@@ -1167,6 +1308,11 @@ function DonutChart({
   );
 }
 
+/**
+ * Line chart used for timeline trends of document indexing.
+ *
+ * Builds an SVG line path from timeline buckets and plots point values across the x-axis.
+ */
 function LineChart({
   rows,
   xLabel,
@@ -1356,6 +1502,11 @@ function EmptyAdminState({ text }: { text: string }) {
   );
 }
 
+/**
+ * Create a CSS conic gradient string from chart row colors and values.
+ *
+ * Converts pie slice values into angular stop ranges for the donut chart fill.
+ */
 function buildConicGradient(
   rows: Array<{ label: string; value: number; color: string }>,
 ) {
@@ -1376,6 +1527,12 @@ function buildConicGradient(
   return `conic-gradient(${stops.join(", ")})`;
 }
 
+/**
+ * Build a small set of document owner rows for the ownership donut chart.
+ *
+ * Maps owners to document counts, keeps only the top five owners,
+ * and assigns each owner a distinct chart color slice.
+ */
 function buildDocumentOwnerRows(documents: AdminDocumentRow[]) {
   const colors = ["#2563eb", "#10b981", "#7c3aed", "#f59e0b", "#ef4444"];
   const counts = new Map<string, number>();
@@ -1395,6 +1552,12 @@ function buildDocumentOwnerRows(documents: AdminDocumentRow[]) {
     }));
 }
 
+/**
+ * Build activity category counts for the audit event donut chart.
+ *
+ * Normalizes audit action text, aggregates counts by action type,
+ * and selects the top five categories for the chart.
+ */
 function buildActivityMix(logs: AdminAuditLog[]) {
   const colors = ["#2563eb", "#10b981", "#7c3aed", "#f59e0b", "#ef4444"];
   const counts = new Map<string, number>();
@@ -1422,6 +1585,11 @@ function buildActivityMix(logs: AdminAuditLog[]) {
     : [{ label: "No activity", value: 0, color: "#e2e8f0" }];
 }
 
+/**
+ * Build document count values per time bucket for the selected timeline range.
+ *
+ * Counts how many documents were indexed in each generated timeline bucket.
+ */
 function buildDocumentTrend(
   documents: AdminDocumentRow[],
   range: TimelineRange,
@@ -1441,6 +1609,12 @@ function buildDocumentTrend(
   });
 }
 
+/**
+ * Create timeline buckets for day, week, month, or year views.
+ *
+ * The buckets are used to aggregate document counts into chart points.
+ * Each range produces labels suitable for the timeline chart x-axis.
+ */
 function createTimelineBuckets(range: TimelineRange) {
   if (range === "week") {
     return Array.from({ length: 6 }, (_, index) => {
@@ -1504,6 +1678,8 @@ function createTimelineBuckets(range: TimelineRange) {
   });
 }
 
+// Align a date to the start of the current week (Monday).
+// Used by week-range timeline buckets to keep the chart aligned to full weeks.
 function startOfWeek(value: Date) {
   const date = new Date(value);
   const day = date.getDay();
@@ -1513,6 +1689,11 @@ function startOfWeek(value: Date) {
   return date;
 }
 
+/**
+ * Format admin timestamps for display in the activity section.
+ *
+ * Returns a compact human-readable string or a fallback label for invalid/missing dates.
+ */
 function formatAdminDate(value: string | null | undefined) {
   if (!value) {
     return "Recently";

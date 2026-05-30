@@ -9,6 +9,7 @@ import { ConfigureModal } from "@/components/ConfigureModal";
 import { useAppPreferences } from "@/lib/appPreferences";
 import type { AuthResponse } from "@/types/auth";
 
+// Main navigation links shown near the top of the sidebar.
 const sidebarItems = [
   {
     label: "PROFILE",
@@ -27,6 +28,7 @@ const sidebarItems = [
   },
 ] as const;
 
+// Secondary navigation links shown near the bottom of the sidebar.
 const secondarySidebarItems = [
   {
     label: "HELP CENTER",
@@ -35,16 +37,23 @@ const secondarySidebarItems = [
   },
 ] as const;
 
+// Icon paths used by action buttons inside the sidebar.
 const LOGOUT_ICON = "/assets/icons/sidebar/logout-icon.png";
 const LANGUAGE_ICON = "/assets/icons/sidebar/language-icon.png";
 
+// Props needed to control the account sidebar from a parent component.
 type AccountSidebarProps = {
+  // Controls whether the sidebar should open or close.
   isOpen: boolean;
+  // Closes the sidebar when the user clicks outside, presses Escape, or clicks close.
   onClose: () => void;
+  // Runs the logout action when the user clicks the logout button.
   onLogout: () => void;
+  // Stores the current authenticated user's information.
   session: AuthResponse;
 };
 
+// Builds a readable display name from the email address when no username exists.
 export function getAccountDisplayName(email: string) {
   const localPart = email.split("@")[0] || "Reader";
 
@@ -57,10 +66,12 @@ export function getAccountDisplayName(email: string) {
     .join(" ");
 }
 
+// Uses the username first, then falls back to a name generated from the email.
 export function getAccountName(session: AuthResponse) {
   return session.username?.trim() || getAccountDisplayName(session.email);
 }
 
+// Creates short initials from the account email for avatar fallback cases.
 export function getAccountInitials(email: string) {
   const displayName = getAccountDisplayName(email);
   const initials = displayName
@@ -79,19 +90,36 @@ export function AccountSidebar({
   onLogout,
   session,
 }: AccountSidebarProps) {
+  // The name displayed in the account header.
   const displayName = getAccountName(session);
+
+  // App preference helpers for language, translation, and changing locale.
   const { locale, setLocale, t } = useAppPreferences();
+
+  // Keeps the sidebar in the DOM long enough for the closing animation.
   const [shouldRenderSidebar, setShouldRenderSidebar] = useState(false);
+
+  // Controls the visible animation state of the sidebar and backdrop.
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+
+  // Makes sure the portal only renders after the component mounts in the browser.
   const [isMounted, setIsMounted] = useState(false);
+
+  // Controls the Configure AI modal opened from the sidebar.
   const [isConfigureOpen, setIsConfigureOpen] = useState(false);
+
+  // Stores the close-animation timer so it can be cleared when needed.
   const sidebarTimerRef = useRef<number | null>(null);
+
+  // Checks the current language to position the language switch correctly.
   const isVietnamese = locale === "vi";
 
+  // Switches between Vietnamese and English.
   function toggleLanguage() {
     setLocale(isVietnamese ? "en" : "vi");
   }
 
+  // Delays mounted state until the browser is ready, avoiding portal render issues.
   useEffect(() => {
     const mountTimer = window.setTimeout(() => {
       setIsMounted(true);
@@ -100,6 +128,7 @@ export function AccountSidebar({
     return () => window.clearTimeout(mountTimer);
   }, []);
 
+  // Handles opening and closing animations for the sidebar.
   useEffect(() => {
     if (isOpen) {
       if (sidebarTimerRef.current) {
@@ -135,6 +164,7 @@ export function AccountSidebar({
     return () => window.clearTimeout(visibilityTimer);
   }, [isOpen]);
 
+  // Adds keyboard closing support and locks mobile scrolling while the sidebar is open.
   useEffect(() => {
     if (!shouldRenderSidebar) {
       return;
@@ -182,6 +212,7 @@ export function AccountSidebar({
     };
   }, [shouldRenderSidebar, onClose]);
 
+  // Clears any active sidebar timer when the component is removed.
   useEffect(() => {
     return () => {
       if (sidebarTimerRef.current) {
@@ -190,6 +221,7 @@ export function AccountSidebar({
     };
   }, []);
 
+  // Do not render anything before mounting or when the sidebar should be hidden.
   if (!isMounted || !shouldRenderSidebar) {
     return null;
   }
@@ -199,6 +231,7 @@ export function AccountSidebar({
       className="fixed inset-0 isolate z-[9999] overflow-hidden overscroll-none"
       aria-hidden={false}
     >
+      {/* Backdrop overlay. Clicking it closes the sidebar. */}
       <button
         type="button"
         className={`fixed inset-0 z-0 cursor-default bg-[#07111f]/40 transition-opacity duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
@@ -208,6 +241,7 @@ export function AccountSidebar({
         aria-label={t("Close account sidebar")}
       />
 
+      {/* Main sidebar panel shown on the right side of the screen. */}
       <aside
         className={`fixed right-0 top-0 z-10 flex h-dvh w-[min(360px,calc(100vw_-_18px))] flex-col overflow-y-auto overscroll-contain rounded-l-[28px] bg-[#f8fbff] px-7 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] text-[#2f47b8] shadow-[-26px_0_70px_rgba(12,22,48,0.22)] transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] max-[420px]:w-[calc(100vw_-_10px)] max-[420px]:rounded-l-[22px] max-[420px]:px-5 max-[420px]:py-7 max-[420px]:pb-[calc(1.75rem+env(safe-area-inset-bottom))] ${
           isSidebarVisible
@@ -218,6 +252,7 @@ export function AccountSidebar({
         aria-modal="true"
         role="dialog"
       >
+        {/* Close button inside the sidebar panel. */}
         <button
           type="button"
           onClick={onClose}
@@ -239,6 +274,7 @@ export function AccountSidebar({
           </svg>
         </button>
 
+        {/* Account header with avatar, display name, and email. */}
         <div
           className={`flex items-center gap-4 pr-9 transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
             isSidebarVisible
@@ -263,6 +299,7 @@ export function AccountSidebar({
           </div>
         </div>
 
+        {/* Main workspace navigation links. */}
         <nav className="mt-10 grid gap-1" aria-label={t("Workspace")}>
           {sidebarItems.map((item, index) => (
             <Link
@@ -294,6 +331,7 @@ export function AccountSidebar({
           ))}
         </nav>
 
+        {/* Preferences section, currently used for language switching. */}
         <section
           aria-label={t("Preferences")}
           style={{
@@ -345,6 +383,7 @@ export function AccountSidebar({
           </div>
         </section>
 
+        {/* Bottom area with support links, configure button, and logout button. */}
         <div className="mt-auto border-t border-[#dfe5f4] pt-5">
           <p className="mb-2 px-3 text-[11px] font-black uppercase tracking-[0.16em] text-[#8a94b8]">
             {t("Support")}
@@ -378,6 +417,7 @@ export function AccountSidebar({
             </Link>
           ))}
 
+          {/* Opens the Configure AI modal. */}
           <button
             type="button"
             onClick={() => setIsConfigureOpen(true)}
@@ -409,6 +449,7 @@ export function AccountSidebar({
             <span>{t("CONFIGURE AI")}</span>
           </button>
 
+          {/* Logs the current user out. */}
           <button
             type="button"
             onClick={onLogout}
@@ -439,7 +480,10 @@ export function AccountSidebar({
 
   return (
     <>
+      {/* Render the sidebar at document.body so it appears above the whole app. */}
       {createPortal(sidebarContent, document.body)}
+
+      {/* Configure AI modal controlled by the sidebar button. */}
       <ConfigureModal
         isOpen={isConfigureOpen}
         onClose={() => setIsConfigureOpen(false)}

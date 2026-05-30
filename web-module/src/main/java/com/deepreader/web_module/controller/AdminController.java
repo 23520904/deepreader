@@ -24,6 +24,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Admin API controller for dashboard metrics, user management, document management,
+ * audit logs, and ingestion dead-letter monitoring.
+ *
+ * <p>Every endpoint checks the current user role before returning sensitive admin data.
+ */
 @RestController
 @RequestMapping("/api/v1/admin")
 @Tag(name = "Admin")
@@ -45,6 +51,11 @@ public class AdminController {
 		this.auditLogService = auditLogService;
 	}
 
+	/**
+	 * Returns summary metrics used by the admin dashboard.
+	 *
+	 * <p>JDBC and progress-count operations are blocking, so they run on boundedElastic.
+	 */
 	@GetMapping(value = "/summary", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Get dashboard summary metrics (admin only)")
 	public Mono<AdminSummaryResponse> summary(ServerWebExchange exchange) {
@@ -63,6 +74,11 @@ public class AdminController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Lists user accounts with their indexed document counts.
+	 *
+	 * <p>The limit is clamped to avoid very large admin queries.
+	 */
 	@GetMapping(value = "/users", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "List user accounts with document counts (admin only)")
 	public Mono<List<Map<String, Object>>> users(@RequestParam(name = "limit", defaultValue = "100") int limit, ServerWebExchange exchange) {
@@ -84,6 +100,11 @@ public class AdminController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Lists indexed documents across all users.
+	 *
+	 * <p>User data is joined so admins can see who owns each document.
+	 */
 	@GetMapping(value = "/documents", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "List indexed documents across users (admin only)")
 	public Mono<List<Map<String, Object>>> documents(@RequestParam(name = "limit", defaultValue = "100") int limit, ServerWebExchange exchange) {
@@ -103,6 +124,12 @@ public class AdminController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Deletes a user account by admin action.
+	 *
+	 * <p>The current signed-in admin cannot delete their own account, which avoids
+	 * accidentally locking out the active administrator.
+	 */
 	@DeleteMapping(value = "/users/{userId}")
 	@Operation(summary = "Delete a user account and related owned data (admin only)")
 	public Mono<ResponseEntity<Void>> deleteUser(@PathVariable String userId, ServerWebExchange exchange) {
@@ -116,11 +143,19 @@ public class AdminController {
 			if (deleted == 0) {
 				throw new IllegalArgumentException("User not found");
 			}
+
+			// Record the admin action for accountability.
 			auditLogService.log(adminUserId, "ADMIN_DELETE_USER", "userId=" + userId);
 			return ResponseEntity.noContent().<Void>build();
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Deletes a document through the business service after finding its owner.
+	 *
+	 * <p>The owner user ID is needed because business-service deletion is still
+	 * user-scoped, even when the request is initiated by an admin.
+	 */
 	@DeleteMapping(value = "/documents/{documentId}")
 	@Operation(summary = "Delete a document and its indexed content (admin only)")
 	public Mono<ResponseEntity<Void>> deleteDocument(@PathVariable String documentId, ServerWebExchange exchange) {
@@ -144,6 +179,9 @@ public class AdminController {
 						}).subscribeOn(Schedulers.boundedElastic())));
 	}
 
+	/**
+	 * Lists books across all users for admin library inspection.
+	 */
 	@GetMapping(value = "/library", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "List library books across all users (admin only)")
 	public reactor.core.publisher.Flux<Book> library(ServerWebExchange exchange) {
@@ -151,6 +189,11 @@ public class AdminController {
 		return businessServiceClient.listBooks(null);
 	}
 
+	/**
+	 * Lists recent audit log entries.
+	 *
+	 * <p>The limit is clamped for safer dashboard queries.
+	 */
 	@GetMapping(value = "/audit-logs", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "List recent audit logs (admin only)")
 	public Mono<List<Map<String, Object>>> auditLogs(@RequestParam(name = "limit", defaultValue = "100") int limit, ServerWebExchange exchange) {
@@ -161,6 +204,11 @@ public class AdminController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Lists ingestion dead-letter records within a recent time window.
+	 *
+	 * <p>The time range is limited to one week to keep the query bounded.
+	 */
 	@GetMapping(value = "/dead-letters", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "List ingestion dead letters (admin only)")
 	public Mono<List<Map<String, Object>>> deadLetters(@RequestParam(name = "sinceHours", defaultValue = "24") int sinceHours, ServerWebExchange exchange) {
@@ -175,14 +223,21 @@ public class AdminController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Runs a count query and safely converts a null result to zero.
+	 */
 	private int queryCount(String sql) {
 		Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
 		return count == null ? 0 : count;
 	}
 
+	// Carries the admin user and document owner through the async delete flow.
 	private record DeleteDocumentContext(String adminUserId, String ownerUserId) {
 	}
 
+	/**
+	 * Summary metrics returned to the admin dashboard.
+	 */
 	public record AdminSummaryResponse(
 			int users,
 			int admins,

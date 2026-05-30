@@ -17,10 +17,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Service responsible for sending generation requests to supported LLM providers.
+ *
+ * This service selects the best available provider, loads user-specific API tokens
+ * when available, falls back to application-level provider keys, and converts
+ * provider errors into clearer application exceptions.
+ */
 @Service
 public class LlmClientService {
 
+	/**
+	 * Maximum prompt size sent to Groq before truncation is applied.
+	 */
 	private static final int GROQ_MAX_PROMPT_CHARS = 16_000;
+
+	/**
+	 * Provider order used for generation fallback.
+	 */
 	private static final List<String> GENERATION_PRIORITY = List.of("groq", "gemini");
 
 	private final GeminiProperties geminiProperties;
@@ -28,6 +42,10 @@ public class LlmClientService {
 	private final WebClient.Builder webClientBuilder;
 	private final JdbcTemplate jdbcTemplate;
 
+	/**
+	 * Creates the LLM client service with provider configuration, HTTP client,
+	 * and database access for user-level LLM tokens.
+	 */
 	public LlmClientService(GeminiProperties geminiProperties, GroqProperties groqProperties, WebClient.Builder webClientBuilder, JdbcTemplate jdbcTemplate) {
 		this.geminiProperties = geminiProperties;
 		this.groqProperties = groqProperties;
@@ -35,10 +53,22 @@ public class LlmClientService {
 		this.jdbcTemplate = jdbcTemplate;
 	}
 
+	/**
+	 * Generates an answer and returns only the answer text.
+	 *
+	 * The provider argument is accepted for compatibility with callers, while
+	 * generation still uses the configured provider priority and fallback flow.
+	 */
 	public String generateAnswer(String userId, String provider, String prompt) {
 		return generateAnswer(userId, prompt).answer();
 	}
 
+	/**
+	 * Generates an answer using the first available provider in priority order.
+	 *
+	 * If one provider fails due to configuration, quota, or API errors, the next
+	 * provider is attempted before the final combined failure is returned.
+	 */
 	public GeneratedAnswer generateAnswer(String userId, String prompt) {
 		String userToken = findUserLlmToken(userId);
 		List<String> failures = new ArrayList<>();
@@ -58,6 +88,12 @@ public class LlmClientService {
 		throw new IllegalStateException("Groq and Gemini generation failed. " + String.join(" | ", failures));
 	}
 
+	/**
+	 * Sends a generation request to Gemini.
+	 *
+	 * A user-provided Gemini token is preferred when available; otherwise the
+	 * configured application Gemini API key is used.
+	 */
 	private String generateWithGemini(String userToken, String prompt) {
 		String apiKey = isGeminiApiKey(userToken) ? userToken : geminiProperties.getApiKey();
 		if (!StringUtils.hasText(apiKey)) {
@@ -83,6 +119,12 @@ public class LlmClientService {
 		return content;
 	}
 
+	/**
+	 * Sends a chat completion request to Groq.
+	 *
+	 * A user-provided Groq token is preferred when available; otherwise the
+	 * configured application Groq API key is used.
+	 */
 	private String generateWithGroq(String userToken, String prompt) {
 		String apiKey = isGroqApiKey(userToken) ? userToken : groqProperties.getApiKey();
 		if (!StringUtils.hasText(apiKey)) {
@@ -110,6 +152,12 @@ public class LlmClientService {
 		return safe.choices().getFirst().message().content().trim();
 	}
 
+	/**
+	 * Trims prompts that exceed Groq's configured maximum prompt size.
+	 *
+	 * This prevents oversized requests from being rejected before the provider can
+	 * generate an answer.
+	 */
 	private String fitGroqPrompt(String prompt) {
 		if (prompt == null || prompt.length() <= GROQ_MAX_PROMPT_CHARS) {
 			return prompt;
@@ -119,12 +167,21 @@ public class LlmClientService {
 				+ "\n\n[Prompt truncated because Groq rejected overly large requests.]";
 	}
 
+	/**
+	 * Normalizes a provider base URL by applying a default and removing trailing slashes.
+	 */
 	private String normalizeUrl(String url) {
 		String normalized = StringUtils.hasText(url) ? url.trim() : "https://api.groq.com/openai/v1";
 		while (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
 		return normalized;
 	}
 
+	/**
+	 * Normalizes the Gemini base URL before request paths are appended.
+	 *
+	 * If the configured URL already includes a model path, the model-specific
+	 * portion is removed so requests can build the path consistently.
+	 */
 	private String normalizeGeminiBaseUrl(String configuredBaseUrl) {
 		String normalized = StringUtils.hasText(configuredBaseUrl) ? configuredBaseUrl.trim() : "https://generativelanguage.googleapis.com/v1beta";
 		int modelsIndex = normalized.indexOf("/models/");
@@ -133,20 +190,38 @@ public class LlmClientService {
 		return normalized;
 	}
 
+	/**
+	 * Normalizes the Gemini model name used in the generation endpoint.
+	 *
+	 * The request path already adds the models segment, so this method removes it
+	 * when the configured value includes the full model path.
+	 */
 	private String normalizeGeminiModel(String configuredModel) {
 		String normalized = StringUtils.hasText(configuredModel) ? configuredModel.trim() : "gemini-2.0-flash";
 		if (normalized.startsWith("models/")) normalized = normalized.substring("models/".length());
 		return normalized;
 	}
 
+	/**
+	 * Checks whether a token looks like a Groq API key.
+	 */
 	private boolean isGroqApiKey(String value) {
 		return StringUtils.hasText(value) && value.trim().startsWith("gsk_");
 	}
 
+	/**
+	 * Checks whether a token should be treated as a Gemini API key.
+	 */
 	private boolean isGeminiApiKey(String value) {
 		return StringUtils.hasText(value) && !isGroqApiKey(value);
 	}
 
+	/**
+	 * Loads the user's saved LLM API token from the database.
+	 *
+	 * A null value is returned when the user id is missing, the database is not
+	 * available, or no token is saved for the user.
+	 */
 	private String findUserLlmToken(String userId) {
 		if (!StringUtils.hasText(userId) || jdbcTemplate == null) {
 			return null;
@@ -163,6 +238,12 @@ public class LlmClientService {
 		return null;
 	}
 
+	/**
+	 * Converts provider HTTP errors into clear application-level exceptions.
+	 *
+	 * This gives callers more actionable messages for invalid keys, quota limits,
+	 * oversized prompts, temporary provider outages, and unknown provider failures.
+	 */
 	private IllegalStateException providerGenerationException(String provider, String envName, WebClientResponseException exception) {
 		int status = exception.getStatusCode().value();
 		String responseBody = exception.getResponseBodyAsString();
@@ -186,6 +267,9 @@ public class LlmClientService {
 		return new IllegalStateException(provider + " generation request failed with status " + status + ". Check provider credentials and model access.", exception);
 	}
 
+	/**
+	 * Extracts a retry delay suffix from a provider error response when available.
+	 */
 	private String retryDelaySuffix(String responseBody) {
 		int retryDelayIndex = responseBody.indexOf("\"retryDelay\"");
 
@@ -209,6 +293,9 @@ public class LlmClientService {
 		return " after " + delaySeconds + "s";
 	}
 
+	/**
+	 * Result wrapper containing the provider that succeeded and the generated answer.
+	 */
 	public record GeneratedAnswer(String provider, String answer) {
 	}
 }

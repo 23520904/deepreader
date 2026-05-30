@@ -1,23 +1,34 @@
 import type { LibraryDocument } from "@/types/library";
 import type { FlashcardView } from "@/types/study";
 
+// Available learning states for a flashcard
 export type StudyStatus = "new" | "learning" | "mastered" | "weak";
+
+// Filter options used when displaying cards
 export type StatusFilter = "all" | "new" | "learning" | "mastered" | "weak";
+
+// Supported deck sorting modes
 export type DeckSortMode =
   | "newest"
   | "last-studied"
   | "most-cards"
   | "lowest-accuracy"
   | "highest-progress";
+
+// User review ratings used in spaced repetition
 export type ReviewRating = "again" | "hard" | "good" | "easy";
+
+// Available study game modes
 export type GameMode = "match" | "speed" | "memory";
 
+// Flashcard with additional book information
 export type StudyFlashcard = FlashcardView & {
   bookId: string;
   bookTitle: string;
   bookFormat: LibraryDocument["format"];
 };
 
+// Progress data stored for each flashcard
 export type CardProgress = {
   status: StudyStatus;
   reviews: number;
@@ -29,11 +40,13 @@ export type CardProgress = {
   easeFactor?: number;
 };
 
+// User-edited flashcard content
 export type CardEdit = {
   question: string;
   answer: string;
 };
 
+// Aggregated study deck information used by the UI
 export type StudyDeck = {
   id: string;
   title: string;
@@ -52,12 +65,17 @@ export type StudyDeck = {
   lastStudied: string | null;
 };
 
+// Shared assets and localStorage keys
 export const STACK_ICON = "/assets/icons/home/stack-icon.png";
 export const DOCUMENT_ICON = "/assets/images/library/document-3d.webp";
 export const STUDY_STATE_KEY = "deepreader:flashcard-study-state:v1";
 export const CARD_EDITS_KEY = "deepreader:flashcard-card-edits:v1";
 export const HIDDEN_CARDS_KEY = "deepreader:flashcard-hidden-cards:v1";
 
+/**
+ * Convert a date string into a timestamp.
+ * Returns 0 when the date is missing or invalid.
+ */
 export function createdAtTime(value: string | null) {
   if (!value) {
     return 0;
@@ -67,6 +85,9 @@ export function createdAtTime(value: string | null) {
   return Number.isNaN(time) ? 0 : time;
 }
 
+/**
+ * Format a full date for display in the UI.
+ */
 export function formatDate(value: string | null) {
   if (!value) {
     return "Not studied yet";
@@ -85,6 +106,9 @@ export function formatDate(value: string | null) {
   }).format(date);
 }
 
+/**
+ * Format a shorter date version.
+ */
 export function formatShortDate(value: string | null) {
   if (!value) {
     return "New";
@@ -102,6 +126,10 @@ export function formatShortDate(value: string | null) {
   }).format(date);
 }
 
+/**
+ * Safely read JSON data from localStorage.
+ * Returns the fallback value if parsing fails.
+ */
 export function safeReadStorage<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") {
     return fallback;
@@ -116,6 +144,9 @@ export function safeReadStorage<T>(key: string, fallback: T): T {
   }
 }
 
+/**
+ * Save data into localStorage.
+ */
 export function writeStorage<T>(key: string, value: T) {
   if (typeof window === "undefined") {
     return;
@@ -124,6 +155,9 @@ export function writeStorage<T>(key: string, value: T) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+/**
+ * Shuffle items using the Fisher-Yates algorithm.
+ */
 export function shuffleItems<T>(items: T[]) {
   const nextItems = [...items];
 
@@ -138,6 +172,9 @@ export function shuffleItems<T>(items: T[]) {
   return nextItems;
 }
 
+/**
+ * Check whether a card is currently due for review.
+ */
 export function isCardDue(
   cardId: string,
   progressByCard: Record<string, CardProgress>,
@@ -153,6 +190,10 @@ export function isCardDue(
   return Number.isNaN(dueTime) || dueTime <= now.getTime();
 }
 
+/**
+ * Calculate the next review state after the user rates a card.
+ * Includes spaced repetition scheduling logic.
+ */
 export function scheduleCardReview({
   currentProgress,
   rating,
@@ -161,7 +202,7 @@ export function scheduleCardReview({
   currentProgress?: CardProgress;
   rating: ReviewRating;
   now?: Date;
-}): CardProgress {
+}) {
   const currentCard = currentProgress ?? {
     status: "new" as StudyStatus,
     reviews: 0,
@@ -172,15 +213,18 @@ export function scheduleCardReview({
     intervalDays: 0,
     easeFactor: 2.5,
   };
+
   const nextReviews = currentCard.reviews + 1;
   const remembered = rating !== "again";
   const nextEase = nextEaseFactor(currentCard.easeFactor ?? 2.5, rating);
+
   const nextInterval = nextIntervalDays({
     previousInterval: currentCard.intervalDays ?? 0,
     reviews: currentCard.reviews,
     rating,
     easeFactor: nextEase,
   });
+
   const dueAt = addReviewDelay(now, rating, nextInterval).toISOString();
 
   return {
@@ -195,6 +239,10 @@ export function scheduleCardReview({
   };
 }
 
+/**
+ * Sort cards for review.
+ * Due cards and weaker cards are prioritized first.
+ */
 export function sortCardsForReview(
   cards: StudyFlashcard[],
   progressByCard: Record<string, CardProgress>,
@@ -223,12 +271,19 @@ export function sortCardsForReview(
   });
 }
 
+/**
+ * Remove duplicates and empty values from a string array.
+ */
 export function uniqueValues(values: string[]) {
   return Array.from(
     new Set(values.map((value) => value.trim()).filter(Boolean)),
   );
 }
 
+/**
+ * Generate multiple-choice quiz answers.
+ * Includes the correct answer and random distractors.
+ */
 export function makeQuizOptions(
   card: StudyFlashcard | null,
   cards: StudyFlashcard[],
@@ -246,6 +301,9 @@ export function makeQuizOptions(
   return shuffleItems([card.answer, ...shuffleItems(distractors).slice(0, 3)]);
 }
 
+/**
+ * Get the current study status of a card.
+ */
 export function cardStatus(
   cardId: string,
   progressByCard: Record<string, CardProgress>,
@@ -253,6 +311,9 @@ export function cardStatus(
   return progressByCard[cardId]?.status ?? "new";
 }
 
+/**
+ * Convert a review rating into a study status.
+ */
 function statusForRating(rating: ReviewRating, reviews: number): StudyStatus {
   if (rating === "again") {
     return "weak";
@@ -269,6 +330,9 @@ function statusForRating(rating: ReviewRating, reviews: number): StudyStatus {
   return "learning";
 }
 
+/**
+ * Update ease factor used by the spaced repetition algorithm.
+ */
 function nextEaseFactor(currentEase: number, rating: ReviewRating) {
   if (rating === "again") {
     return Math.max(1.3, currentEase - 0.25);
@@ -285,6 +349,9 @@ function nextEaseFactor(currentEase: number, rating: ReviewRating) {
   return currentEase;
 }
 
+/**
+ * Calculate the next review interval in days.
+ */
 function nextIntervalDays({
   previousInterval,
   reviews,
@@ -321,6 +388,9 @@ function nextIntervalDays({
   return Math.max(1, Math.round(Math.max(previousInterval, 1) * easeFactor));
 }
 
+/**
+ * Calculate the next due date for a review.
+ */
 function addReviewDelay(now: Date, rating: ReviewRating, intervalDays: number) {
   const dueAt = new Date(now);
 
@@ -333,6 +403,9 @@ function addReviewDelay(now: Date, rating: ReviewRating, intervalDays: number) {
   return dueAt;
 }
 
+/**
+ * Review priority used when sorting cards.
+ */
 function reviewPriority(status: StudyStatus) {
   if (status === "weak") {
     return 4;
@@ -349,6 +422,9 @@ function reviewPriority(status: StudyStatus) {
   return 1;
 }
 
+/**
+ * Human-readable label for a study status.
+ */
 export function statusLabel(status: StudyStatus) {
   if (status === "new") {
     return "New";
@@ -365,6 +441,9 @@ export function statusLabel(status: StudyStatus) {
   return "Weak";
 }
 
+/**
+ * Tailwind classes used for status badges.
+ */
 export function statusClasses(status: StudyStatus) {
   if (status === "mastered") {
     return "bg-[#ecfdf5] text-[#047857] ring-[#bbf7d0]";
@@ -381,6 +460,9 @@ export function statusClasses(status: StudyStatus) {
   return "bg-[#eff6ff] text-[#1d4ed8] ring-[#bfdbfe]";
 }
 
+/**
+ * Limit text length for display purposes.
+ */
 export function truncateText(value: string, maxLength = 120) {
   if (value.length <= maxLength) {
     return value;
@@ -389,6 +471,9 @@ export function truncateText(value: string, maxLength = 120) {
   return `${value.slice(0, maxLength).trim()}...`;
 }
 
+/**
+ * Apply user edits and hidden-card settings to a card list.
+ */
 export function applyCardOverrides({
   cards,
   cardEdits,
@@ -415,6 +500,10 @@ export function applyCardOverrides({
     });
 }
 
+/**
+ * Build study deck statistics from documents,
+ * flashcards, and stored study progress.
+ */
 export function buildStudyDecks({
   documents,
   cards,
@@ -432,22 +521,27 @@ export function buildStudyDecks({
       const statusValues = deckCards.map((card) =>
         cardStatus(card.id, studyProgress),
       );
+
       const totalAttempts = progressValues.reduce(
         (total, progress) => total + (progress?.attempts ?? 0),
         0,
       );
+
       const totalCorrect = progressValues.reduce(
         (total, progress) => total + (progress?.correct ?? 0),
         0,
       );
+
       const lastStudied =
         progressValues
           .map((progress) => progress?.lastReviewed ?? null)
           .sort((left, right) => createdAtTime(right) - createdAtTime(left))[0] ??
         null;
+
       const reviewedCount = progressValues.filter(
         (progress) => (progress?.reviews ?? 0) > 0,
       ).length;
+
       const masteredCount = statusValues.filter(
         (status) => status === "mastered",
       ).length;

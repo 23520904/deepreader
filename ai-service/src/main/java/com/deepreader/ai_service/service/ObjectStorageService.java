@@ -23,29 +23,49 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Service responsible for storing and loading uploaded documents.
+ *
+ * This service supports both S3-compatible object storage and local file storage.
+ * Local storage is used as a fallback when object storage is disabled.
+ */
 @Service
 public class ObjectStorageService {
 
+	/**
+	 * Prefix used to identify documents stored on the local filesystem.
+	 */
 	private static final String LOCAL_KEY_PREFIX = "local:";
 
 	private final ObjectStorageProperties properties;
 
+	/**
+	 * Creates the object storage service with storage configuration properties.
+	 */
 	public ObjectStorageService(ObjectStorageProperties properties) {
 		this.properties = properties;
 	}
 
+	/**
+	 * Stores an uploaded document and returns the generated object key.
+	 *
+	 * When object storage is disabled, the document is saved locally. Otherwise,
+	 * the file is uploaded to the configured S3-compatible bucket.
+	 */
 	public String storeDocument(String userId, String fileName, byte[] bytes) {
 		String safeFileName = StringUtils.hasText(fileName) ? fileName.replaceAll("[^a-zA-Z0-9._-]", "_") : "uploaded.bin";
 
 		if (!properties.isEnabled()) {
 			return storeLocalDocument(userId, safeFileName, bytes);
 		}
+
 		if (!StringUtils.hasText(properties.getEndpoint())
 				|| !StringUtils.hasText(properties.getAccessKey())
 				|| !StringUtils.hasText(properties.getSecretKey())
 				|| !StringUtils.hasText(properties.getBucket())) {
 			throw new IllegalStateException("Object storage is enabled but configuration is incomplete");
 		}
+
 		String key = userId + "/" + Instant.now().toEpochMilli() + "-" + UUID.randomUUID() + "-" + safeFileName;
 		try (S3Client s3 = buildClient()) {
 			ensureBucketExists(s3);
@@ -58,9 +78,16 @@ public class ObjectStorageService {
 					RequestBody.fromBytes(bytes)
 			);
 		}
+
 		return key;
 	}
 
+	/**
+	 * Loads a previously stored document by object key.
+	 *
+	 * Keys with the local prefix are read from the local filesystem. Other keys
+	 * are loaded from the configured S3-compatible object storage.
+	 */
 	public byte[] loadDocument(String objectKey) {
 		if (objectKey != null && objectKey.startsWith(LOCAL_KEY_PREFIX)) {
 			return loadLocalDocument(objectKey.substring(LOCAL_KEY_PREFIX.length()));
@@ -69,6 +96,7 @@ public class ObjectStorageService {
 		if (!properties.isEnabled()) {
 			throw new IllegalStateException("Object storage is disabled");
 		}
+
 		try (S3Client s3 = buildClient()) {
 			return s3.getObjectAsBytes(
 					GetObjectRequest.builder()
@@ -79,6 +107,12 @@ public class ObjectStorageService {
 		}
 	}
 
+	/**
+	 * Stores a document on the local filesystem.
+	 *
+	 * The generated local key includes the user id, timestamp, UUID, and safe file
+	 * name to reduce naming conflicts and keep files grouped by user.
+	 */
 	private String storeLocalDocument(String userId, String safeFileName, byte[] bytes) {
 		String safeUserId = safePathSegment(userId, "anonymous");
 		String relativeKey = safeUserId + "/" + Instant.now().toEpochMilli() + "-" + UUID.randomUUID() + "-" + safeFileName;
@@ -93,6 +127,9 @@ public class ObjectStorageService {
 		}
 	}
 
+	/**
+	 * Loads a locally stored document from its relative key.
+	 */
 	private byte[] loadLocalDocument(String relativeKey) {
 		Path path = resolveLocalPath(relativeKey);
 
@@ -103,6 +140,12 @@ public class ObjectStorageService {
 		}
 	}
 
+	/**
+	 * Resolves a local document path safely inside the configured storage directory.
+	 *
+	 * The normalized path must remain inside the local root directory, which helps
+	 * prevent path traversal through unsafe relative keys.
+	 */
 	private Path resolveLocalPath(String relativeKey) {
 		String localDirectory = StringUtils.hasText(properties.getLocalDirectory())
 				? properties.getLocalDirectory()
@@ -117,6 +160,9 @@ public class ObjectStorageService {
 		return path;
 	}
 
+	/**
+	 * Converts a user-controlled value into a safe filesystem path segment.
+	 */
 	private String safePathSegment(String value, String fallback) {
 		String safe = StringUtils.hasText(value)
 				? value.replaceAll("[^a-zA-Z0-9._-]", "_")
@@ -125,6 +171,10 @@ public class ObjectStorageService {
 		return safe.isBlank() ? fallback : safe;
 	}
 
+	/**
+	 * Builds an S3 client using the configured endpoint, region, credentials,
+	 * and path-style access setting.
+	 */
 	private S3Client buildClient() {
 		Region region = Region.of(properties.getRegion());
 		URI endpoint = URI.create(properties.getEndpoint());
@@ -137,6 +187,11 @@ public class ObjectStorageService {
 				.build();
 	}
 
+	/**
+	 * Ensures the configured bucket exists before uploading a document.
+	 *
+	 * If the bucket is missing, the service attempts to create it automatically.
+	 */
 	private void ensureBucketExists(S3Client s3) {
 		try {
 			s3.headBucket(HeadBucketRequest.builder().bucket(properties.getBucket()).build());
@@ -151,6 +206,9 @@ public class ObjectStorageService {
 		}
 	}
 
+	/**
+	 * Resolves the content type from the uploaded file name.
+	 */
 	private String contentTypeByName(String fileName) {
 		String lower = fileName.toLowerCase();
 		if (lower.endsWith(".pdf")) {

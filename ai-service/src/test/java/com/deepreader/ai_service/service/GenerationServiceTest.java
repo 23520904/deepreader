@@ -10,6 +10,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Tests flashcard parsing, filtering, and fallback generation in GenerationService.
+ */
 class GenerationServiceTest {
 
 	private final GenerationService generationService = new GenerationService(
@@ -19,6 +22,9 @@ class GenerationServiceTest {
 			new ObjectMapper()
 	);
 
+	/**
+	 * Checks that flashcards can be parsed from a valid JSON response.
+	 */
 	@Test
 	void parsesJsonFlashcards() {
 		List<Flashcard> flashcards = generationService.parseFlashcards("""
@@ -33,6 +39,9 @@ class GenerationServiceTest {
 		assertEquals("Bundling data with methods that operate on it.", flashcards.getFirst().answer());
 	}
 
+	/**
+	 * Checks that flashcards can be parsed from a Markdown table.
+	 */
 	@Test
 	void parsesMarkdownTableFlashcards() {
 		List<Flashcard> flashcards = generationService.parseFlashcards("""
@@ -45,6 +54,9 @@ class GenerationServiceTest {
 		assertEquals("What is polymorphism?", flashcards.getFirst().question());
 	}
 
+	/**
+	 * Checks that labelled question and answer text can be parsed into flashcards.
+	 */
 	@Test
 	void parsesLabelledFlashcards() {
 		List<Flashcard> flashcards = generationService.parseFlashcards("""
@@ -57,8 +69,12 @@ class GenerationServiceTest {
 		assertEquals("A runtime instance with state and behavior.", flashcards.get(1).answer());
 	}
 
+	/**
+	 * Checks that fallback flashcards are created from important document content.
+	 */
 	@Test
 	void createsFallbackFlashcardsFromImportantDocumentConcepts() {
+		// Create a small indexed document for testing fallback flashcard generation.
 		IndexedDocument document = new IndexedDocument(
 				"user-1",
 				"doc-1",
@@ -86,11 +102,16 @@ class GenerationServiceTest {
 
 		assertEquals(2, flashcards.size());
 		assertEquals("What is Object-oriented programming?", flashcards.getFirst().question());
+
+		// Fallback flashcards should test concepts, not page numbers.
 		org.junit.jupiter.api.Assertions.assertFalse(
 				flashcards.stream().anyMatch(card -> card.question().toLowerCase().contains("page"))
 		);
 	}
 
+	/**
+	 * Checks that page-based flashcards are removed.
+	 */
 	@Test
 	void filtersPageBasedGeneratedFlashcards() {
 		List<Flashcard> flashcards = generationService.filterStudyFlashcards(List.of(
@@ -102,6 +123,9 @@ class GenerationServiceTest {
 		assertEquals("What is a class?", flashcards.getFirst().question());
 	}
 
+	/**
+	 * Checks that Vietnamese answers are removed when English flashcards are expected.
+	 */
 	@Test
 	void filtersVietnameseAnswers() {
 		List<Flashcard> flashcards = generationService.filterStudyFlashcards(List.of(

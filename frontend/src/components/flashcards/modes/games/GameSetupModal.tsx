@@ -4,6 +4,8 @@ import type { GamePlayMode, GameSettings } from "../types";
 import { STACK_ICON, type StudyDeck } from "@/lib/flashcardStudy";
 import type { gameConfigs } from "./gameConfig";
 
+// Modal used before starting a flashcard mini game.
+// It lets the user review the selected game, adjust round settings, and start playing.
 export function GameSetupModal({
   game,
   deck,
@@ -12,28 +14,47 @@ export function GameSetupModal({
   onClose,
   onStart,
 }: {
+  // Current game configuration, such as title, icon, goal, colors, and setup rules.
   game: (typeof gameConfigs)[number];
+
+  // Deck that will be used for this game session.
   deck: StudyDeck;
+
+  // Current game settings selected by the user.
   settings: GameSettings;
+
+  // Updates the game settings when the user changes cards, pairs, time, or mode.
   onSettingsChange: (settings: GameSettings) => void;
+
+  // Closes the setup modal.
   onClose: () => void;
+
+  // Starts the game with the current settings.
   onStart: () => void;
 }) {
+  // Available card count options.
+  // Options larger than the deck size are removed, and duplicate values are removed.
   const cardOptions = [5, 8, 10, Math.min(deck.totalCards, 15)].filter(
     (value, index, values) =>
       value <= deck.totalCards && values.indexOf(value) === index,
   );
 
+  // Available pair count options for the memory game.
+  // The memory game uses question-answer pairs instead of simple card count.
   const pairOptions = [Math.min(deck.totalCards, 4), 6, 8].filter(
     (value, index, values) =>
       value > 0 && value <= deck.totalCards && values.indexOf(value) === index,
   );
 
+  // Timer options used by timed game modes.
   const timeOptions = [30, 60, 90];
 
   return (
+    // Full-screen overlay behind the setup modal.
     <div className="fixed inset-0 z-50 grid min-h-0 place-items-center overflow-hidden bg-[#0f172a]/58 px-4 py-4 max-[640px]:items-end max-[640px]:px-0 max-[640px]:py-0">
+      {/* Main modal container with header and scrollable content area. */}
       <div className="flex max-h-[calc(100dvh-32px)] w-[min(860px,100%)] min-h-0 flex-col overflow-hidden rounded-[24px] bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)] max-[640px]:h-[calc(100dvh_-_16px)] max-[640px]:max-h-none max-[640px]:rounded-b-none max-[640px]:rounded-t-[24px]">
+        {/* Game header: title, setup instruction, icon, and close button. */}
         <div
           className={`shrink-0 bg-gradient-to-br ${game.gradient} px-6 py-6 text-[#0f172a] max-[520px]:px-4 max-[520px]:py-5`}
         >
@@ -52,6 +73,7 @@ export function GameSetupModal({
               </p>
             </div>
 
+            {/* Decorative game icon, hidden on small screens to save space. */}
             <div className="hidden h-20 w-20 shrink-0 place-items-center rounded-[22px] bg-white/58 shadow-[0_16px_34px_rgba(15,23,42,0.1)] ring-1 ring-white/75 sm:grid">
               <Image
                 src={game.iconSrc}
@@ -73,7 +95,9 @@ export function GameSetupModal({
           </div>
         </div>
 
+        {/* Modal body: left side contains settings, right side contains deck summary and start button. */}
         <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto bg-[#f8fafc] p-6 md:grid-cols-[1fr_300px] max-[640px]:p-4">
+          {/* Round settings panel. */}
           <div className="rounded-[22px] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] ring-1 ring-[#e2e8f0] max-[420px]:p-4">
             <p className={`text-[13px] font-black uppercase ${game.accentClass}`}>
               Round settings
@@ -84,6 +108,7 @@ export function GameSetupModal({
             </h3>
 
             <div className="mt-5 grid gap-4">
+              {/* Choose the main amount for the round: pairs for memory, cards for other games. */}
               <SetupOptionGroup
                 title={game.id === "memory" ? "Pairs" : "Cards"}
                 description={
@@ -104,6 +129,7 @@ export function GameSetupModal({
                 }
               />
 
+              {/* Speed game always uses timed mode, so only the time selector is shown. */}
               {game.id === "speed" ? (
                 <SetupOptionGroup
                   title="Time limit"
@@ -121,6 +147,7 @@ export function GameSetupModal({
                 />
               ) : (
                 <>
+                  {/* For non-speed games, the user can choose relaxed or timed mode. */}
                   <div className="rounded-[18px] bg-[#f8fafc] p-4 ring-1 ring-[#e2e8f0]">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
@@ -139,6 +166,7 @@ export function GameSetupModal({
                       </span>
                     </div>
 
+                    {/* Mode buttons. The selected mode is highlighted. */}
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
                       {(["relaxed", "timed"] as GamePlayMode[]).map((mode) => (
                         <button
@@ -157,6 +185,7 @@ export function GameSetupModal({
                     </div>
                   </div>
 
+                  {/* Time selector appears only after the user chooses timed mode. */}
                   {settings.mode === "timed" ? (
                     <SetupOptionGroup
                       title="Time limit"
@@ -178,6 +207,7 @@ export function GameSetupModal({
             </div>
           </div>
 
+          {/* Deck summary panel shown next to the settings. */}
           <div className="rounded-[22px] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] ring-1 ring-[#dbe7f5] max-[420px]:p-4">
             <div className="flex items-center gap-3">
               <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px] bg-[#eff6ff] ring-1 ring-[#dbeafe]">
@@ -202,6 +232,7 @@ export function GameSetupModal({
               {deck.title}
             </h3>
 
+            {/* Explains what the selected game is trying to train. */}
             <div className="mt-5 rounded-[16px] bg-[#f8fafc] p-4 ring-1 ring-[#e2e8f0]">
               <p className="text-[12px] font-black text-[#64748b]">Goal</p>
               <p className="mt-1 text-[14px] font-black leading-6 text-[#0f172a]">
@@ -209,6 +240,7 @@ export function GameSetupModal({
               </p>
             </div>
 
+            {/* Starts the game using the selected settings. */}
             <button
               type="button"
               onClick={onStart}
@@ -223,6 +255,8 @@ export function GameSetupModal({
   );
 }
 
+// Reusable setting group for numeric choices like card count, pair count, or time limit.
+// It shows the current selected value and lets the user pick from preset options.
 function SetupOptionGroup({
   title,
   description,
@@ -231,14 +265,26 @@ function SetupOptionGroup({
   suffix,
   onSelect,
 }: {
+  // Label of this setting group, such as "Cards" or "Time limit".
   title: string;
+
+  // Short explanation shown under the title.
   description: string;
+
+  // Numeric options that can be selected.
   values: number[];
+
+  // Currently selected number.
   activeValue: number;
+
+  // Unit text shown after each value, such as "cards", "pairs", or "sec".
   suffix: string;
+
+  // Called when the user selects one option.
   onSelect: (value: number) => void;
 }) {
   return (
+    // Option group card.
     <div className="rounded-[18px] bg-[#f8fafc] p-4 ring-1 ring-[#e2e8f0] max-[420px]:p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -249,11 +295,13 @@ function SetupOptionGroup({
           </p>
         </div>
 
+        {/* Small badge showing the currently selected value. */}
         <span className="rounded-full bg-white px-3 py-1 text-[12px] font-black text-[#2563eb] ring-1 ring-[#dbeafe]">
           {activeValue} {suffix}
         </span>
       </div>
 
+      {/* Preset option buttons. The active option is highlighted in blue. */}
       <div className="mt-4 grid gap-2 sm:grid-cols-4 max-[420px]:grid-cols-2 max-[340px]:grid-cols-1">
         {values.map((value) => (
           <button

@@ -26,6 +26,13 @@ import io.qdrant.client.grpc.Collections;
 import io.qdrant.client.grpc.JsonWithInt;
 import io.qdrant.client.grpc.Points;
 
+/**
+ * Wraps low-level Qdrant client operations for document chunk vector storage and retrieval.
+ *
+ * <p>This service is responsible for creating or validating Qdrant collections,
+ * storing embedded document chunks, and converting search results back into
+ * application-level retrieved chunk models.
+ */
 @Service
 public class QdrantVectorStoreService {
 
@@ -39,6 +46,11 @@ public class QdrantVectorStoreService {
 		this.qdrantProperties = qdrantProperties;
 	}
 
+	/**
+	 * Lists all collections currently available in Qdrant.
+	 *
+	 * @return the names of all Qdrant collections
+	 */
 	public List<String> listCollections() {
 		try {
 			return qdrantClient.listCollectionsAsync(Duration.ofSeconds(qdrantProperties.getTimeoutSeconds())).get();
@@ -50,10 +62,17 @@ public class QdrantVectorStoreService {
 		}
 	}
 
+	/**
+	 * Logs the current Qdrant collection set to confirm that the service can connect successfully.
+	 */
 	public void logCollections() {
 		log.info("Connected to Qdrant collection set: {}", listCollections());
 	}
 
+	/**
+	 * Validates that the provider collection exists in Qdrant and has the configured vector size.
+	 * If the collection is missing, it is created before any upsert operations.
+	 */
 	@SuppressWarnings("null")
 	public void createCollectionIfNotExists(String provider, int vectorSize) {
 		String collectionName = collectionName(provider);
@@ -80,6 +99,8 @@ public class QdrantVectorStoreService {
 						collectionName,
 						Duration.ofSeconds(qdrantProperties.getTimeoutSeconds())
 				).get();
+
+				// Existing collections must match the current embedding dimension.
 				long existingVectorSize = collectionInfo.getConfig().getParams().getVectorsConfig().getParams().getSize();
 				if (existingVectorSize != vectorSize) {
 					throw new IllegalStateException(
@@ -97,13 +118,24 @@ public class QdrantVectorStoreService {
 		}
 	}
 
+	/**
+	 * Persists chunk vectors into Qdrant and guarantees collection compatibility before upsert.
+	 *
+	 * @param provider the embedding provider used to derive the target collection name
+	 * @param chunks the document chunks to store
+	 * @param embeddings the vector embeddings corresponding to the chunks
+	 * @param vectorSize the expected vector dimension for the target collection
+	 */
 	@SuppressWarnings("null")
 	public void upsertChunks(String provider, List<DocumentChunk> chunks, List<List<Float>> embeddings, int vectorSize) {
 		createCollectionIfNotExists(provider, vectorSize);
 		String collectionName = collectionName(provider);
+
+		// Each chunk must have exactly one embedding at the same list index.
 		if (chunks.size() != embeddings.size()) {
 			throw new IllegalArgumentException("Chunks count must match embeddings count");
 		}
+
 		List<Points.PointStruct> points = new java.util.ArrayList<>(chunks.size());
 		for (int i = 0; i < chunks.size(); i++) {
 			points.add(toPoint(chunks.get(i), embeddings.get(i)));
@@ -124,6 +156,14 @@ public class QdrantVectorStoreService {
 		}
 	}
 
+	/**
+	 * Runs a semantic nearest-neighbor search against the provider collection.
+	 *
+	 * @param provider the embedding provider used to derive the target collection name
+	 * @param queryVector the vector representation of the user's query
+	 * @param limit the maximum number of matching chunks to return
+	 * @return retrieved document chunks ordered by Qdrant search relevance
+	 */
 	@SuppressWarnings("null")
 	public List<RetrievedChunk> search(String provider, List<Float> queryVector, int limit) {
 		String collectionName = collectionName(provider);
@@ -149,6 +189,11 @@ public class QdrantVectorStoreService {
 		}
 	}
 
+	/**
+	 * Converts an application document chunk and its embedding vector into a Qdrant point.
+	 *
+	 * <p>The chunk metadata is stored as payload so it can be reconstructed after retrieval.
+	 */
 	private Points.PointStruct toPoint(DocumentChunk chunk, List<Float> vector) {
 		Map<String, io.qdrant.client.grpc.JsonWithInt.Value> payload = new LinkedHashMap<>();
 		payload.put("documentId", ValueFactory.value(Objects.requireNonNull(chunk.documentId(), "documentId must not be null")));
@@ -159,6 +204,7 @@ public class QdrantVectorStoreService {
 		payload.put("chunkIndex", ValueFactory.value(chunk.chunkIndex()));
 		payload.put("content", ValueFactory.value(Objects.requireNonNull(chunk.content(), "content must not be null")));
 
+		// Generate a stable UUID from the chunk ID so repeated upserts update the same Qdrant point.
 		UUID pointId = UUID.nameUUIDFromBytes(Objects.requireNonNull(chunk.chunkId(), "chunkId must not be null").getBytes());
 
 		return Points.PointStruct.newBuilder()
@@ -168,6 +214,9 @@ public class QdrantVectorStoreService {
 				.build();
 	}
 
+	/**
+	 * Converts a Qdrant scored point back into the application's retrieved chunk model.
+	 */
 	private RetrievedChunk toRetrievedChunk(Points.ScoredPoint scoredPoint) {
 		Map<String, JsonWithInt.Value> payload = scoredPoint.getPayloadMap();
 		return new RetrievedChunk(
@@ -182,6 +231,9 @@ public class QdrantVectorStoreService {
 		);
 	}
 
+	/**
+	 * Safely reads a string payload value from a Qdrant result.
+	 */
 	private String readString(Map<String, JsonWithInt.Value> payload, String key) {
 		JsonWithInt.Value value = payload.get(key);
 		if (value == null || !value.hasStringValue()) {
@@ -190,6 +242,12 @@ public class QdrantVectorStoreService {
 		return value.getStringValue();
 	}
 
+	/**
+	 * Safely reads an integer payload value from a Qdrant result.
+	 *
+	 * <p>Qdrant payload numbers may be returned as either integer or double values,
+	 * so this method accepts both formats.
+	 */
 	private Integer readInteger(Map<String, JsonWithInt.Value> payload, String key) {
 		JsonWithInt.Value value = payload.get(key);
 		if (value == null) {
@@ -204,6 +262,9 @@ public class QdrantVectorStoreService {
 		return null;
 	}
 
+	/**
+	 * Builds the Qdrant collection name for a specific embedding provider.
+	 */
 	private String collectionName(String provider) {
 		String prefix = StringUtils.hasText(qdrantProperties.getCollectionPrefix()) ? qdrantProperties.getCollectionPrefix() : "document_chunks";
 		return prefix + "_" + provider;

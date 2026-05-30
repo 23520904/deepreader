@@ -41,6 +41,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Handles authentication flows for email/password login, OTP verification,
+ * refresh tokens, logout, and Google OAuth.
+ *
+ * <p>Most service calls are blocking, so endpoint logic runs on boundedElastic.
+ */
 @RestController
 @Tag(name = "Authentication")
 public class AuthController {
@@ -78,6 +84,12 @@ public class AuthController {
 		this.allowedFrontendOrigins = parseAllowedOrigins(allowedOrigins);
 	}
 
+	/**
+	 * Sends an OTP for new account registration.
+	 *
+	 * <p>The email must be available before sending the code to avoid registering
+	 * duplicate accounts.
+	 */
 	@PostMapping(value = "/api/v1/auth/register/request-otp", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Send a sign up OTP to the user's email")
 	public Mono<AuthMessageResponse> requestRegistrationOtp(@Valid @RequestBody EmailOtpRequest request) {
@@ -88,6 +100,11 @@ public class AuthController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Registers a user after the registration OTP is verified.
+	 *
+	 * <p>Successful registration also creates access and refresh tokens.
+	 */
 	@PostMapping(value = "/api/v1/auth/register", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Register a new user after email OTP verification")
 	public Mono<AuthResponse> register(@Valid @RequestBody AuthRegisterRequest request) {
@@ -100,6 +117,11 @@ public class AuthController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Logs in a user with email and password.
+	 *
+	 * <p>On success, the user receives a JWT access token and a refresh token.
+	 */
 	@PostMapping(value = "/api/v1/auth/login", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Login and get JWT")
 	public Mono<AuthResponse> login(@Valid @RequestBody AuthLoginRequest request) {
@@ -111,6 +133,9 @@ public class AuthController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Sends a password reset OTP to a registered email address.
+	 */
 	@PostMapping(value = "/api/v1/auth/forgot-password", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Send password reset OTP")
 	public Mono<AuthMessageResponse> forgotPassword(@Valid @RequestBody EmailOtpRequest request) {
@@ -121,6 +146,12 @@ public class AuthController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Resets the user's password after OTP verification.
+	 *
+	 * <p>The audit log does not include a user ID here because the flow starts
+	 * from an email address before the user is authenticated.
+	 */
 	@PostMapping(value = "/api/v1/auth/reset-password", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Reset password after email OTP verification")
 	public Mono<AuthMessageResponse> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
@@ -132,6 +163,12 @@ public class AuthController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Starts Google OAuth login by redirecting the browser to Google's authorization URL.
+	 *
+	 * <p>The encoded state keeps the selected frontend origin and next path so
+	 * the callback can safely return the user to the correct frontend page.
+	 */
 	@GetMapping("/api/v1/auth/google/authorize")
 	@Operation(summary = "Start Google OAuth login")
 	public Mono<ResponseEntity<Void>> googleAuthorize(
@@ -146,6 +183,12 @@ public class AuthController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Completes Google OAuth login after Google redirects back with a code.
+	 *
+	 * <p>Errors are redirected back to the frontend callback route so the UI can
+	 * display a friendly login failure message.
+	 */
 	@GetMapping({"/api/v1/auth/google/callback", "/login/oauth2/code/google"})
 	@Operation(summary = "Complete Google OAuth login")
 	public Mono<ResponseEntity<Void>> googleCallback(
@@ -179,6 +222,11 @@ public class AuthController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Rotates a refresh token and returns a new access token.
+	 *
+	 * <p>Token rotation reduces the risk of reusing old refresh tokens for long periods.
+	 */
 	@PostMapping(value = "/api/v1/auth/refresh", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Rotate refresh token and issue a new access token")
 	public Mono<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
@@ -192,6 +240,9 @@ public class AuthController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Revokes a refresh token so the session can no longer be refreshed.
+	 */
 	@PostMapping(value = "/api/v1/auth/logout", consumes = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Revoke refresh token/session")
 	public Mono<Void> logout(@Valid @RequestBody LogoutRequest request) {
@@ -200,18 +251,30 @@ public class AuthController {
 				.then();
 	}
 
+	/**
+	 * Alias for logout to support clients that call the action "revoke".
+	 */
 	@PostMapping(value = "/api/v1/auth/revoke", consumes = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Alias for logout to revoke refresh token/session")
 	public Mono<Void> revoke(@Valid @RequestBody LogoutRequest request) {
 		return logout(request);
 	}
 
+	/**
+	 * Creates the standard authentication response for login and registration flows.
+	 */
 	private AuthResponse issueAuthResponse(UserAccountService.UserRecord user) {
 		String token = jwtService.generateAccessToken(user.userId(), user.role());
 		String refreshToken = sessionService.createRefreshToken(user.userId());
 		return new AuthResponse(user.userId(), user.email(), user.username(), user.avatarUrl(), token, refreshToken, user.role().name());
 	}
 
+	/**
+	 * Redirects the browser to the frontend Google callback route after successful login.
+	 *
+	 * <p>Tokens and user profile fields are placed in the URL fragment so they are
+	 * handled by the browser-side app instead of being sent as query parameters.
+	 */
 	private ResponseEntity<Void> redirectToGoogleCallbackSuccess(String origin, String nextPath, AuthResponse response) {
 		Map<String, String> fragmentValues = new LinkedHashMap<>();
 		fragmentValues.put("token", response.token());
@@ -225,10 +288,16 @@ public class AuthController {
 		return redirectToFrontendCallback(origin, fragmentValues);
 	}
 
+	/**
+	 * Redirects the browser to the frontend callback route with an OAuth error message.
+	 */
 	private ResponseEntity<Void> redirectToGoogleCallbackError(String origin, String message) {
 		return redirectToFrontendCallback(origin, Map.of("error", message));
 	}
 
+	/**
+	 * Builds the final frontend callback redirect with URL-encoded fragment values.
+	 */
 	private ResponseEntity<Void> redirectToFrontendCallback(String origin, Map<String, String> fragmentValues) {
 		String fragment = fragmentValues.entrySet().stream()
 				.filter(entry -> StringUtils.hasText(entry.getValue()))
@@ -240,6 +309,11 @@ public class AuthController {
 				.build();
 	}
 
+	/**
+	 * Encodes OAuth state containing the frontend origin and next path.
+	 *
+	 * <p>URL-safe Base64 is used so the state can be passed through the OAuth redirect.
+	 */
 	private String encodeState(String origin, String nextPath) {
 		String raw = origin + "\n" + nextPath;
 		return Base64.getUrlEncoder()
@@ -247,6 +321,9 @@ public class AuthController {
 				.encodeToString(raw.getBytes(StandardCharsets.UTF_8));
 	}
 
+	/**
+	 * Decodes OAuth state and falls back to safe defaults when state is missing or invalid.
+	 */
 	private OAuthState decodeState(String encodedState) {
 		if (!StringUtils.hasText(encodedState)) {
 			return new OAuthState(resolveFrontendOrigin(null), "/");
@@ -260,10 +337,16 @@ public class AuthController {
 					normalizeNextPath(parts.length > 1 ? parts[1] : null)
 			);
 		} catch (IllegalArgumentException ex) {
+			// Invalid state should not break the login flow; use the configured frontend instead.
 			return new OAuthState(resolveFrontendOrigin(null), "/");
 		}
 	}
 
+	/**
+	 * Chooses a safe frontend origin for redirects.
+	 *
+	 * <p>Only configured allowed origins are accepted to avoid open redirect issues.
+	 */
 	private String resolveFrontendOrigin(String requestedOrigin) {
 		String normalizedRequested = trimTrailingSlash(requestedOrigin);
 		if (StringUtils.hasText(normalizedRequested) && allowedFrontendOrigins.contains(normalizedRequested)) {
@@ -272,6 +355,9 @@ public class AuthController {
 		return frontendBaseUrl;
 	}
 
+	/**
+	 * Parses configured frontend origins and normalizes trailing slashes.
+	 */
 	private List<String> parseAllowedOrigins(String allowedOrigins) {
 		List<String> parsed = Arrays.stream(allowedOrigins.split(","))
 				.map(this::trimTrailingSlash)
@@ -283,6 +369,12 @@ public class AuthController {
 		return List.of(frontendBaseUrl);
 	}
 
+	/**
+	 * Normalizes the post-login destination path.
+	 *
+	 * <p>Only local absolute paths are allowed. External URLs and protocol-relative
+	 * paths are replaced with "/" for redirect safety.
+	 */
 	private String normalizeNextPath(String nextPath) {
 		if (!StringUtils.hasText(nextPath)) {
 			return "/";
@@ -294,6 +386,9 @@ public class AuthController {
 		return trimmed;
 	}
 
+	/**
+	 * Removes trailing slashes from configured origins.
+	 */
 	private String trimTrailingSlash(String value) {
 		if (!StringUtils.hasText(value)) {
 			return "";
@@ -305,10 +400,14 @@ public class AuthController {
 		return trimmed;
 	}
 
+	/**
+	 * URL-encodes values placed in the frontend callback fragment.
+	 */
 	private String urlEncode(String value) {
 		return URLEncoder.encode(value, StandardCharsets.UTF_8);
 	}
 
+	// Holds the safe redirect origin and local path restored from OAuth state.
 	private record OAuthState(String origin, String nextPath) {
 	}
 }

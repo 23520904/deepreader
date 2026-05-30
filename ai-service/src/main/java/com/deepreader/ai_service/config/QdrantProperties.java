@@ -2,6 +2,12 @@ package com.deepreader.ai_service.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * Holds Qdrant configuration values loaded from application properties.
+ *
+ * These properties are used to connect to Qdrant and define default
+ * vector collection settings for document chunks.
+ */
 @ConfigurationProperties(prefix = "deepreader.qdrant")
 public class QdrantProperties {
 

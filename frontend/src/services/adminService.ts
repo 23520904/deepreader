@@ -1,5 +1,8 @@
 import { apiRequestJson } from "@/services/apiClient";
 
+/**
+ * Summary statistics displayed on the admin dashboard.
+ */
 export type AdminSummary = {
   users: number;
   admins: number;
@@ -11,6 +14,9 @@ export type AdminSummary = {
   deadLettersToday: number;
 };
 
+/**
+ * User information shown in the admin user table.
+ */
 export type AdminUserRow = {
   user_id: string;
   email: string;
@@ -20,6 +26,9 @@ export type AdminUserRow = {
   document_count: number;
 };
 
+/**
+ * Document information shown in the admin document table.
+ */
 export type AdminDocumentRow = {
   document_id: string;
   user_id: string;
@@ -29,6 +38,10 @@ export type AdminDocumentRow = {
   username?: string | null;
 };
 
+/**
+ * Audit log record returned from the admin API.
+ * Used to track important actions performed in the system.
+ */
 export type AdminAuditLog = {
   user_id?: string | null;
   action: string;
@@ -36,6 +49,9 @@ export type AdminAuditLog = {
   created_at: string;
 };
 
+/**
+ * Load dashboard summary statistics.
+ */
 export function fetchAdminSummary(token: string) {
   return apiRequestJson<AdminSummary>("/api/v1/admin/summary", {
     token,
@@ -43,6 +59,9 @@ export function fetchAdminSummary(token: string) {
   });
 }
 
+/**
+ * Load a list of users for the admin management page.
+ */
 export function fetchAdminUsers(token: string) {
   return apiRequestJson<AdminUserRow[]>("/api/v1/admin/users?limit=80", {
     token,
@@ -50,6 +69,9 @@ export function fetchAdminUsers(token: string) {
   });
 }
 
+/**
+ * Load recently uploaded documents for admin management.
+ */
 export function fetchAdminDocuments(token: string) {
   return apiRequestJson<AdminDocumentRow[]>("/api/v1/admin/documents?limit=80", {
     token,
@@ -57,6 +79,9 @@ export function fetchAdminDocuments(token: string) {
   });
 }
 
+/**
+ * Load recent audit log entries.
+ */
 export function fetchAdminAuditLogs(token: string) {
   return apiRequestJson<AdminAuditLog[]>("/api/v1/admin/audit-logs?limit=20", {
     token,
@@ -64,6 +89,9 @@ export function fetchAdminAuditLogs(token: string) {
   });
 }
 
+/**
+ * Delete a user account by user ID.
+ */
 export function deleteAdminUser(userId: string, token: string) {
   return apiRequestJson<void>(`/api/v1/admin/users/${userId}`, {
     method: "DELETE",
@@ -72,6 +100,9 @@ export function deleteAdminUser(userId: string, token: string) {
   });
 }
 
+/**
+ * Delete a document by document ID.
+ */
 export function deleteAdminDocument(documentId: string, token: string) {
   return apiRequestJson<void>(`/api/v1/admin/documents/${documentId}`, {
     method: "DELETE",

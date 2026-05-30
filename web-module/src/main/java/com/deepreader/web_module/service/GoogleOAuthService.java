@@ -12,6 +12,12 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.time.Duration;
 
+/**
+ * Service for handling Google OAuth login.
+ *
+ * <p>It builds the Google authorization URL, exchanges the callback code for
+ * tokens, verifies the returned ID token, and reads the user's Google profile.
+ */
 @Service
 public class GoogleOAuthService {
 	private static final Duration GOOGLE_TIMEOUT = Duration.ofSeconds(8);
@@ -33,6 +39,12 @@ public class GoogleOAuthService {
 		this.redirectUri = redirectUri;
 	}
 
+	/**
+	 * Builds the Google OAuth authorization URI used to start login.
+	 *
+	 * <p>The state value is passed through Google and returned to the callback,
+	 * so the application can restore redirect information after login.
+	 */
 	public URI buildAuthorizationUri(String state) {
 		requireConfigured();
 		return UriComponentsBuilder
@@ -48,6 +60,12 @@ public class GoogleOAuthService {
 				.toUri();
 	}
 
+	/**
+	 * Exchanges a Google authorization code for the user's verified profile.
+	 *
+	 * <p>The flow first gets tokens from Google, then checks the ID token audience,
+	 * then uses the access token to load profile information.
+	 */
 	public GoogleProfile exchangeCodeForProfile(String code) {
 		requireConfigured();
 		if (!StringUtils.hasText(code)) {
@@ -78,7 +96,10 @@ public class GoogleOAuthService {
 			throw new IllegalArgumentException("Google authorization did not return account data.");
 		}
 
+		// Make sure the ID token was issued for this DeepReader OAuth client.
 		verifyIdTokenAudience(tokenResponse.idToken());
+
+		// Use the access token to fetch the user's public Google profile.
 		GoogleUserInfo userInfo = fetchUserInfo(tokenResponse.accessToken());
 
 		if (userInfo == null || !StringUtils.hasText(userInfo.sub()) || !StringUtils.hasText(userInfo.email())) {
@@ -96,6 +117,11 @@ public class GoogleOAuthService {
 		);
 	}
 
+	/**
+	 * Checks the Google ID token audience against the configured client ID.
+	 *
+	 * <p>This prevents accepting a token that was issued for another application.
+	 */
 	private void verifyIdTokenAudience(String idToken) {
 		GoogleTokenInfo tokenInfo;
 		try {
@@ -119,6 +145,12 @@ public class GoogleOAuthService {
 		}
 	}
 
+	/**
+	 * Reads the Google user profile using the access token.
+	 *
+	 * <p>The userinfo response provides the stable Google subject ID, email,
+	 * display name, and avatar URL.
+	 */
 	private GoogleUserInfo fetchUserInfo(String accessToken) {
 		try {
 			return webClient.get()
@@ -132,6 +164,11 @@ public class GoogleOAuthService {
 		}
 	}
 
+	/**
+	 * Checks whether Google marked the email as verified.
+	 *
+	 * <p>The value can arrive as a boolean or string depending on how it is parsed.
+	 */
 	private boolean isEmailVerified(Object value) {
 		if (value instanceof Boolean bool) {
 			return bool;
@@ -142,21 +179,27 @@ public class GoogleOAuthService {
 		return false;
 	}
 
+	/**
+	 * Ensures Google OAuth settings are available before starting the flow.
+	 */
 	private void requireConfigured() {
 		if (!StringUtils.hasText(clientId) || !StringUtils.hasText(clientSecret) || !StringUtils.hasText(redirectUri)) {
 			throw new IllegalArgumentException("Google OAuth is not configured.");
 		}
 	}
 
+	// Token response returned by Google's token endpoint.
 	private record GoogleTokenResponse(
 			@JsonProperty("access_token") String accessToken,
 			@JsonProperty("id_token") String idToken
 	) {
 	}
 
+	// Minimal token info used to verify that the token audience matches this app.
 	private record GoogleTokenInfo(String aud) {
 	}
 
+	// User profile returned by Google's userinfo endpoint.
 	private record GoogleUserInfo(
 			String sub,
 			String email,
@@ -166,6 +209,9 @@ public class GoogleOAuthService {
 	) {
 	}
 
+	/**
+	 * Public Google profile data used by the authentication flow.
+	 */
 	public record GoogleProfile(
 			String subject,
 			String email,

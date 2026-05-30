@@ -15,6 +15,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+/**
+ * Seeds or promotes a default admin account when the application starts.
+ *
+ * <p>This helps new deployments have at least one admin account, unless admin
+ * seeding is disabled by configuration.
+ */
 @Service
 public class AdminBootstrapService implements ApplicationRunner {
 	private static final Logger log = LoggerFactory.getLogger(AdminBootstrapService.class);
@@ -39,6 +45,9 @@ public class AdminBootstrapService implements ApplicationRunner {
 		this.adminPassword = adminPassword;
 	}
 
+	/**
+	 * Runs once at startup and ensures at least one ADMIN user exists.
+	 */
 	@Override
 	public void run(ApplicationArguments args) {
 		if (!seedEnabled) {
@@ -51,6 +60,7 @@ public class AdminBootstrapService implements ApplicationRunner {
 				UserRole.ADMIN.name()
 		);
 
+		// Do nothing when an admin account already exists.
 		if (adminCount != null && adminCount > 0) {
 			return;
 		}
@@ -82,6 +92,7 @@ public class AdminBootstrapService implements ApplicationRunner {
 			return;
 		}
 
+		// If the configured email already exists, promote that account instead of creating a duplicate.
 		jdbcTemplate.update(
 				"update app_users set role = ?, username = coalesce(nullif(username, ''), ?) where email = ?",
 				UserRole.ADMIN.name(),
@@ -91,6 +102,9 @@ public class AdminBootstrapService implements ApplicationRunner {
 		log.info("Promoted existing account {} to ADMIN because no admin account existed", email);
 	}
 
+	/**
+	 * Normalizes the configured admin email and falls back to a safe development email.
+	 */
 	private String normalizeEmail(String value) {
 		if (!StringUtils.hasText(value) || !value.contains("@")) {
 			return "admin@deepreader.local";
@@ -99,6 +113,9 @@ public class AdminBootstrapService implements ApplicationRunner {
 		return value.trim().toLowerCase(Locale.ROOT);
 	}
 
+	/**
+	 * Normalizes the admin username or derives one from the email address.
+	 */
 	private String normalizeUsername(String value, String email) {
 		if (StringUtils.hasText(value)) {
 			return value.trim();
@@ -108,6 +125,9 @@ public class AdminBootstrapService implements ApplicationRunner {
 		return atIndex > 0 ? email.substring(0, atIndex) : "admin";
 	}
 
+	/**
+	 * Ensures the seeded admin password has a minimum length.
+	 */
 	private String normalizePassword(String value) {
 		if (StringUtils.hasText(value) && value.length() >= 8) {
 			return value;

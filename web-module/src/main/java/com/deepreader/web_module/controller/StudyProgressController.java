@@ -19,6 +19,12 @@ import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 
+/**
+ * Controller for managing the authenticated user's flashcard study progress.
+ *
+ * <p>Study progress operations use the user ID from the request context so users
+ * can only read or update their own progress.
+ */
 @RestController
 @RequestMapping("/api/v1/study-progress")
 @Tag(name = "Study Progress")
@@ -29,6 +35,11 @@ public class StudyProgressController {
 		this.studyProgressService = studyProgressService;
 	}
 
+	/**
+	 * Lists all study progress records for the current user.
+	 *
+	 * <p>The service uses blocking persistence, so the work is moved to boundedElastic.
+	 */
 	@GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "List the authenticated user's flashcard study progress")
 	public Mono<List<StudyProgressResponse>> listProgress(ServerWebExchange exchange) {
@@ -38,6 +49,11 @@ public class StudyProgressController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Creates or updates the current user's progress for one flashcard.
+	 *
+	 * <p>The card ID comes from the path, while review data comes from the request body.
+	 */
 	@PutMapping(value = "/{cardId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Upsert progress for one flashcard")
 	public Mono<StudyProgressResponse> upsertProgress(

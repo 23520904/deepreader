@@ -9,33 +9,66 @@ import {
 } from "@/lib/flashcardStudy";
 import type { GameResult } from "../types";
 import { GameMetric } from "./GameMetric";
+
+// Speed quiz game where users answer as many flashcard questions as possible
+// before the timer reaches zero.
 export function SpeedChallengeGame({
   cards,
   seconds,
   onFinish,
 }: {
+  // Cards used in this speed challenge round.
   cards: StudyFlashcard[];
+
+  // Total time limit for the game, in seconds.
   seconds: number;
+
+  // Sends the final game result back to the parent component.
   onFinish: (result: GameResult) => void;
 }) {
+  // Shuffle cards once when the game starts so the question order is random.
   const [speedCards] = useState(() => shuffleItems(cards));
+
+  // Current question position in the shuffled card list.
   const [cardIndex, setCardIndex] = useState(0);
+
+  // Stores the answer the user selected for the current question.
+  // An empty string means the user has not answered yet.
   const [selectedAnswer, setSelectedAnswer] = useState("");
+
+  // Countdown timer value shown on screen.
   const [secondsLeft, setSecondsLeft] = useState(seconds);
+
+  // Game score and combo.
+  // Combo rewards users for answering multiple questions correctly in a row.
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
+
+  // Track total answered questions and correct answers for the final accuracy.
   const [answeredCount, setAnsweredCount] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
+
+  // Stores incorrectly answered cards so the result screen can suggest review.
   const [wrongCards, setWrongCards] = useState<StudyFlashcard[]>([]);
+
+  // Prevents the game from finishing more than once.
   const isCompleteRef = useRef(false);
+
+  // Current card is selected by index.
+  // The modulo lets the game continue cycling through cards while time remains.
   const currentCard = speedCards.length
     ? speedCards[cardIndex % speedCards.length]
     : null;
+
+  // Builds multiple-choice options for the current question.
+  // useMemo avoids rebuilding options unless the current card or card list changes.
   const options = useMemo(
     () => makeQuizOptions(currentCard, speedCards),
     [currentCard, speedCards],
   );
 
+  // Starts the countdown timer when the component mounts.
+  // The timer stops decreasing after the game is marked as complete.
   useEffect(() => {
     const timer = window.setInterval(() => {
       setSecondsLeft((currentSeconds) =>
@@ -46,6 +79,8 @@ export function SpeedChallengeGame({
     return () => window.clearInterval(timer);
   }, []);
 
+  // Finishes the game when the countdown reaches zero.
+  // It calculates accuracy from correct answers divided by total answered questions.
   useEffect(() => {
     if (secondsLeft > 0 || isCompleteRef.current) {
       return;
@@ -74,6 +109,8 @@ export function SpeedChallengeGame({
     wrongCards,
   ]);
 
+  // Handles one answer click.
+  // It checks correctness, updates score/combo/statistics, then moves to the next card.
   function chooseAnswer(answer: string) {
     if (!currentCard || selectedAnswer || isCompleteRef.current) {
       return;
@@ -93,6 +130,7 @@ export function SpeedChallengeGame({
       setCombo(0);
     }
 
+    // Wait briefly so the user can see the answer feedback before the next question appears.
     window.setTimeout(() => {
       if (secondsLeft <= 0 || isCompleteRef.current) {
         return;
@@ -105,6 +143,7 @@ export function SpeedChallengeGame({
 
   return (
     <div className="grid gap-5">
+      {/* Top stats panel: timer, score, combo, and answered count. */}
       <div className="grid gap-3 rounded-[18px] bg-[#fff7ed] p-4 ring-1 ring-[#fed7aa] sm:grid-cols-2 md:grid-cols-4 max-[420px]:p-3">
         <GameMetric label="Timer" value={`${secondsLeft}s`} />
         <GameMetric label="Score" value={score} />
@@ -112,21 +151,28 @@ export function SpeedChallengeGame({
         <GameMetric label="Answered" value={answeredCount} />
       </div>
 
+      {/* Main question card with timer progress, question text, and answer options. */}
       <div className="rounded-[22px] bg-[#f8fafc] p-5 ring-1 ring-[#e2e8f0] max-[520px]:p-4">
+        {/* Timer progress bar. It shrinks as secondsLeft decreases. */}
         <div className="h-3 overflow-hidden rounded-full bg-[#e2e8f0]">
           <div
             className="h-full rounded-full bg-[#f97316] transition-all duration-500"
             style={{ width: `${(secondsLeft / seconds) * 100}%` }}
           />
         </div>
+
+        {/* Current question number and question text. */}
         <p className="mt-6 text-[14px] font-black text-[#f97316]">
           Question {speedCards.length ? (cardIndex % speedCards.length) + 1 : 0}
         </p>
         <h2 className="mt-2 break-words text-[clamp(23px,8vw,30px)] font-black leading-tight text-[#0f172a]">
           {currentCard?.question ?? "No question available."}
         </h2>
+
+        {/* Multiple-choice answer buttons. */}
         <div className="mt-6 grid gap-3 md:grid-cols-2">
           {options.map((option, index) => {
+            // These values control the visual feedback after the user selects an answer.
             const isSelected = selectedAnswer === option;
             const isCorrect = currentCard?.answer === option;
 

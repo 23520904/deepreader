@@ -1,10 +1,13 @@
 import Link from "next/link";
 import type { HelpGuide } from "@/lib/helpGuides";
 
+// This component shows one detailed help guide page.
+// The guide prop contains the title, overview, video URL, action button, and step list.
 export function HelpGuideContent({ guide }: { guide: HelpGuide }) {
   return (
     <section className="px-6 pb-24 pt-16 max-[700px]:px-4 max-[700px]:pt-12">
       <div className="mx-auto grid w-[min(1080px,100%)] gap-6">
+        {/* Back link that lets the user return to the main Help Center page. */}
         <Link
           href="/help-center"
           className="inline-flex w-fit items-center gap-2 text-[14px] font-black text-[#2563eb] transition hover:text-[#0f172a]"
@@ -13,6 +16,7 @@ export function HelpGuideContent({ guide }: { guide: HelpGuide }) {
           Back to Help Center
         </Link>
 
+        {/* Hero section with the guide title, overview, and main action button. */}
         <div className="overflow-hidden rounded-[28px] border border-white/80 bg-[linear-gradient(135deg,#dbeafe_0%,#cffafe_52%,#eef2ff_100%)] p-7 shadow-[0_24px_70px_rgba(30,64,175,0.13)] max-[700px]:p-5">
           <p className="text-[13px] font-black uppercase tracking-[0.08em] text-[#2563eb]">
             Step-by-step guide
@@ -33,6 +37,9 @@ export function HelpGuideContent({ guide }: { guide: HelpGuide }) {
           </div>
         </div>
 
+        {/* Video tutorial section.
+            If the guide has a YouTube embed URL, it shows the video.
+            Otherwise, it shows a placeholder box. */}
         <div className="rounded-[26px] border border-[#dbeafe] bg-white p-4 shadow-[0_18px_48px_rgba(30,64,175,0.12)]">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3 px-1">
             <div>
@@ -77,6 +84,8 @@ export function HelpGuideContent({ guide }: { guide: HelpGuide }) {
           </div>
         </div>
 
+        {/* Step list section.
+            Each step is displayed with a number, title, and description. */}
         <article className="rounded-[24px] border border-[#dbe7f5] bg-white p-6 shadow-[0_16px_36px_rgba(15,23,42,0.055)] max-[700px]:p-4">
           <h2 className="text-[28px] font-black text-[#0f172a]">
             Follow these steps
@@ -107,6 +116,8 @@ export function HelpGuideContent({ guide }: { guide: HelpGuide }) {
   );
 }
 
+// Small play icon used in the video placeholder.
+// It is hidden from screen readers because it is only decorative.
 function PlayIcon() {
   return (
     <svg

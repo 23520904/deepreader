@@ -18,6 +18,12 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+/**
+ * Controller for current-user profile APIs.
+ *
+ * <p>All operations use the authenticated user ID from the request context, so
+ * users can only view or update their own account data.
+ */
 @RestController
 @RequestMapping("/api/v1/users")
 @Tag(name = "Users")
@@ -28,6 +34,11 @@ public class UserController {
 		this.userAccountService = userAccountService;
 	}
 
+	/**
+	 * Returns the profile of the authenticated user.
+	 *
+	 * <p>The account lookup is blocking, so it is moved to boundedElastic.
+	 */
 	@GetMapping(value = "/me", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Get current user's profile")
 	public Mono<UserProfileResponse> getProfile(ServerWebExchange exchange) {
@@ -38,6 +49,12 @@ public class UserController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Updates profile fields for the authenticated user.
+	 *
+	 * <p>The user ID is taken from the request context instead of the request body
+	 * to prevent users from editing another account.
+	 */
 	@PutMapping(value = "/me", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Update current user's profile")
 	public Mono<UserProfileResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request, ServerWebExchange exchange) {
@@ -55,6 +72,11 @@ public class UserController {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Updates the user's personal LLM API token.
+	 *
+	 * <p>The token is stored through the account service and is not returned by this endpoint.
+	 */
 	@PutMapping(value = "/me/llm-token", consumes = MediaType.APPLICATION_JSON_VALUE)
 	@Operation(summary = "Update user's LLM API Token")
 	public Mono<Void> updateLlmToken(@Valid @RequestBody UpdateLlmTokenRequest request, ServerWebExchange exchange) {
@@ -64,6 +86,9 @@ public class UserController {
 		}).subscribeOn(Schedulers.boundedElastic()).then();
 	}
 
+	/**
+	 * Converts an internal user record to the public profile response.
+	 */
 	private UserProfileResponse toProfileResponse(UserAccountService.UserRecord user) {
 		return new UserProfileResponse(
 				user.userId(),

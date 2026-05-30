@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+// Raw video markup used for the hero background.
+// This is injected into the DOM so the video can load and autoplay immediately.
 const heroVideoMarkup = `
   <video
     class="home-hero-video absolute inset-0 z-0 h-full w-full scale-105 object-cover"
@@ -18,12 +20,21 @@ const heroVideoMarkup = `
 `;
 
 export function HomeHero() {
+  // Controls when the title, description, and button should appear.
+  // The copy is shown after the hero video ends or if the video cannot play.
   const [isCopyVisible, setIsCopyVisible] = useState(false);
+
+  // Stores a reference to the element that contains the injected video.
+  // This lets the component find and control the video element directly.
   const videoHostRef = useRef<HTMLDivElement | null>(null);
 
+  // Start or restart the hero video when the component mounts.
+  // When the video ends or fails, the text content is revealed.
   useEffect(() => {
     let isCancelled = false;
 
+    // Pause the video and show the hero text.
+    // This is used when the video reaches the final frame or cannot play.
     const revealCopyOnFinalFrame = () => {
       const video = videoHostRef.current?.querySelector("video");
 
@@ -42,6 +53,8 @@ export function HomeHero() {
       return;
     }
 
+    // Restart the background video from the beginning.
+    // This also hides the text again until the video finishes.
     const restartVideo = () => {
       if (isCancelled) {
         return;
@@ -80,6 +93,8 @@ export function HomeHero() {
     };
   }, []);
 
+  // Keep the video paused after the text is visible.
+  // This prevents the background video from continuing behind the final hero state.
   useEffect(() => {
     if (!isCopyVisible) {
       return;
@@ -91,19 +106,25 @@ export function HomeHero() {
 
   return (
     <section className="home-video-hero relative isolate overflow-hidden bg-[#dfeeff] text-[#1d355b]">
+      {/* Full-screen hero area that centers the video and text content. */}
       <div className="relative mx-auto flex min-h-[calc(100vh-84px)] w-full items-center justify-center overflow-hidden max-[700px]:min-h-[620px]">
+        {/* Background video container.
+            The video HTML is injected from heroVideoMarkup. */}
         <div
           ref={videoHostRef}
           className={`home-hero-media ${isCopyVisible ? "is-copy-visible" : ""}`}
           dangerouslySetInnerHTML={{ __html: heroVideoMarkup }}
         />
 
+        {/* Soft overlay that fades in when the text becomes visible. */}
         <div
           className={`absolute inset-0 z-[1] bg-[#dfeeff]/50 transition-opacity duration-700 ${
             isCopyVisible ? "opacity-100" : "opacity-0"
           }`}
         />
 
+        {/* Main hero text content.
+            It stays hidden while the intro video is playing, then fades in. */}
         <div
           className={`home-hero-content relative z-10 mx-auto flex w-[min(820px,calc(100%_-_32px))] flex-col items-center justify-center text-center transition duration-700 ${
             isCopyVisible
@@ -111,17 +132,20 @@ export function HomeHero() {
               : "pointer-events-none translate-y-5 opacity-0"
           }`}
         >
+          {/* Main headline shown after the video finishes. */}
           <h1 className="text-[66px] font-[1000] uppercase leading-[0.9] tracking-[-0.04em] text-[#17345d] drop-shadow-[0_16px_34px_rgba(255,255,255,0.95)] max-[1050px]:text-[58px] max-[700px]:text-[42px]">
             <span className="block whitespace-nowrap">Read Faster</span>
             <span className="block">with AI</span>
           </h1>
 
+          {/* Short product description for the home hero section. */}
           <p className="mt-7 max-w-[680px] text-[21px] font-extrabold leading-[1.55] tracking-[-0.01em] text-[#31445d] drop-shadow-[0_10px_24px_rgba(255,255,255,0.95)] max-[700px]:max-w-[92%] max-[700px]:text-[16px]">
             Upload your documents and let DeepReader turn long PDFs, notes, and
             study materials into clear summaries, smart flashcards, and
             source-based answers.
           </p>
 
+          {/* Main call-to-action button that scrolls the user to the workflow section. */}
           <div className="mt-9 flex justify-center">
             <Link
               href="#workflow"

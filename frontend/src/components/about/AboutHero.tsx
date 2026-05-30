@@ -1,21 +1,29 @@
 import Image from "next/image";
 import Link from "next/link";
 
+// This component shows the hero section on the About page.
+// It introduces DeepReader and includes a main image.
 export function AboutHero() {
   return (
+    // Main hero section with a light background.
     <section className="bg-[#eef1f8]">
+      {/* Two-column layout: text content on the left and image on the right. */}
       <div className="mx-auto grid w-[min(1120px,calc(100%_-_48px))] grid-cols-[1fr_500px] items-center gap-[76px] py-[104px] max-[1024px]:grid-cols-1 max-[700px]:w-[min(100%_-_28px,1120px)] max-[700px]:gap-10 max-[700px]:py-16">
+        {/* Left side: hero text and call-to-action button. */}
         <div className="about-fade-left" data-home-reveal>
+          {/* Main page heading that explains the purpose of the product. */}
           <h1 className="max-w-[520px] text-[42px] font-extrabold leading-[1.1] tracking-[0] text-[#1d355b] max-[700px]:text-[34px]">
             Building Better Reading Habits With AI-powered Learning Support
           </h1>
 
+          {/* Short description of what DeepReader helps users do. */}
           <p className="mt-5 max-w-[500px] text-[15px] font-medium leading-[1.65] text-[#6f7f96]">
             DeepReader is an intelligent reading platform that helps users read
             more efficiently, understand content faster, and remember better
             through AI summaries, flashcards, and document-based chat.
           </p>
 
+          {/* Button that sends the user to the library page. */}
           <Link
             href="/library"
             className="about-hover-lift mt-8 inline-flex min-h-[41px] items-center justify-center rounded-[3px] bg-[#245c93] px-7 text-[13px] font-extrabold text-white transition hover:bg-[#174a7d]"
@@ -24,10 +32,12 @@ export function AboutHero() {
           </Link>
         </div>
 
+        {/* Right side: image card that shows the reading illustration/photo. */}
         <div
           className="about-fade-right home-reveal-delay-1 relative h-[318px] overflow-hidden rounded-[8px] bg-white shadow-[0_18px_45px_rgba(21,36,67,0.12)] max-[700px]:h-[230px]"
           data-home-reveal
         >
+          {/* Main hero image. It fills the image card and slightly zooms on hover. */}
           <Image
             src="/assets/images/about/reading.png"
             alt="Reading book"

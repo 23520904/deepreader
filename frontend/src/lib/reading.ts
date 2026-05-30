@@ -14,12 +14,19 @@ import type {
   SummaryView,
 } from "@/types/study";
 
+// Prefix used to store reading progress for each document
 const READ_STATE_PREFIX = "deepreader:read-pages:";
 
+/**
+ * Remove file extension and return a clean document title.
+ */
 export function cleanDocumentTitle(fileName: string | null | undefined) {
   return (fileName?.trim() || "Untitled document").replace(/\.(pdf|epub)$/i, "");
 }
 
+/**
+ * Determine document format from the file name.
+ */
 export function resolveDocumentFormat(fileName: string | null | undefined) {
   const lower = fileName?.toLowerCase() ?? "";
 
@@ -34,6 +41,9 @@ export function resolveDocumentFormat(fileName: string | null | undefined) {
   return "DOC";
 }
 
+/**
+ * Return the corresponding icon for a document format.
+ */
 export function iconForDocumentFormat(format: string) {
   if (format === "PDF") {
     return "/assets/images/library/pdf-icon.png";
@@ -42,12 +52,17 @@ export function iconForDocumentFormat(format: string) {
   return "/assets/images/library/document-3d.webp";
 }
 
+/**
+ * Convert extracted document sections into page objects
+ * that can be displayed inside the reader UI.
+ */
 export function buildReadingPages(sections: DocumentSection[]): ReadingPage[] {
   const pageMap = new Map<number, DocumentSection[]>();
 
   sections.forEach((section, index) => {
     const pageNumber =
       section.pageNumber && section.pageNumber > 0 ? section.pageNumber : index + 1;
+
     const pageSections = pageMap.get(pageNumber) ?? [];
     pageSections.push(section);
     pageMap.set(pageNumber, pageSections);
@@ -70,10 +85,16 @@ export function buildReadingPages(sections: DocumentSection[]): ReadingPage[] {
     });
 }
 
+/**
+ * Generate localStorage key for reading progress.
+ */
 export function readStateStorageKey(bookId: string) {
   return `${READ_STATE_PREFIX}${bookId}`;
 }
 
+/**
+ * Load previously read page keys from localStorage.
+ */
 export function loadReadPageKeys(bookId: string) {
   if (typeof window === "undefined" || !bookId) {
     return new Set<string>();
@@ -93,6 +114,9 @@ export function loadReadPageKeys(bookId: string) {
   }
 }
 
+/**
+ * Save read page information to localStorage.
+ */
 export function saveReadPageKeys(bookId: string, readPageKeys: Set<string>) {
   if (typeof window === "undefined" || !bookId) {
     return;
@@ -104,10 +128,16 @@ export function saveReadPageKeys(bookId: string, readPageKeys: Set<string>) {
   );
 }
 
+/**
+ * Type guard that removes null values.
+ */
 export function isPresent<T>(value: T | null): value is T {
   return value !== null;
 }
 
+/**
+ * Convert a date string into a timestamp.
+ */
 function createdAtTime(value: string | null) {
   if (!value) {
     return 0;
@@ -117,6 +147,9 @@ function createdAtTime(value: string | null) {
   return Number.isNaN(time) ? 0 : time;
 }
 
+/**
+ * Detect low-quality flashcard questions that should be ignored.
+ */
 function isWeakFlashcardQuestion(question: string | null | undefined) {
   const normalized = question
     ?.trim()
@@ -144,6 +177,9 @@ function isWeakFlashcardQuestion(question: string | null | undefined) {
   );
 }
 
+/**
+ * Normalize summary records returned from the API.
+ */
 export function normalizeSummaryRecords(records: SummaryRecord[]) {
   return records
     .map((record, index): SummaryView | null => {
@@ -170,6 +206,9 @@ export function normalizeSummaryRecords(records: SummaryRecord[]) {
     );
 }
 
+/**
+ * Normalize flashcard records and remove weak entries.
+ */
 export function normalizeFlashcardRecords(records: FlashcardRecord[]) {
   return records
     .map((record, index): FlashcardView | null => {
@@ -196,6 +235,9 @@ export function normalizeFlashcardRecords(records: FlashcardRecord[]) {
     );
 }
 
+/**
+ * Normalize chat history records returned from the API.
+ */
 export function normalizeChatRecords(records: ChatHistoryRecord[]) {
   return records
     .map((record, index): ChatMessageView | null => {
@@ -223,6 +265,9 @@ export function normalizeChatRecords(records: ChatHistoryRecord[]) {
     );
 }
 
+/**
+ * Generate a unique thread ID for a new chat.
+ */
 export function createChatThreadId(bookId: string) {
   const randomId =
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -232,6 +277,9 @@ export function createChatThreadId(bookId: string) {
   return `${bookId}-thread-${randomId}`;
 }
 
+/**
+ * Create a short title from the first user message.
+ */
 function titleFromMessage(content: string) {
   const title = content.trim().replace(/\s+/g, " ");
 
@@ -246,12 +294,18 @@ function titleFromMessage(content: string) {
   return `${title.slice(0, 54).trim()}...`;
 }
 
+/**
+ * Get the first or last message timestamp in a thread.
+ */
 function threadTimestamp(messages: ChatMessageView[], mode: "first" | "last") {
   const message = mode === "first" ? messages[0] : messages[messages.length - 1];
 
   return message?.createdAt ?? null;
 }
 
+/**
+ * Build a chat thread object from a message list.
+ */
 function createThreadFromMessages(
   id: string,
   messages: ChatMessageView[],
@@ -268,6 +322,10 @@ function createThreadFromMessages(
   };
 }
 
+/**
+ * Group chat messages into chat threads.
+ * Supports both thread-based and legacy message formats.
+ */
 export function createChatThreads(
   bookId: string,
   messages: ChatMessageView[],
@@ -275,8 +333,10 @@ export function createChatThreads(
   const orderedMessages = [...messages].sort(
     (left, right) => createdAtTime(left.createdAt) - createdAtTime(right.createdAt),
   );
+
   const threadMap = new Map<string, ChatMessageView[]>();
   const legacyThreads: ChatThreadView[] = [];
+
   let activeLegacyMessages: ChatMessageView[] = [];
   let activeLegacyThreadId = "";
 
@@ -288,6 +348,7 @@ export function createChatThreads(
     legacyThreads.push(
       createThreadFromMessages(activeLegacyThreadId, activeLegacyMessages),
     );
+
     activeLegacyMessages = [];
     activeLegacyThreadId = "";
   }
@@ -297,9 +358,11 @@ export function createChatThreads(
 
     if (threadId) {
       flushLegacyThread();
+
       const messagesForThread = threadMap.get(threadId) ?? [];
       messagesForThread.push(message);
       threadMap.set(threadId, messagesForThread);
+
       return;
     }
 
@@ -324,6 +387,9 @@ export function createChatThreads(
   );
 }
 
+/**
+ * Create a single chat thread.
+ */
 export function createChatThread(
   threadId: string,
   messages: ChatMessageView[],
@@ -331,6 +397,9 @@ export function createChatThread(
   return createThreadFromMessages(threadId, messages);
 }
 
+/**
+ * Create a user chat message before sending to the API.
+ */
 export function createUserChatMessage(
   bookId: string,
   query: string,
@@ -347,6 +416,9 @@ export function createUserChatMessage(
   } satisfies ChatMessageView;
 }
 
+/**
+ * Create an assistant chat message from API response.
+ */
 export function createAssistantChatMessage(
   bookId: string,
   payload: ChatGenerationResponse,
@@ -364,6 +436,9 @@ export function createAssistantChatMessage(
   } satisfies ChatMessageView;
 }
 
+/**
+ * Convert generated flashcards into UI-friendly flashcard objects.
+ */
 export function createGeneratedFlashcardViews(
   bookId: string,
   payload: FlashcardGenerationResponse,
@@ -389,6 +464,9 @@ export function createGeneratedFlashcardViews(
     .filter(isPresent);
 }
 
+/**
+ * Ensure flashcard generation count stays within valid limits.
+ */
 export function normalizeFlashcardCount(count: number) {
   if (!Number.isFinite(count)) {
     return 1;

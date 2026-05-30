@@ -11,18 +11,33 @@ import {
   resetPassword,
 } from "@/services/authService";
 
+/**
+ * Forgot password page.
+ * This page first requests an OTP code by email, then lets the user reset
+ * their password after entering the verification code.
+ */
 export default function ForgotPasswordPage() {
   const router = useRouter();
+
+  // Form values used across both steps of the reset password flow.
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Feedback message shown to the user after validation or API calls.
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] =
     useState<"info" | "error" | "success">("info");
+
+  // Controls whether the user is entering email or resetting the password.
   const [step, setStep] = useState<"email" | "reset">("email");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /**
+   * Requests a password reset OTP for the entered email.
+   * If the request succeeds, the page moves to the reset step.
+   */
   async function handleRequestCode(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
@@ -42,16 +57,22 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  /**
+   * Validates the OTP and password confirmation before calling the reset API.
+   * On success, the user is redirected to the login page.
+   */
   async function handleResetPassword(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
 
+    // The reset flow expects exactly 4 digits from the OTP panel.
     if (verificationCode.length !== 4) {
       setMessageTone("error");
       setMessage("Please enter 4 digits.");
       return;
     }
 
+    // Prevent sending the request when the password confirmation is different.
     if (password !== confirmPassword) {
       setMessageTone("error");
       setMessage("Confirm password does not match.");
@@ -74,12 +95,20 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  /**
+   * Keeps the OTP input numeric and limited to 4 digits.
+   * Also clears old messages when the user edits the code.
+   */
   function handleOtpChange(value: string) {
     setVerificationCode(value.replace(/\D/g, "").slice(0, 4));
     setMessage("");
     setMessageTone("info");
   }
 
+  /**
+   * Sends another password reset OTP.
+   * The submitting guard avoids duplicate resend requests.
+   */
   async function resendPasswordResetCode() {
     if (isSubmitting) {
       return;
@@ -100,6 +129,7 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  // After the OTP is requested, render the verification and new password form.
   if (step === "reset") {
     return (
       <OtpVerificationPanel

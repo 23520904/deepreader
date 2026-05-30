@@ -19,22 +19,57 @@ export type {
   SummaryView,
 } from "@/types/study";
 
+/**
+ * Props for the AI study panel.
+ * This component receives all data and actions from the parent component.
+ */
 type AiStudyPanelProps = {
+  // Current selected tab: summary, flashcards, or chat.
   activeTab: AiStudyTab;
+
+  // Saved summaries shown in the Summary tab.
   summaries: SummaryView[];
+
+  // Saved flashcards shown in the Flashcards tab.
   flashcards: FlashcardView[];
+
+  // Messages for the active chat thread.
   chatMessages: ChatMessageView[];
+
+  // List of available chat threads.
   chatThreads: ChatThreadView[];
+
+  // The currently selected chat thread id.
   activeChatThreadId: string | null;
+
+  // Number of flashcards the user wants to generate.
   flashcardCount: number;
+
+  // Index of the flashcard currently being displayed.
   activeFlashcardIndex: number;
+
+  // General loading state for the whole panel.
   isLoading: boolean;
+
+  // Loading state when generating a summary.
   isGeneratingSummary: boolean;
+
+  // Loading state when generating flashcards.
   isGeneratingFlashcards: boolean;
+
+  // Loading state when sending a chat message.
   isSendingChatMessage: boolean;
+
+  // Id of the chat thread currently being deleted.
   deletingChatThreadId: string;
+
+  // Error message shown to the user.
   errorMessage: string;
+
+  // Optional avatar image for the current user in chat.
   userAvatarUrl?: string | null;
+
+  // Callback functions are provided by the parent component.
   onActiveTabChange: (tab: AiStudyTab) => void;
   onFlashcardCountChange: (count: number) => void;
   onActiveFlashcardIndexChange: (index: number) => void;
@@ -46,12 +81,20 @@ type AiStudyPanelProps = {
   onSendChatMessage: (message: string) => void;
 };
 
+/**
+ * A summary is parsed into simple blocks before rendering.
+ * This makes markdown-like content easier to display as UI.
+ */
 type SummaryBlock =
   | { type: "heading"; level: number; content: string }
   | { type: "paragraph"; content: string }
   | { type: "quote"; content: string }
   | { type: "list"; ordered: boolean; items: string[] };
 
+/**
+ * Convert a createdAt value into a readable date.
+ * If the value is missing or invalid, show "Just now".
+ */
 function formatCreatedAt(value: string | null) {
   if (!value) {
     return "Just now";
@@ -70,6 +113,10 @@ function formatCreatedAt(value: string | null) {
   }).format(date);
 }
 
+/**
+ * Parse a summary text into display blocks.
+ * It supports simple markdown-like headings, lists, quotes, and paragraphs.
+ */
 function parseSummaryBlocks(content: string) {
   const blocks: SummaryBlock[] = [];
   const lines = content
@@ -80,6 +127,7 @@ function parseSummaryBlocks(content: string) {
   let listItems: string[] = [];
   let isOrderedList = false;
 
+  // Save the current paragraph into blocks, then clear the temporary lines.
   function flushParagraph() {
     const paragraph = paragraphLines.join(" ").trim();
 
@@ -90,6 +138,7 @@ function parseSummaryBlocks(content: string) {
     paragraphLines = [];
   }
 
+  // Save the current list into blocks, then reset list state.
   function flushList() {
     if (listItems.length) {
       blocks.push({
@@ -106,6 +155,7 @@ function parseSummaryBlocks(content: string) {
   lines.forEach((line) => {
     const trimmed = line.trim();
 
+    // Empty lines separate paragraphs and lists.
     if (!trimmed) {
       flushParagraph();
       flushList();
@@ -114,6 +164,7 @@ function parseSummaryBlocks(content: string) {
 
     const headingMatch = /^(#{1,4})\s+(.+)$/.exec(trimmed);
 
+    // Lines starting with # become headings.
     if (headingMatch) {
       flushParagraph();
       flushList();
@@ -128,6 +179,7 @@ function parseSummaryBlocks(content: string) {
     const unorderedMatch = /^[-*]\s+(.+)$/.exec(trimmed);
     const orderedMatch = /^\d+[.)]\s+(.+)$/.exec(trimmed);
 
+    // Lines starting with -, *, or numbers become list items.
     if (unorderedMatch || orderedMatch) {
       flushParagraph();
       const nextIsOrdered = Boolean(orderedMatch);
@@ -143,6 +195,7 @@ function parseSummaryBlocks(content: string) {
 
     const quoteMatch = /^>\s+(.+)$/.exec(trimmed);
 
+    // Lines starting with > become quote blocks.
     if (quoteMatch) {
       flushParagraph();
       flushList();
@@ -150,6 +203,7 @@ function parseSummaryBlocks(content: string) {
       return;
     }
 
+    // Normal text becomes part of a paragraph.
     flushList();
     paragraphLines.push(trimmed);
   });
@@ -164,6 +218,10 @@ function parseSummaryBlocks(content: string) {
   return [{ type: "paragraph", content }] satisfies SummaryBlock[];
 }
 
+/**
+ * Render simple inline markdown styles inside a text block.
+ * It supports bold, italic, bold italic, and inline code.
+ */
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   const pattern = /(\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g;
@@ -224,6 +282,10 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   return nodes;
 }
 
+/**
+ * Highlight short labels at the start of a sentence.
+ * Example: "Definition: something" will highlight "Definition:".
+ */
 function renderLabelledText(text: string, key: string) {
   const labelMatch = /^([A-Za-zÀ-ỹ0-9][A-Za-zÀ-ỹ0-9\s/,-]{1,34}):\s+(.+)$/.exec(
     text,
@@ -241,6 +303,10 @@ function renderLabelledText(text: string, key: string) {
   );
 }
 
+/**
+ * Render the summary content as styled blocks.
+ * useMemo avoids parsing the same content again on every render.
+ */
 function SummaryRenderer({ content }: { content: string }) {
   const blocks = useMemo(() => parseSummaryBlocks(content), [content]);
   const headingClasses = [
@@ -315,17 +381,22 @@ function SummaryRenderer({ content }: { content: string }) {
   );
 }
 
+// Icons used for each AI study tab.
 const studyToolIcons = {
   summary: "/assets/icons/home/magic-icon.png",
   flashcards: "/assets/icons/home/stack-icon.png",
   chat: "/assets/icons/home/chat-icon.png",
 } satisfies Record<AiStudyTab, string>;
 
+// Tint style for inactive icons.
 const studyIconTint = {
   filter:
     "invert(26%) sepia(89%) saturate(1558%) hue-rotate(222deg) brightness(91%) contrast(88%)",
 };
 
+/**
+ * Small icon component used inside tab buttons and action buttons.
+ */
 function StudyToolIcon({
   tab,
   active = false,
@@ -346,6 +417,9 @@ function StudyToolIcon({
   );
 }
 
+/**
+ * Button for switching between Summary, Flashcards, and Chat tabs.
+ */
 function StudyTabButton({
   tab,
   activeTab,
@@ -401,40 +475,61 @@ export function AiStudyPanel({
   onGenerateFlashcards,
   onSendChatMessage,
 }: AiStudyPanelProps) {
+  // Stores which flashcard answer is currently visible.
   const [visibleAnswerCardId, setVisibleAnswerCardId] = useState<string | null>(
     null,
   );
+
+  // Stores completed flashcard ids locally in this component.
   const [completedFlashcardIds, setCompletedFlashcardIds] = useState<
     Set<string>
   >(() => new Set());
+
+  // Stores the selected summary id from history.
+  // When it is null, the latest summary is shown.
   const [selectedSummaryId, setSelectedSummaryId] = useState<string | null>(
     null,
   );
+
+  // The newest summary is expected to be the first item.
   const latestSummary = summaries[0] ?? null;
+
+  // Show the selected saved summary, or fall back to the latest summary.
   const activeSummary =
     summaries.find((summary) => summary.id === selectedSummaryId) ??
     latestSummary;
+
+  // Current flashcard based on the active index.
   const activeFlashcard = flashcards[activeFlashcardIndex] ?? null;
+
+  // Check whether the current flashcard answer should be displayed.
   const isAnswerVisible = activeFlashcard
     ? visibleAnswerCardId === activeFlashcard.id
     : false;
+
+  // Count how many flashcards were marked as completed.
   const completedFlashcardCount = flashcards.filter((card) =>
     completedFlashcardIds.has(card.id),
   ).length;
+
+  // Check whether the current flashcard is completed.
   const isActiveFlashcardCompleted = activeFlashcard
     ? completedFlashcardIds.has(activeFlashcard.id)
     : false;
 
+  // Keep the flashcard count input inside the allowed range from 1 to 50.
   const boundedFlashcardCount = useMemo(
     () => Math.min(50, Math.max(1, flashcardCount)),
     [flashcardCount],
   );
 
+  // Generate a new summary and reset selection so the latest summary is shown.
   function generateSummaryAndShowLatest() {
     setSelectedSummaryId(null);
     onGenerateSummary();
   }
 
+  // Mark the current flashcard as completed.
   function markActiveFlashcardCompleted() {
     if (!activeFlashcard) {
       return;
@@ -447,6 +542,7 @@ export function AiStudyPanel({
     });
   }
 
+  // Mark the current flashcard as not completed.
   function markActiveFlashcardUncompleted() {
     if (!activeFlashcard) {
       return;
@@ -461,6 +557,7 @@ export function AiStudyPanel({
 
   return (
     <section className="mt-6 overflow-hidden rounded-[14px] bg-white shadow-[0_14px_30px_rgba(18,24,38,0.08)] ring-1 ring-[#dce6f4]">
+      {/* Main panel header */}
       <div className="border-b border-[#dce6f4] px-6 py-5">
         <div>
           <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#5f6c82]">
@@ -472,6 +569,7 @@ export function AiStudyPanel({
         </div>
       </div>
 
+      {/* Tab navigation */}
       <div className="flex flex-wrap gap-3 px-6 pt-5">
         <StudyTabButton
           tab="summary"
@@ -493,6 +591,7 @@ export function AiStudyPanel({
         />
       </div>
 
+      {/* Error message area */}
       {errorMessage ? (
         <div className="mx-6 mt-5 rounded-[10px] border border-[#ffc4ca] bg-[#fff0f1] px-4 py-3 text-[14px] font-bold text-[#b42335]">
           {errorMessage}
@@ -500,15 +599,19 @@ export function AiStudyPanel({
       ) : null}
 
       {isLoading ? (
+        /* Loading placeholder */
         <div className="grid gap-5 p-6 lg:grid-cols-[1fr_260px]">
           <div className="h-[260px] rounded-[12px] bg-[#f2f6fb]" />
           <div className="h-[260px] rounded-[12px] bg-[#f2f6fb]" />
         </div>
       ) : activeTab === "summary" ? (
+        /* Summary tab content */
         <div className="grid gap-5 p-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+          {/* Main summary display */}
           <article className="min-h-[280px] rounded-[12px] border border-[#dce6f4] bg-[#f8fbff] p-6">
             {activeSummary ? (
               <>
+                {/* Summary title and date */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-[24px] font-black text-[#0f2442]">
                     {selectedSummaryId ? "Saved Summary" : "Latest Summary"}
@@ -520,11 +623,13 @@ export function AiStudyPanel({
                   </div>
                 </div>
 
+                {/* Rendered summary content */}
                 <div className="mt-5 max-h-[620px] overflow-y-auto rounded-[12px] bg-white px-6 py-6 ring-1 ring-[#e4ebf5]">
                   <SummaryRenderer content={activeSummary.content} />
                 </div>
               </>
             ) : (
+              /* Empty summary state */
               <div className="grid min-h-[230px] place-items-center rounded-[10px] border border-dashed border-[#cbd8e8] bg-white px-6 text-center">
                 <div>
                   <h3 className="text-[22px] font-black text-[#0f2442]">
@@ -538,6 +643,7 @@ export function AiStudyPanel({
             )}
           </article>
 
+          {/* Summary sidebar with count, generate button, and history */}
           <aside className="rounded-[12px] border border-[#dce6f4] bg-white p-5">
             <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[#6c778b]">
               Saved
@@ -560,6 +666,7 @@ export function AiStudyPanel({
             </button>
 
             {summaries.length ? (
+              /* Summary history list */
               <div className="mt-6 border-t border-[#e5ecf6] pt-5">
                 <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[#6c778b]">
                   History
@@ -598,10 +705,13 @@ export function AiStudyPanel({
           </aside>
         </div>
       ) : activeTab === "flashcards" ? (
+        /* Flashcards tab content */
         <div className="grid gap-5 p-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+          {/* Main flashcard display */}
           <article className="rounded-[12px] border border-[#dce6f4] bg-[#f8fbff] p-6">
             {activeFlashcard ? (
               <>
+                {/* Flashcard title and status */}
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-[24px] font-black text-[#0f2442]">
@@ -628,6 +738,7 @@ export function AiStudyPanel({
                   </div>
                 </div>
 
+                {/* Flashcard question and answer area */}
                 <div className="mt-5 grid min-h-[300px] rounded-[12px] bg-white p-6 shadow-[inset_0_0_0_1px_#e4ebf5]">
                   <div>
                     <p className="text-[13px] font-black uppercase tracking-[0.16em] text-[#245895]">
@@ -662,6 +773,7 @@ export function AiStudyPanel({
                   </div>
                 </div>
 
+                {/* Flashcard navigation and completion actions */}
                 <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex gap-3">
                     <button
@@ -718,6 +830,7 @@ export function AiStudyPanel({
                 </div>
               </>
             ) : (
+              /* Empty flashcard state */
               <div className="grid min-h-[300px] place-items-center rounded-[10px] border border-dashed border-[#cbd8e8] bg-white px-6 text-center">
                 <div>
                   <h3 className="text-[22px] font-black text-[#0f2442]">
@@ -731,6 +844,7 @@ export function AiStudyPanel({
             )}
           </article>
 
+          {/* Flashcard sidebar with progress, generation input, and card list */}
           <aside className="rounded-[12px] border border-[#dce6f4] bg-white p-5">
             <p className="text-[13px] font-black uppercase tracking-[0.14em] text-[#6c778b]">
               Saved Cards
@@ -742,6 +856,7 @@ export function AiStudyPanel({
               cards completed
             </p>
 
+            {/* Completion progress bar */}
             <div className="mt-4 h-3 overflow-hidden rounded-full bg-[#eef5ff]">
               <div
                 className="h-full rounded-full bg-[#2e9b55] transition-all duration-500"
@@ -753,6 +868,7 @@ export function AiStudyPanel({
               />
             </div>
 
+            {/* Number input for generating new flashcards */}
             <label className="mt-6 block text-[14px] font-black text-[#102744]">
               New cards
               <input
@@ -778,6 +894,7 @@ export function AiStudyPanel({
             </button>
 
             {flashcards.length ? (
+              /* Small buttons for jumping to a specific flashcard */
               <div className="mt-6 flex max-h-[148px] flex-wrap gap-2 overflow-y-auto">
                 {flashcards.map((card, index) => {
                   const isActive = index === activeFlashcardIndex;
@@ -818,6 +935,7 @@ export function AiStudyPanel({
           </aside>
         </div>
       ) : (
+        /* Chat tab content */
         <DocumentChatPanel
           messages={chatMessages}
           chatThreads={chatThreads}

@@ -13,6 +13,11 @@ import org.springframework.util.StringUtils;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Service responsible for sending email messages from DeepReader.
+ *
+ * <p>Currently this service is used to send OTP verification emails.
+ */
 @Service
 public class EmailDeliveryService {
 	private final JavaMailSender mailSender;
@@ -32,6 +37,12 @@ public class EmailDeliveryService {
 		this.fromName = fromName;
 	}
 
+	/**
+	 * Sends an OTP email to the given recipient.
+	 *
+	 * <p>The sender address is resolved from configuration, and the email includes
+	 * the expiration time so users know how long the code is valid.
+	 */
 	public void sendOtp(String recipient, String code, String subject, int ttlMinutes) {
 		if (!StringUtils.hasText(username) && !StringUtils.hasText(configuredFrom)) {
 			throw new IllegalArgumentException("SMTP email is not configured.");
@@ -40,6 +51,8 @@ public class EmailDeliveryService {
 		try {
 			MimeMessage message = mailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(message, false, StandardCharsets.UTF_8.name());
+
+			// Use UTF-8 so the sender name and message content are encoded correctly.
 			helper.setFrom(new InternetAddress(resolveFromEmail(), resolveFromName(), StandardCharsets.UTF_8.name()));
 			helper.setTo(recipient);
 			helper.setSubject(subject);
@@ -48,16 +61,24 @@ public class EmailDeliveryService {
 
 					This code expires in %d minutes. If you did not request this code, you can ignore this email.
 					""".formatted(code, ttlMinutes));
+
 			mailSender.send(message);
 		} catch (MailException | MessagingException | UnsupportedEncodingException ex) {
+			// Hide low-level mail errors from callers and return a clear configuration-related message.
 			throw new IllegalArgumentException("Could not send verification email. Check SMTP settings.", ex);
 		}
 	}
 
+	/**
+	 * Resolves the email address used in the From header.
+	 */
 	private String resolveFromEmail() {
 		return StringUtils.hasText(configuredFrom) ? configuredFrom.trim() : username.trim();
 	}
 
+	/**
+	 * Resolves the display name used in the From header.
+	 */
 	private String resolveFromName() {
 		return StringUtils.hasText(fromName) ? fromName.trim() : "DeepReader";
 	}

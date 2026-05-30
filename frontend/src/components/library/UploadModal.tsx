@@ -4,26 +4,62 @@ import type { ChangeEvent, DragEvent, RefObject } from "react";
 import uploadLoadingAnimation from "@/assets/animations/upload-loading.json";
 
 type UploadModalProps = {
+  // Controls whether the modal is shown or hidden.
   isOpen: boolean;
+
+  // True while the file is being uploaded.
   isUploading: boolean;
+
+  // True when the user cannot upload yet, for example when no file is selected.
   isUploadBlocked: boolean;
+
+  // True when the upload process has finished successfully.
   isUploadComplete: boolean;
+
+  // Current upload percentage from 0 to 100.
   uploadProgress: number;
+
+  // Text that shows the estimated remaining upload time.
   uploadEtaLabel: string;
+
+  // True when the user is dragging a file over the upload area.
   isDragging: boolean;
+
+  // The file selected by the user before uploading.
   stagedFile: File | null;
+
+  // Message shown to the user, usually for errors or success feedback.
   uploadMessage: string;
+
+  // Ref used to access the hidden file input element.
   fileInputRef: RefObject<HTMLInputElement | null>;
+
+  // Closes the upload modal.
   onClose: () => void;
+
+  // Runs when the user selects a file from the file picker.
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
+
+  // Runs when a file is dragged over the upload area.
   onDragOver: () => void;
+
+  // Runs when the dragged file leaves the upload area.
   onDragLeave: () => void;
+
+  // Runs when the user drops a file into the upload area.
   onDrop: (event: DragEvent<HTMLLabelElement>) => void;
+
+  // Opens a preview of the selected file.
   onPreviewFile: () => void;
+
+  // Removes the currently selected file.
   onRemoveFile: () => void;
+
+  // Starts the upload process.
   onSubmit: () => void;
 };
 
+// Small upload icon used inside the drag-and-drop area.
 function UploadIcon({ className = "h-6 w-6" }: { className?: string }) {
   return (
     <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24">
@@ -38,6 +74,7 @@ function UploadIcon({ className = "h-6 w-6" }: { className?: string }) {
   );
 }
 
+// Close icon used by the modal close button.
 function CloseIcon() {
   return (
     <svg aria-hidden="true" className="h-9 w-9" viewBox="0 0 24 24">
@@ -52,6 +89,7 @@ function CloseIcon() {
   );
 }
 
+// Eye icon used for the preview file button.
 function EyeIcon() {
   return (
     <svg aria-hidden="true" className="h-7 w-7" fill="none" viewBox="0 0 24 24">
@@ -70,6 +108,7 @@ function EyeIcon() {
   );
 }
 
+// Trash icon image used for the remove file button.
 function TrashIcon() {
   return (
     <Image
@@ -82,7 +121,9 @@ function TrashIcon() {
   );
 }
 
+// Shows a different file icon depending on the selected file format.
 function FileGlyph({ format }: { format: "PDF" | "EPUB" }) {
+  // PDF files use an image icon.
   if (format !== "EPUB") {
     return (
       <Image
@@ -95,6 +136,7 @@ function FileGlyph({ format }: { format: "PDF" | "EPUB" }) {
     );
   }
 
+  // EPUB files use a custom card-like icon made with HTML and Tailwind.
   return (
     <div className="relative grid h-[78px] w-[64px] place-items-end rounded-[14px] bg-white pb-3 shadow-[0_8px_12px_rgba(23,33,58,0.20)]">
       <div className="absolute right-0 top-0 h-0 w-0 border-l-[18px] border-t-[18px] border-l-[#cfd4df] border-t-[#eef1f8]" />
@@ -106,6 +148,7 @@ function FileGlyph({ format }: { format: "PDF" | "EPUB" }) {
   );
 }
 
+// Converts a file size in bytes into a simple KB or MB label.
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) {
     return `${Math.max(1, Math.round(size / 1024))} KB`;
@@ -114,6 +157,7 @@ function formatFileSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+// Upload modal used to select, preview, remove, and upload PDF or EPUB files.
 export function UploadModal({
   isOpen,
   isUploading,
@@ -134,22 +178,34 @@ export function UploadModal({
   onRemoveFile,
   onSubmit,
 }: UploadModalProps) {
+  // Do not render anything when the modal is closed.
   if (!isOpen) {
     return null;
   }
 
+  // Keeps the progress value safe so the progress bar always stays between 0% and 100%.
   const safeUploadProgress = Math.min(
     100,
     Math.max(0, Math.round(uploadProgress)),
   );
+
+  // The main button is disabled when upload is blocked, but it is enabled again after upload is complete.
   const primaryButtonDisabled = isUploadComplete ? false : isUploadBlocked;
+
+  // Changes the message style based on whether the upload is complete or not.
   const uploadMessageClasses = isUploadComplete
     ? "border-[#9bdcac] bg-[#effcf3] text-[#1d7b45]"
     : "border-[#ffc4ca] bg-[#fff0f1] text-[#b42335]";
+
+  // Status view is used while uploading or after the upload has completed.
   const isStatusView = isUploading || isUploadComplete;
+
+  // The modal is narrower for the upload status screen and wider for the file selection screen.
   const modalWidthClass = isStatusView
     ? "w-[min(640px,100%)]"
     : "w-[min(960px,100%)]";
+
+  // Title changes depending on the current upload state.
   const modalTitle = isStatusView
     ? isUploadComplete
       ? "Upload complete"
@@ -157,6 +213,8 @@ export function UploadModal({
         ? "Processing document"
         : "Uploading document"
     : "Add new documents to the Library";
+
+  // Description gives the user a clear explanation of what is happening.
   const modalDescription = isStatusView
     ? isUploadComplete
       ? "Your document has been added to the library."
@@ -166,14 +224,17 @@ export function UploadModal({
     : "Choose a PDF or EPUB file to add to your library.";
 
   return (
+    // Main modal overlay that darkens the background.
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#121826]/45 px-4 py-5"
       role="dialog"
       aria-modal="true"
     >
+      {/* Modal container */}
       <div
         className={`max-h-[92vh] ${modalWidthClass} overflow-y-auto rounded-[10px] bg-white shadow-[0_26px_80px_rgba(18,24,38,0.32)]`}
       >
+        {/* Modal header with title, description, and close button */}
         <div className="flex items-start justify-between gap-6 px-8 py-7">
           <div>
             <h2 className="text-[26px] font-black tracking-[0] text-black">
@@ -198,10 +259,13 @@ export function UploadModal({
 
         <div className="border-t border-[#d8dbe3]" />
 
+        {/* Main modal content */}
         <div className="px-8 py-7">
           {isStatusView ? (
+            // Upload status screen with animation, progress bar, and completion message.
             <div className="grid min-h-[360px] place-items-center text-center">
               <div className="w-full">
+                {/* Upload animation */}
                 <div className="mx-auto h-[190px] w-[190px]">
                   <Lottie
                     animationData={uploadLoadingAnimation}
@@ -211,6 +275,7 @@ export function UploadModal({
                   />
                 </div>
 
+                {/* Upload progress information */}
                 <div className="mx-auto mt-5 max-w-[500px]">
                   <div className="flex items-center justify-between gap-4 text-left text-[14px] font-black text-[#245895]">
                     <span>
@@ -231,6 +296,7 @@ export function UploadModal({
                     />
                   </div>
 
+                  {/* Optional estimated time label */}
                   {uploadEtaLabel ? (
                     <p className="mt-3 text-left text-[13px] font-bold text-[#7f8da5]">
                       {uploadEtaLabel}
@@ -238,6 +304,7 @@ export function UploadModal({
                   ) : null}
                 </div>
 
+                {/* Optional upload message, such as success or error text */}
                 {uploadMessage ? (
                   <div
                     className={`mx-auto mt-5 max-w-[500px] rounded-[8px] border px-5 py-3 text-[14px] font-bold ${uploadMessageClasses}`}
@@ -246,6 +313,7 @@ export function UploadModal({
                   </div>
                 ) : null}
 
+                {/* Final action shown only after upload is complete */}
                 {isUploadComplete ? (
                   <button
                     type="button"
@@ -259,6 +327,7 @@ export function UploadModal({
             </div>
           ) : (
             <>
+          {/* Drag-and-drop area and hidden file input */}
           <label
             onDragOver={(event) => {
               event.preventDefault();
@@ -282,6 +351,7 @@ export function UploadModal({
             />
 
             <div>
+              {/* Large visual upload icon */}
               <div className="relative mx-auto h-[86px] w-[86px]">
                 <div className="absolute left-1 top-0 h-[74px] w-[58px] rounded-[7px] bg-[#989ba3]">
                   <div className="absolute right-0 top-0 h-0 w-0 border-l-[24px] border-t-[24px] border-l-[#787b82] border-t-white" />
@@ -301,12 +371,14 @@ export function UploadModal({
             </div>
           </label>
 
+          {/* Supported file format note */}
           <div className="mt-5">
             <p className="text-[16px] font-medium text-[#8f939e]">
               Supported formats: PDF and EPUB
             </p>
           </div>
 
+          {/* Optional upload message shown on the file selection screen */}
           {uploadMessage ? (
             <div
               className={`mt-5 rounded-[8px] border px-5 py-3 text-[14px] font-bold ${uploadMessageClasses}`}
@@ -315,9 +387,11 @@ export function UploadModal({
             </div>
           ) : null}
 
+          {/* Selected file preview area */}
           <div className="mt-7 rounded-[14px] bg-[#e8eaf3] px-7 py-6">
             {stagedFile ? (
               <div className="flex flex-wrap items-center justify-between gap-8">
+                {/* Selected file icon, name, and size */}
                 <div className="flex items-center gap-6">
                   <FileGlyph
                     format={
@@ -338,6 +412,7 @@ export function UploadModal({
                   </div>
                 </div>
 
+                {/* File action buttons */}
                 <div className="flex gap-5">
                   <button
                     type="button"
@@ -370,6 +445,7 @@ export function UploadModal({
             )}
           </div>
 
+          {/* Footer action buttons */}
           <div className="mt-7 flex justify-end gap-4">
             <button
               type="button"

@@ -5,16 +5,20 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { helpFaqItems, type HelpFaqItem } from "@/lib/helpFaq";
 
+// A single chat message shown inside the floating help chat.
 type HelpMessage = {
   id: string;
   role: "bot" | "user";
   text: string;
 };
 
+// Props for the floating help chat component.
 type FloatingHelpChatProps = {
+  // Allows the parent component to show the chat as open by default.
   initiallyOpen?: boolean;
 };
 
+// First message shown when the chat starts or resets.
 const initialMessages: HelpMessage[] = [
   {
     id: "welcome",
@@ -26,19 +30,36 @@ const initialMessages: HelpMessage[] = [
 export function FloatingHelpChat({
   initiallyOpen = false,
 }: FloatingHelpChatProps) {
+  // Controls whether the chat is currently open or closed.
   const [isOpen, setIsOpen] = useState(initiallyOpen);
+
+  // Keeps the chat mounted during the close animation.
   const [shouldRenderChat, setShouldRenderChat] = useState(initiallyOpen);
+
+  // Stores all messages shown in the chat window.
   const [messages, setMessages] = useState<HelpMessage[]>(initialMessages);
+
+  // Tracks which suggested questions were already selected by the user.
   const [askedQuestionIds, setAskedQuestionIds] = useState<string[]>([]);
+
+  // Shows a temporary loading state while the bot answer is being prepared.
   const [isAnswering, setIsAnswering] = useState(false);
+
+  // Points to the message list container so it can scroll to the latest message.
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
+
+  // Stores the answer delay timer so it can be cleared safely.
   const answerTimerRef = useRef<number | null>(null);
+
+  // Stores the close animation timer so the chat can unmount after animation.
   const closeTimerRef = useRef<number | null>(null);
 
+  // Shows only questions that the user has not clicked yet.
   const suggestedQuestions = helpFaqItems.filter(
     (item) => !askedQuestionIds.includes(item.id),
   );
 
+  // Handles delayed unmounting when the chat closes.
   useEffect(() => {
     if (isOpen) {
       if (closeTimerRef.current) {
@@ -62,6 +83,7 @@ export function FloatingHelpChat({
     };
   }, [isOpen]);
 
+  // Scrolls the chat message area to the bottom when messages change.
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -78,6 +100,7 @@ export function FloatingHelpChat({
     return () => window.cancelAnimationFrame(animationFrame);
   }, [isAnswering, isOpen, messages]);
 
+  // Clears timers when the component is removed from the page.
   useEffect(() => {
     return () => {
       if (answerTimerRef.current) {
@@ -90,6 +113,7 @@ export function FloatingHelpChat({
     };
   }, []);
 
+  // Opens the chat and allows the opening animation to run.
   function openChat() {
     if (closeTimerRef.current) {
       window.clearTimeout(closeTimerRef.current);
@@ -102,10 +126,12 @@ export function FloatingHelpChat({
     });
   }
 
+  // Starts the closing animation.
   function closeChat() {
     setIsOpen(false);
   }
 
+  // Opens the chat if closed, or closes it if already open.
   function toggleChat() {
     if (isOpen) {
       closeChat();
@@ -115,6 +141,7 @@ export function FloatingHelpChat({
     openChat();
   }
 
+  // Adds the selected question to the chat, then adds the bot answer after a short delay.
   function chooseQuestion(item: HelpFaqItem) {
     if (isAnswering) {
       return;
@@ -150,6 +177,7 @@ export function FloatingHelpChat({
     }, 420);
   }
 
+  // Resets the chat back to the first welcome message.
   function resetChat() {
     if (answerTimerRef.current) {
       window.clearTimeout(answerTimerRef.current);
@@ -165,6 +193,7 @@ export function FloatingHelpChat({
     <div className="fixed bottom-5 right-5 z-50 max-[640px]:inset-x-0 max-[640px]:bottom-0 max-[640px]:flex max-[640px]:justify-end max-[640px]:px-4 max-[640px]:pb-4">
       {shouldRenderChat ? (
         <>
+          {/* Mobile backdrop. Clicking it closes the chat overlay. */}
           <button
             type="button"
             aria-label="Close help chatbot overlay"
@@ -174,6 +203,7 @@ export function FloatingHelpChat({
             }`}
           />
 
+          {/* Main floating chat panel. */}
           <section
             className={`mb-4 flex max-h-[min(760px,calc(100vh_-_112px))] w-[min(400px,calc(100vw_-_32px))] origin-bottom-right flex-col overflow-hidden rounded-[22px] border border-[#dbe7f5] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.22)] transition-all duration-300 ease-out max-[640px]:fixed max-[640px]:inset-x-3 max-[640px]:bottom-20 max-[640px]:mb-0 max-[640px]:max-h-[calc(100dvh_-_108px)] max-[640px]:w-auto max-[640px]:origin-bottom max-[640px]:rounded-[24px] ${
               isOpen
@@ -181,6 +211,7 @@ export function FloatingHelpChat({
                 : "pointer-events-none translate-y-4 scale-[0.96] opacity-0 max-[640px]:translate-y-8 max-[640px]:scale-[0.98]"
             }`}
           >
+            {/* Chat header with logo, title, and close button. */}
             <div className="flex items-center justify-between gap-3 bg-[linear-gradient(135deg,#dbeafe_0%,#cffafe_55%,#eef2ff_100%)] px-4 py-4 max-[420px]:px-3.5 max-[420px]:py-3.5">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white/70 ring-1 ring-white max-[420px]:h-10 max-[420px]:w-10 max-[420px]:rounded-xl">
@@ -213,6 +244,7 @@ export function FloatingHelpChat({
               </button>
             </div>
 
+            {/* Message list area. It shows user messages, bot messages, and loading text. */}
             <div
               ref={messagesViewportRef}
               className="min-h-[220px] flex-1 space-y-3 overflow-y-auto bg-[#f8fafc] px-4 py-4 max-[640px]:min-h-[180px] max-[640px]:px-3.5 max-[640px]:py-3.5"
@@ -246,12 +278,14 @@ export function FloatingHelpChat({
 
             </div>
 
+            {/* Suggested question area at the bottom of the chat. */}
             <div className="border-t border-[#e2e8f0] bg-white px-4 py-4 max-[640px]:px-3.5 max-[640px]:py-3.5">
               <div className="mb-3 flex items-center justify-between gap-2 max-[420px]:items-start">
                 <p className="text-[12px] font-black uppercase tracking-[0.08em] text-[#64748b]">
                   Suggested questions
                 </p>
 
+                {/* Quick actions for opening the full help page or restarting the chat. */}
                 <div className="flex shrink-0 items-center gap-3 max-[420px]:gap-2">
                   <Link
                     href="/help-center"
@@ -270,6 +304,7 @@ export function FloatingHelpChat({
                 </div>
               </div>
 
+              {/* Shows either a waiting message, remaining suggestions, or the finished state. */}
               {isAnswering ? (
                 <p className="rounded-[14px] bg-[#f8fafc] px-3 py-3 text-[13px] font-bold text-[#64748b] ring-1 ring-[#e2e8f0] max-[420px]:text-[12.5px]">
                   I will show more suggestions after this answer.
@@ -298,6 +333,7 @@ export function FloatingHelpChat({
         </>
       ) : null}
 
+      {/* Floating button used to open or close the help chat. */}
       <button
         type="button"
         onClick={toggleChat}
@@ -313,6 +349,7 @@ export function FloatingHelpChat({
   );
 }
 
+// Chat bubble icon used when the floating help chat is closed.
 function ChatIcon() {
   return (
     <svg
@@ -333,6 +370,7 @@ function ChatIcon() {
   );
 }
 
+// X icon used for closing the chat panel and floating button state.
 function CloseIcon() {
   return (
     <svg

@@ -24,6 +24,12 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
+/**
+ * Internal data controller for library-related entities.
+ *
+ * <p>This controller exposes simple CRUD-style endpoints and delegates all
+ * persistence logic to LibraryDataService.
+ */
 @RestController
 @RequestMapping(path = "/internal/data/v1", produces = MediaType.APPLICATION_JSON_VALUE)
 public class LibraryDataController {
@@ -43,12 +49,20 @@ public class LibraryDataController {
 	@PostMapping("/books")
 	public Mono<Book> saveBook(@RequestBody Book book) { return libraryDataService.saveBook(book); }
 
+	/**
+	 * Lists books with an optional user filter.
+	 *
+	 * <p>When userId is provided, the data service returns books for that user only.
+	 */
 	@GetMapping("/books")
 	public Flux<Book> listBooks(@RequestParam(required = false) String userId) { return libraryDataService.findBooks(userId); }
 
 	@GetMapping("/books/{bookId}")
 	public Mono<Book> getBook(@PathVariable String bookId) { return libraryDataService.findBookById(bookId); }
 
+	/**
+	 * Deletes a book and returns 204 when the delete operation completes.
+	 */
 	@DeleteMapping("/books/{bookId}")
 	public Mono<ResponseEntity<Void>> deleteBook(@PathVariable String bookId) {
 		return libraryDataService.deleteBookById(bookId)
@@ -79,6 +93,12 @@ public class LibraryDataController {
 	@GetMapping("/books/{bookId}/chats")
 	public Flux<ChatHistory> listChats(@PathVariable String bookId) { return libraryDataService.findChatHistoryByBook(bookId); }
 
+	/**
+	 * Deletes a chat thread or selected chat messages for a book.
+	 *
+	 * <p>The request can carry a thread ID and message IDs so the service can
+	 * decide whether to delete the whole thread or only specific messages.
+	 */
 	@PostMapping(value = "/books/{bookId}/chat-threads/delete", consumes = MediaType.APPLICATION_JSON_VALUE)
 	public Mono<ResponseEntity<Void>> deleteChatThread(
 			@PathVariable String bookId,
@@ -94,6 +114,12 @@ public class LibraryDataController {
 	@GetMapping("/books/{bookId}/reading-sessions")
 	public Flux<ReadingSession> listReadingSessions(@PathVariable String bookId) { return libraryDataService.findReadingSessionsByBook(bookId); }
 
+	/**
+	 * Adds reading time to the user's reading session for a book.
+	 *
+	 * <p>This endpoint records an incremental update instead of replacing the
+	 * entire reading session object.
+	 */
 	@PostMapping("/reading-sessions/add-seconds")
 	public Mono<ResponseEntity<Void>> addReadingSeconds(
 			@RequestParam String userId,
@@ -104,17 +130,30 @@ public class LibraryDataController {
 				.thenReturn(ResponseEntity.noContent().build());
 	}
 
+	/**
+	 * Updates the editable text fields of a flashcard.
+	 */
 	@PatchMapping("/flashcards/{cardId}/edit")
 	public Mono<Flashcard> editFlashcard(@PathVariable String cardId, @RequestBody EditCardRequest request) {
 		return libraryDataService.editFlashcard(cardId, request.question(), request.answer());
 	}
 
+	/**
+	 * Sets the hidden state of a flashcard.
+	 *
+	 * <p>This supports soft hiding instead of deleting the flashcard.
+	 */
 	@PatchMapping("/flashcards/{cardId}/hide")
 	public Mono<Flashcard> hideFlashcard(@PathVariable String cardId, @RequestBody HideCardRequest request) {
 		return libraryDataService.setFlashcardHidden(cardId, request.hidden());
 	}
 
+	// Request body for editing a flashcard.
 	public record EditCardRequest(String question, String answer) {}
+
+	// Request body for hiding or showing a flashcard.
 	public record HideCardRequest(boolean hidden) {}
+
+	// Request body for deleting a whole chat thread or selected messages.
 	public record ChatThreadDeleteRequest(String threadId, List<String> messageIds) {}
 }

@@ -8,15 +8,27 @@ import java.util.List;
 @Service
 public class PromptBuilderService {
 
+	// Default maximum number of characters allowed for the full context sent to the AI provider.
 	private static final int DEFAULT_ANSWER_CONTEXT_CHARS = 18_000;
+
+	// Default maximum number of characters allowed for each individual retrieved chunk.
 	private static final int DEFAULT_ANSWER_CHUNK_CHARS = 3_500;
 
+	/**
+	 * Builds an answer prompt using the default context and chunk size limits.
+	 */
 	public String buildAnswerPrompt(String query, List<RetrievedChunk> chunks) {
 		return buildAnswerPrompt(query, chunks, DEFAULT_ANSWER_CONTEXT_CHARS, DEFAULT_ANSWER_CHUNK_CHARS);
 	}
 
+	/**
+	 * Builds a question-answering prompt from the user query and retrieved document chunks.
+	 * The generated prompt strictly limits the AI model to the provided sources.
+	 */
 	public String buildAnswerPrompt(String query, List<RetrievedChunk> chunks, int maxContextChars, int maxChunkChars) {
 		StringBuilder context = new StringBuilder();
+
+		// Add retrieved chunks one by one until the total context size reaches the configured limit.
 		for (int i = 0; i < chunks.size(); i++) {
 			RetrievedChunk chunk = chunks.get(i);
 			String source = "[Document excerpt " + (i + 1) + "]\n"
@@ -24,6 +36,7 @@ public class PromptBuilderService {
 					+ "Location: " + displayLocation(chunk) + "\n"
 					+ "Content: " + truncate(nullSafe(chunk.content()), maxChunkChars) + "\n\n";
 
+			// Stop adding chunks before exceeding the maximum context size allowed for the prompt.
 			if (context.length() + source.length() > maxContextChars) {
 				break;
 			}
@@ -31,6 +44,7 @@ public class PromptBuilderService {
 			context.append(source);
 		}
 
+		// Ensure at least one chunk is included when available, even if the normal size check skipped all chunks.
 		if (context.isEmpty() && !chunks.isEmpty()) {
 			RetrievedChunk chunk = chunks.getFirst();
 			context.append("[Document excerpt 1]\n")
@@ -53,6 +67,9 @@ public class PromptBuilderService {
 				+ "Sources:\n" + context;
 	}
 
+	/**
+	 * Builds a repair prompt used to clean a previous answer without introducing new facts.
+	 */
 	public String buildAnswerRepairPrompt(String query, String previousAnswer) {
 		return "Rewrite the assistant answer below for the user. "
 				+ "Return only the cleaned answer, with no preface and no commentary. "
@@ -63,13 +80,21 @@ public class PromptBuilderService {
 				+ "Answer to clean:\n" + nullSafe(previousAnswer);
 	}
 
+	/**
+	 * Converts null strings to an empty string to prevent null values from appearing in prompts.
+	 */
 	private String nullSafe(String value) {
 		return value == null ? "" : value;
 	}
 
+	/**
+	 * Returns a readable location label for a retrieved chunk.
+	 * Generic page or slide titles are replaced with a neutral document excerpt label.
+	 */
 	private String displayLocation(RetrievedChunk chunk) {
 		String title = nullSafe(chunk.title()).trim();
 
+		// Use meaningful titles when available, but avoid exposing generic page or slide labels.
 		if (!title.matches("(?i)^page\\s+\\d+$") && !title.matches("(?i)^slide\\s+\\d+$") && !title.isBlank()) {
 			return title;
 		}
@@ -77,6 +102,9 @@ public class PromptBuilderService {
 		return "Document excerpt";
 	}
 
+	/**
+	 * Builds a structured Markdown summary prompt for a document.
+	 */
 	public String buildSummaryPrompt(String fileName, String content) {
 		return "You are helping summarize a book for a reading application. "
 				+ "Write a vivid, structured Markdown summary that is easy to scan. "
@@ -88,6 +116,9 @@ public class PromptBuilderService {
 				+ content;
 	}
 
+	/**
+	 * Builds a flashcard generation prompt with the default English-only behavior.
+	 */
 	public String buildFlashcardPrompt(String fileName, String content, int count) {
 		return "You are an expert study-card generator for a learning application. "
 			+ "Create exactly " + count + " high-quality flashcards from the document content below. "
@@ -107,6 +138,9 @@ public class PromptBuilderService {
 			+ content;
 	}
 
+	/**
+	 * Builds a repair prompt for regenerating flashcards when the previous response was invalid or low quality.
+	 */
 	public String buildFlashcardRepairPrompt(String fileName, String content, String previousResponse, int count) {
 		return "The previous flashcard generation result was invalid, incomplete, vague, or not fully in English. "
 			+ "Regenerate the flashcards from scratch. "
@@ -125,13 +159,18 @@ public class PromptBuilderService {
 			+ "Previous bad response:\n" + nullSafe(previousResponse);
 	}
 
+	/**
+	 * Builds a flashcard generation prompt with configurable language and flashcard type.
+	 */
 	public String buildFlashcardPrompt(String fileName, String content, int count, String language, String type) {
+		// Select the required response language, defaulting to English when the language is missing or unsupported.
 		String langInstruction = switch (language != null ? language.toLowerCase().trim() : "en") {
 			case "vi" -> "Respond entirely in Vietnamese. Every question and every answer must be written in standard Vietnamese only. Do not use English unless it is a necessary technical term.";
 			case "ja" -> "Respond entirely in Japanese. Every question and every answer must be written in standard Japanese only.";
 			default  -> "Respond entirely in English. Every question and every answer must be written in standard English only.";
 		};
 
+		// Select the flashcard generation style, defaulting to a mixed set of card types.
 		String typeInstruction = switch (type != null ? type.toLowerCase().trim() : "mixed") {
 			case "concept"   -> "Focus only on definitions and key concepts. Each card must test a definition, terminology, or a fundamental concept.";
 			case "question"  -> "Generate question-answer pairs only. Each card should ask a direct question and provide a direct answer.";
@@ -155,13 +194,19 @@ public class PromptBuilderService {
 			+ content;
 	}
 
+	/**
+	 * Builds a repair prompt for configurable flashcard generation.
+	 * The repair keeps the requested language and flashcard type constraints.
+	 */
 	public String buildFlashcardRepairPrompt(String fileName, String content, String previousResponse, int count, String language, String type) {
+		// Select the required response language, defaulting to English when the language is missing or unsupported.
 		String langInstruction = switch (language != null ? language.toLowerCase().trim() : "en") {
 			case "vi" -> "Respond entirely in Vietnamese. Every question and every answer must be written in standard Vietnamese only. Do not use English unless it is a necessary technical term.";
 			case "ja" -> "Respond entirely in Japanese. Every question and every answer must be written in standard Japanese only.";
 			default  -> "Respond entirely in English. Every question and every answer must be written in standard English only.";
 		};
 
+		// Select the flashcard generation style, defaulting to a mixed set of card types.
 		String typeInstruction = switch (type != null ? type.toLowerCase().trim() : "mixed") {
 			case "concept"   -> "Focus only on definitions and key concepts. Each card must test a definition, terminology, or a fundamental concept.";
 			case "question"  -> "Generate question-answer pairs only. Each card should ask a direct question and provide a direct answer.";
@@ -185,6 +230,9 @@ public class PromptBuilderService {
 			+ "Previous bad response:\n" + nullSafe(previousResponse);
 	}
 	
+	/**
+	 * Truncates text to the requested character limit and appends a notice when truncation happens.
+	 */
 	public String truncate(String value, int maxChars) {
 		if (value == null || maxChars <= 0 || value.length() <= maxChars) {
 			return nullSafe(value);

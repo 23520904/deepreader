@@ -14,15 +14,48 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * Service responsible for answering user questions based on retrieved document chunks.
+ *
+ * This service combines lexical retrieval, context selection, prompt construction,
+ * LLM answer generation, and answer cleanup into one chat-oriented workflow.
+ */
 @Service
 public class ChatService {
 
+	/**
+	 * Maximum number of chunks used as final context for the LLM answer.
+	 */
 	private static final int GROQ_CONTEXT_MATCHES = 6;
+
+	/**
+	 * Number of candidate chunks retrieved before relevance filtering is applied.
+	 */
 	private static final int GROQ_CANDIDATE_MATCHES = 12;
+
+	/**
+	 * Maximum number of characters allowed in the full context sent to the LLM.
+	 */
 	private static final int GROQ_MAX_CONTEXT_CHARS = 12_000;
+
+	/**
+	 * Maximum number of characters included from each individual chunk.
+	 */
 	private static final int GROQ_MAX_CHUNK_CHARS = 1_100;
+
+	/**
+	 * Default provider used for study-oriented chat answers.
+	 */
 	private static final String STUDY_PROVIDER = "groq";
+
+	/**
+	 * Maximum number of times the service attempts to repair an unsuitable answer.
+	 */
 	private static final int MAX_REPAIR_ATTEMPTS = 2;
+
+	/**
+	 * Common words ignored when extracting meaningful query terms for relevance scoring.
+	 */
 	private static final Set<String> CHAT_STOP_WORDS = Set.of(
 			"a", "an", "and", "are", "as", "at", "be", "by", "can", "could", "did", "do", "does",
 			"document", "file", "for", "from", "give", "i", "in", "is", "it", "key", "main", "me",
@@ -34,6 +67,9 @@ public class ChatService {
 	private final PromptBuilderService promptBuilderService;
 	private final LlmClientService llmClientService;
 
+	/**
+	 * Creates the chat service with retrieval, prompt building, and LLM client dependencies.
+	 */
 	public ChatService(
 			RetrievalService retrievalService,
 			PromptBuilderService promptBuilderService,
@@ -44,10 +80,21 @@ public class ChatService {
 		this.llmClientService = llmClientService;
 	}
 
+	/**
+	 * Answers a question across the user's available indexed content.
+	 *
+	 * This overload is used when no specific document id or provider is supplied.
+	 */
 	public Mono<ChatAskResponse> ask(String userId, String query, Integer limit) {
 		return ask(userId, null, query, limit, null);
 	}
 
+	/**
+	 * Answers a question using retrieved chunks from a specific document or user scope.
+	 *
+	 * The requested limit is normalized, but the service always retrieves enough
+	 * candidates to allow additional relevance filtering before building the prompt.
+	 */
 	public Mono<ChatAskResponse> ask(String userId, String documentId, String query, Integer limit, String provider) {
 		Integer safeLimit = Math.max(normalizeLimit(limit), GROQ_CANDIDATE_MATCHES);
 		return retrievalService.searchLexical(userId, documentId, query, safeLimit)
@@ -55,6 +102,13 @@ public class ChatService {
 						.subscribeOn(Schedulers.boundedElastic()));
 	}
 
+	/**
+	 * Converts a search response into a final chat answer with source references.
+	 *
+	 * The method selects the best chunks, builds the LLM prompt, generates an answer,
+	 * repairs unsuitable answers when needed, and maps the selected chunks into
+	 * source references for the API response.
+	 */
 	private ChatAskResponse toChatResponse(SearchResponse searchResponse, String userId) {
 		List<RetrievedChunk> matches = selectContextChunks(searchResponse.query(), searchResponse.matches());
 		String prompt = promptBuilderService.buildAnswerPrompt(
@@ -63,7 +117,10 @@ public class ChatService {
 				GROQ_MAX_CONTEXT_CHARS,
 				GROQ_MAX_CHUNK_CHARS
 		);
+
 		String answer = cleanAnswer(llmClientService.generateAnswer(userId, STUDY_PROVIDER, prompt));
+
+		// Retry with a repair prompt when the answer contains unwanted language or source wording.
 		for (int attempt = 0; attempt < MAX_REPAIR_ATTEMPTS && needsAnswerRepair(answer); attempt += 1) {
 			String repairPrompt = promptBuilderService.buildAnswerRepairPrompt(searchResponse.query(), answer);
 			answer = cleanAnswer(llmClientService.generateAnswer(userId, STUDY_PROVIDER, repairPrompt));
@@ -85,6 +142,13 @@ public class ChatService {
 		return new ChatAskResponse(searchResponse.query(), answer, sources);
 	}
 
+	/**
+	 * Selects the most useful chunks to include in the answer context.
+	 *
+	 * Overview-style questions keep the original document order, while specific
+	 * questions are first ranked by chat relevance and then reordered by chunk index
+	 * so the final context remains readable.
+	 */
 	private List<RetrievedChunk> selectContextChunks(String query, List<RetrievedChunk> matches) {
 		if (matches == null || matches.isEmpty()) {
 			return List.of();
@@ -107,6 +171,13 @@ public class ChatService {
 				.toList();
 	}
 
+	/**
+	 * Calculates a chat-specific relevance score for a retrieved chunk.
+	 *
+	 * The score combines the original retrieval score with additional boosts for
+	 * matching query terms, important technical topics, and common study-related
+	 * concepts such as examples, constructors, and access modifiers.
+	 */
 	private double chatRelevanceScore(String query, List<String> queryTerms, RetrievedChunk chunk) {
 		String title = normalizeText(chunk.title());
 		String content = normalizeText(chunk.content());
@@ -142,6 +213,12 @@ public class ChatService {
 		return score;
 	}
 
+	/**
+	 * Extracts meaningful query terms used for chunk relevance scoring.
+	 *
+	 * The query is normalized, split into terms, filtered by length and stop words,
+	 * and deduplicated before scoring.
+	 */
 	private List<String> queryTerms(String query) {
 		return List.of(normalizeText(query).split("\\W+"))
 				.stream()
@@ -151,6 +228,12 @@ public class ChatService {
 				.toList();
 	}
 
+	/**
+	 * Detects broad overview questions that should preserve document order.
+	 *
+	 * Overview queries usually ask for summaries, key points, takeaways,
+	 * or a general explanation of the uploaded document.
+	 */
 	private boolean isOverviewQuery(String query) {
 		String normalized = normalizeText(query);
 		return normalized.matches(".*\\b(about|overview|summarize|summary|key ideas?|key points?|main ideas?|main points?|takeaways?)\\b.*")
@@ -158,6 +241,9 @@ public class ChatService {
 				|| normalized.matches(".*\\b(what|tell|describe|explain)\\b.*\\b(learn|study|review)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*");
 	}
 
+	/**
+	 * Checks whether a text value contains at least one of the provided candidates.
+	 */
 	private boolean containsAny(String value, String... candidates) {
 		for (String candidate : candidates) {
 			if (value.contains(candidate)) {
@@ -168,6 +254,12 @@ public class ChatService {
 		return false;
 	}
 
+	/**
+	 * Gives extra weight to important programming and OOP terms.
+	 *
+	 * These boosts help technical chunks rank higher when the user asks about
+	 * Java or object-oriented programming concepts.
+	 */
 	private double importantChatTermWeight(String term) {
 		return switch (term) {
 			case "oop", "java", "class", "object", "constructor", "inheritance", "encapsulation",
@@ -176,6 +268,12 @@ public class ChatService {
 		};
 	}
 
+	/**
+	 * Normalizes text for consistent matching and scoring.
+	 *
+	 * The method lowercases text, removes non-alphanumeric characters,
+	 * collapses whitespace, and safely handles null values.
+	 */
 	private String normalizeText(String value) {
 		return value == null
 				? ""
@@ -185,6 +283,11 @@ public class ChatService {
 						.trim();
 	}
 
+	/**
+	 * Normalizes the requested retrieval limit.
+	 *
+	 * Invalid or missing limits fall back to the default context match count.
+	 */
 	private int normalizeLimit(Integer limit) {
 		if (limit == null || limit <= 0) {
 			return GROQ_CONTEXT_MATCHES;
@@ -193,10 +296,20 @@ public class ChatService {
 		return limit;
 	}
 
+	/**
+	 * Trims the generated answer and converts null output into an empty string.
+	 */
 	private String cleanAnswer(String answer) {
 		return answer == null ? "" : answer.trim();
 	}
 
+	/**
+	 * Determines whether an answer should be regenerated with a repair prompt.
+	 *
+	 * Repair is triggered when the answer appears to use Vietnamese text,
+	 * mentions internal source wording, or exposes page/chunk/source references
+	 * that should not appear in the final response.
+	 */
 	private boolean needsAnswerRepair(String answer) {
 		if (answer == null || answer.isBlank()) {
 			return false;
@@ -216,6 +329,12 @@ public class ChatService {
 				|| normalized.matches("(?s).*\\bchunk\\s*\\d+\\b.*");
 	}
 
+	/**
+	 * Detects Vietnamese text by checking Unicode characters and normalized keywords.
+	 *
+	 * This helper catches both accented Vietnamese text and normalized Vietnamese
+	 * words that may remain after diacritic removal.
+	 */
 	private boolean containsVietnameseUnicodeText(String answer) {
 		String normalized = Normalizer.normalize(answer, Normalizer.Form.NFD)
 				.replaceAll("\\p{M}+", "")
@@ -225,6 +344,12 @@ public class ChatService {
 				|| normalized.matches("(?s).*\\b(la|viec|cua|va|hoac|trong|phuong\\s+thuc|tham\\s+so|doi\\s+tuong|ke\\s+thua|kha\\s+nang|lop\\s+con|ghi\\s+de)\\b.*");
 	}
 
+	/**
+	 * Detects Vietnamese text using accented characters and common Vietnamese words.
+	 *
+	 * This is used as an additional safeguard before deciding whether the answer
+	 * needs to be repaired.
+	 */
 	private boolean containsVietnameseText(String answer) {
 		return answer.matches(".*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ].*")
 				|| answer.matches("(?s).*\\b(là|việc|của|và|hoặc|trong|phương\\s+thức|tham\\s+số|đối\\s+tượng)\\b.*");

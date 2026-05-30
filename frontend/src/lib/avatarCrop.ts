@@ -1,16 +1,29 @@
+// Size of the crop viewport displayed to the user
 export const CROP_VIEWPORT_SIZE = 360;
+
+// Final output image size after cropping
 export const CROP_OUTPUT_SIZE = 512;
+
+// Maximum allowed avatar upload size (6 MB)
 export const MAX_AVATAR_FILE_SIZE = 6 * 1024 * 1024;
+
+// Initial zoom multiplier applied when loading an image
 export const CROP_INITIAL_ZOOM_MULTIPLIER = 1.12;
+
+// Initial spacing between crop box and viewport edges
 export const CROP_BOX_INITIAL_INSET = 18;
+
+// Minimum crop box size allowed during resizing
 export const CROP_BOX_MIN_SIZE = 96;
 
+// Represents the square crop area inside the viewport
 export type CropBox = {
   x: number;
   y: number;
   size: number;
 };
 
+// Complete crop editor state
 export type CropState = {
   imageSrc: string;
   zoom: number;
@@ -22,8 +35,10 @@ export type CropState = {
   cropBox: CropBox;
 };
 
+// Available resize handles around the crop box
 export type CropResizeHandle = "n" | "e" | "s" | "w" | "nw" | "ne" | "sw" | "se";
 
+// Information about the current drag operation
 export type CropDrag = {
   pointerId: number;
   kind: "image" | "resize";
@@ -35,6 +50,9 @@ export type CropDrag = {
   box: CropBox;
 };
 
+/**
+ * Create the default crop state for a newly selected image.
+ */
 export function createInitialCropState(imageSrc: string): CropState {
   return {
     imageSrc,
@@ -48,15 +66,23 @@ export function createInitialCropState(imageSrc: string): CropState {
   };
 }
 
+/**
+ * Load an image and return a ready-to-use HTMLImageElement.
+ */
 export function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new window.Image();
+
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Could not read this image."));
     image.src = src;
   });
 }
 
+/**
+ * Calculate image movement boundaries based on
+ * current zoom level and image dimensions.
+ */
 export function getCropBounds(crop: CropState) {
   const imageRatio = crop.naturalHeight / crop.naturalWidth;
   const displayWidth = CROP_VIEWPORT_SIZE * crop.zoom;
@@ -68,14 +94,23 @@ export function getCropBounds(crop: CropState) {
   };
 }
 
+/**
+ * Calculate the maximum zoom allowed for the image.
+ */
 export function getMaxCropZoom(crop: CropState) {
   return Math.max(crop.minZoom + 2, crop.minZoom * 3);
 }
 
+/**
+ * Restrict a value between a minimum and maximum range.
+ */
 export function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+/**
+ * Create the default crop box positioned inside the viewport.
+ */
 export function getInitialCropBox() {
   const size = CROP_VIEWPORT_SIZE - CROP_BOX_INITIAL_INSET * 2;
 
@@ -86,6 +121,9 @@ export function getInitialCropBox() {
   };
 }
 
+/**
+ * Ensure crop box stays within viewport limits.
+ */
 export function clampCropBox(box: CropBox): CropBox {
   const size = clamp(box.size, CROP_BOX_MIN_SIZE, CROP_VIEWPORT_SIZE);
 
@@ -96,11 +134,16 @@ export function clampCropBox(box: CropBox): CropBox {
   };
 }
 
+/**
+ * Normalize the entire crop state by limiting
+ * zoom, image offsets, and crop box position.
+ */
 export function clampCrop(crop: CropState): CropState {
   const zoomedCrop = {
     ...crop,
     zoom: clamp(crop.zoom, crop.minZoom, getMaxCropZoom(crop)),
   };
+
   const bounds = getCropBounds(zoomedCrop);
 
   return {
@@ -111,6 +154,10 @@ export function clampCrop(crop: CropState): CropState {
   };
 }
 
+/**
+ * Resize the crop box from a specific handle while
+ * keeping it square and within viewport bounds.
+ */
 export function resizeCropBox(
   box: CropBox,
   handle: CropResizeHandle,
@@ -121,6 +168,7 @@ export function resizeCropBox(
   const bottom = box.y + box.size;
   const centerX = box.x + box.size / 2;
   const centerY = box.y + box.size / 2;
+
   let nextSize = box.size;
   let nextX = box.x;
   let nextY = box.y;
@@ -168,8 +216,13 @@ export function resizeCropBox(
   });
 }
 
+/**
+ * Generate the final cropped avatar image as a JPEG data URL.
+ * The selected crop area is rendered onto a canvas and exported.
+ */
 export async function cropAvatarToDataUrl(cropState: CropState) {
   const image = await loadImage(cropState.imageSrc);
+
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
 
@@ -179,17 +232,33 @@ export async function cropAvatarToDataUrl(cropState: CropState) {
 
   canvas.width = CROP_OUTPUT_SIZE;
   canvas.height = CROP_OUTPUT_SIZE;
+
+  // Fill background with white color
   context.fillStyle = "#ffffff";
   context.fillRect(0, 0, CROP_OUTPUT_SIZE, CROP_OUTPUT_SIZE);
 
   const imageRatio = image.naturalHeight / image.naturalWidth;
   const displayWidth = CROP_VIEWPORT_SIZE * cropState.zoom;
   const displayHeight = CROP_VIEWPORT_SIZE * cropState.zoom * imageRatio;
-  const imageLeft = (CROP_VIEWPORT_SIZE - displayWidth) / 2 + cropState.offsetX;
-  const imageTop = (CROP_VIEWPORT_SIZE - displayHeight) / 2 + cropState.offsetY;
-  const sourceX = ((cropState.cropBox.x - imageLeft) / displayWidth) * image.naturalWidth;
-  const sourceY = ((cropState.cropBox.y - imageTop) / displayHeight) * image.naturalHeight;
-  const sourceSize = (cropState.cropBox.size / displayWidth) * image.naturalWidth;
+
+  const imageLeft =
+    (CROP_VIEWPORT_SIZE - displayWidth) / 2 + cropState.offsetX;
+  const imageTop =
+    (CROP_VIEWPORT_SIZE - displayHeight) / 2 + cropState.offsetY;
+
+  // Convert crop box coordinates from viewport space
+  // into actual image coordinates
+  const sourceX =
+    ((cropState.cropBox.x - imageLeft) / displayWidth) *
+    image.naturalWidth;
+
+  const sourceY =
+    ((cropState.cropBox.y - imageTop) / displayHeight) *
+    image.naturalHeight;
+
+  const sourceSize =
+    (cropState.cropBox.size / displayWidth) *
+    image.naturalWidth;
 
   context.drawImage(
     image,
@@ -205,8 +274,11 @@ export async function cropAvatarToDataUrl(cropState: CropState) {
 
   const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
 
+  // Prevent oversized avatar uploads
   if (dataUrl.length > 800000) {
-    throw new Error("Cropped avatar is too large. Please choose a smaller image.");
+    throw new Error(
+      "Cropped avatar is too large. Please choose a smaller image.",
+    );
   }
 
   return dataUrl;

@@ -1,17 +1,26 @@
 import type { UploadProgressSnapshot } from "@/types/library";
 
+/**
+ * Common options used for JSON API requests.
+ */
 type ApiRequestOptions = RequestInit & {
   token?: string;
   fallbackError: string;
   transformErrorMessage?: (message: string) => string;
 };
 
+/**
+ * Options used when downloading binary files (PDF, blob, etc.).
+ */
 type BlobRequestOptions = {
   token: string;
   fallbackError: string;
   transformErrorMessage?: (message: string) => string;
 };
 
+/**
+ * Custom API error that also stores HTTP status code.
+ */
 export class ApiError extends Error {
   status: number;
 
@@ -22,10 +31,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Check whether an error is related to authentication/authorization.
+ */
 export function isAuthError(error: unknown) {
   return error instanceof ApiError && (error.status === 401 || error.status === 403);
 }
 
+/**
+ * Build a full API URL from a relative path.
+ * If the path is already an absolute URL, return it unchanged.
+ */
 export function resolveApiUrl(path: string) {
   if (/^https?:\/\//i.test(path)) {
     return path;
@@ -38,6 +54,10 @@ export function resolveApiUrl(path: string) {
   return `${apiBaseUrl}${path}`;
 }
 
+/**
+ * Some backend services may return nested JSON error strings.
+ * This function keeps unwrapping them until a readable message is found.
+ */
 export function unwrapErrorMessage(value: string, maxDepth = 4) {
   let message = value;
 
@@ -59,6 +79,9 @@ export function unwrapErrorMessage(value: string, maxDepth = 4) {
   return message;
 }
 
+/**
+ * Convert provider-specific AI errors into user-friendly messages.
+ */
 export function friendlyProviderError(message: string) {
   if (message.includes("invalid_api_key") || message.includes("Incorrect API key")) {
     return "The configured AI key was rejected. Update the Groq or Gemini key, then retry.";
@@ -75,6 +98,10 @@ export function friendlyProviderError(message: string) {
   return message;
 }
 
+/**
+ * Extract a readable error message from an API response.
+ * Falls back to a default message if parsing fails.
+ */
 export async function parseErrorMessage(
   response: Response,
   fallback: string,
@@ -93,6 +120,14 @@ export async function parseErrorMessage(
   }
 }
 
+/**
+ * Generic helper for JSON API requests.
+ * Automatically handles:
+ * - Authorization header
+ * - JSON content type
+ * - Error parsing
+ * - Empty responses
+ */
 export async function apiRequestJson<T>(
   path: string,
   { token, fallbackError, transformErrorMessage, ...options }: ApiRequestOptions,
@@ -132,6 +167,10 @@ export async function apiRequestJson<T>(
   return JSON.parse(responseText) as T;
 }
 
+/**
+ * Download binary content such as PDF files.
+ * Rejects responses that unexpectedly return JSON/text errors.
+ */
 export async function apiRequestBlob(
   path: string,
   { token, fallbackError, transformErrorMessage }: BlobRequestOptions,
@@ -162,6 +201,10 @@ export async function apiRequestBlob(
   return response.blob();
 }
 
+/**
+ * Parse upload response data.
+ * Attempts JSON parsing first and falls back to plain text.
+ */
 function parseUploadResponse(xhr: XMLHttpRequest) {
   if (!xhr.responseText) {
     return null;
@@ -174,6 +217,9 @@ function parseUploadResponse(xhr: XMLHttpRequest) {
   }
 }
 
+/**
+ * Extract a readable error message from upload responses.
+ */
 function parseUploadError(payload: unknown, fallback: string) {
   if (typeof payload === "string" && payload.trim()) {
     return unwrapErrorMessage(payload);
@@ -194,6 +240,15 @@ function parseUploadError(payload: unknown, fallback: string) {
   return fallback;
 }
 
+/**
+ * Upload a file using XMLHttpRequest so upload progress can be tracked.
+ *
+ * Reports:
+ * - Upload percentage
+ * - Uploaded bytes
+ * - Total bytes
+ * - Estimated remaining time
+ */
 export function requestUploadWithProgress<T>({
   path,
   token,
@@ -211,6 +266,9 @@ export function requestUploadWithProgress<T>({
     const xhr = new XMLHttpRequest();
     const startedAt = performance.now();
 
+    /**
+     * Calculate and emit upload progress information.
+     */
     function emitProgress(loadedBytes: number, totalBytes: number) {
       const progress =
         totalBytes > 0 ? Math.round((loadedBytes / totalBytes) * 100) : 0;
@@ -239,6 +297,9 @@ export function requestUploadWithProgress<T>({
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     xhr.responseType = "text";
 
+    /**
+     * Track upload progress while the file is being sent.
+     */
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable || event.total <= 0) {
         return;
@@ -247,12 +308,18 @@ export function requestUploadWithProgress<T>({
       emitProgress(event.loaded, event.total);
     };
 
+    /**
+     * Ensure progress reaches 100% when upload completes.
+     */
     xhr.upload.onload = () => {
       const file = formData.get("file");
       const totalBytes = file instanceof File ? file.size : 0;
       emitProgress(totalBytes, totalBytes);
     };
 
+    /**
+     * Handle server response after upload finishes.
+     */
     xhr.onload = () => {
       const payload = parseUploadResponse(xhr);
 

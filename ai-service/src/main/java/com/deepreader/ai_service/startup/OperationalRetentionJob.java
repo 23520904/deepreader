@@ -7,6 +7,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/**
+ * Runs scheduled cleanup for old operational data.
+ *
+ * <p>This helps keep database tables smaller by removing old logs, sessions, and usage records.
+ */
 @Component
 public class OperationalRetentionJob {
 
@@ -31,6 +36,9 @@ public class OperationalRetentionJob {
 		this.usageDays = usageDays;
 	}
 
+	/**
+	 * Runs the database cleanup task on a schedule.
+	 */
 	@Scheduled(cron = "${deepreader.retention.cron:0 0 3 * * *}")
 	public void cleanup() {
 		jdbcTemplate.update("select cleanup_old_operational_data(?, ?, ?, ?)",

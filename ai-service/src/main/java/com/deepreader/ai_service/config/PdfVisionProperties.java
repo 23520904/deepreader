@@ -6,20 +6,38 @@ import org.springframework.validation.annotation.Validated;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
+/**
+ * Configuration properties for PDF vision processing.
+ *
+ * These values control how much text and image data can be extracted from a PDF
+ * before being sent to the vision model.
+ */
 @ConfigurationProperties(prefix = "deepreader.pdf-vision")
 @Validated
 public class PdfVisionProperties {
 
+	/**
+	 * Maximum number of images extracted from a PDF.
+	 */
 	@Min(1)
 	@Max(64)
 	private int maxImages = 16;
 
+	/**
+	 * Maximum number of text characters extracted from a PDF.
+	 */
 	@Min(4096)
 	private int maxTextChars = 100_000;
 
+	/**
+	 * Minimum width or height required for an image to be processed.
+	 */
 	@Min(8)
 	private int minImageSidePixels = 32;
 
+	/**
+	 * Maximum allowed size for a single extracted image.
+	 */
 	@Min(1024)
 	private long maxImageBytes = 4L * 1024 * 1024;
 
@@ -29,10 +47,16 @@ public class PdfVisionProperties {
 	 */
 	private boolean fallbackRenderPagesIfNoImages = true;
 
+	/**
+	 * Maximum number of PDF pages to render when fallback rendering is enabled.
+	 */
 	@Min(1)
 	@Max(64)
 	private int maxPagesToRender = 8;
 
+	/**
+	 * DPI used when rendering PDF pages into images.
+	 */
 	@Min(36)
 	@Max(300)
 	private int renderDpi = 100;

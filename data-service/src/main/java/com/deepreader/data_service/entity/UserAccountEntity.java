@@ -10,6 +10,9 @@ import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
 
+/**
+ * JPA entity that maps application user accounts to the user_accounts table.
+ */
 @Entity
 @Table(name = "user_accounts")
 public class UserAccountEntity {
@@ -18,21 +21,29 @@ public class UserAccountEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	// Email is unique because it is used to identify one user account.
 	@Column(nullable = false, unique = true)
 	private String email;
 
+	// Stores the hashed password only, never the raw password.
 	@Column(name = "password_hash", nullable = false)
 	private String passwordHash;
 
 	@Column(name = "full_name")
 	private String fullName;
 
+	// Role controls what permissions the user has in the application.
 	@Column(nullable = false)
 	private String role;
 
 	@Column(name = "created_at", nullable = false)
 	private LocalDateTime createdAt;
 
+	/**
+	 * Sets the creation time automatically before the entity is first inserted.
+	 *
+	 * <p>The null check keeps an explicitly provided createdAt value unchanged.
+	 */
 	@PrePersist
 	@SuppressWarnings("unused")
 	void prePersist() {

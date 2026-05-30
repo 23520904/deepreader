@@ -10,6 +10,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Publishes domain events for book lifecycle changes to a Kafka topic.
+ *
+ * <p>Events are keyed by book id and may be disabled via configuration for local or test environments.
+ */
 @Component
 public class BookEventPublisher {
 
@@ -25,6 +30,9 @@ public class BookEventPublisher {
 		this.publisherEnabled = publisherEnabled;
 	}
 
+	/**
+	 * Performs synchronous Kafka publish of a domain event and bubbles failures as a runtime exception.
+	 */
 	public void publish(String eventType, String userId, String bookId, Map<String, Object> metadata) {
 		String key = Objects.requireNonNull(bookId, "bookId is required");
 		if (!publisherEnabled) {

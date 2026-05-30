@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { useAppPreferences } from "@/lib/appPreferences";
 
+// List of AI providers that the user can choose from in the modal.
+// Each provider includes key rules, a help link, and available model options.
 export const AI_PROVIDERS = [
   {
     id: "groq",
@@ -45,14 +47,21 @@ export const AI_PROVIDERS = [
   },
 ] as const;
 
+// Type for valid provider IDs, taken directly from AI_PROVIDERS.
 type ProviderId = (typeof AI_PROVIDERS)[number]["id"];
 
+// Props used to control the configure modal from a parent component.
 type ConfigureModalProps = {
+  // Controls whether the modal is open.
   isOpen: boolean;
+  // Closes the modal when the user clicks close, backdrop, or presses Escape.
   onClose: () => void;
+  // Auth token used when saving the user's LLM API key.
   token: string;
 };
 
+// Detects the provider based on the API key format.
+// Groq keys start with "gsk_", while other keys are treated as Gemini keys.
 function detectProviderFromKey(key: string): ProviderId | null {
   if (!key.trim()) {
     return null;
@@ -61,6 +70,8 @@ function detectProviderFromKey(key: string): ProviderId | null {
   return key.trim().startsWith("gsk_") ? "groq" : "gemini";
 }
 
+// Checks whether the API key looks valid for the selected provider.
+// Returns an error message when invalid, or null when the key is acceptable.
 function validateApiKey(key: string, providerId: ProviderId): string | null {
   const trimmed = key.trim();
 
@@ -83,6 +94,8 @@ function validateApiKey(key: string, providerId: ProviderId): string | null {
   return null;
 }
 
+// Sends the user's LLM API key to the backend server.
+// The backend stores the key and uses the current auth token for permission.
 async function saveLlmToken(
   token: string,
   llmApiToken: string,
@@ -118,29 +131,53 @@ async function saveLlmToken(
 }
 
 export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) {
+  // Translation helper for UI text.
   const { t } = useAppPreferences();
+
+  // Makes sure the modal only renders after the component mounts in the browser.
   const [isMounted, setIsMounted] = useState(false);
+
+  // Controls the visible animation state of the modal and backdrop.
   const [isVisible, setIsVisible] = useState(false);
+
+  // Keeps the modal in the DOM long enough for the closing animation.
   const [shouldRender, setShouldRender] = useState(false);
+
+  // Stores the animation timer so it can be cleared safely.
   const timerRef = useRef<number | null>(null);
 
+  // Stores the currently selected AI provider.
   const [providerId, setProviderId] = useState<ProviderId>("groq");
+
+  // Stores the API key typed by the user.
   const [apiKey, setApiKey] = useState("");
+
+  // Controls whether the API key input shows plain text or password dots.
   const [showKey, setShowKey] = useState(false);
+
+  // Stores validation errors for the API key input.
   const [keyError, setKeyError] = useState<string | null>(null);
 
+  // Tracks whether the save request is currently running.
   const [isSaving, setIsSaving] = useState(false);
+
+  // Shows a success message after the key is saved.
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Stores any error returned while saving the key.
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Finds the full provider config for the selected provider ID.
   const provider = AI_PROVIDERS.find((item) => item.id === providerId)!;
 
+  // Delays mounted state until the browser is ready, which avoids portal issues.
   useEffect(() => {
     const mountTimer = window.setTimeout(() => setIsMounted(true), 0);
 
     return () => window.clearTimeout(mountTimer);
   }, []);
 
+  // Handles open and close animations for the modal.
   useEffect(() => {
     if (isOpen) {
       if (timerRef.current) {
@@ -174,6 +211,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
     return () => window.clearTimeout(visibilityTimer);
   }, [isOpen]);
 
+  // Allows the user to close the modal by pressing the Escape key.
   useEffect(() => {
     if (!shouldRender) {
       return;
@@ -190,6 +228,8 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [shouldRender, onClose]);
 
+  // Updates the API key input and clears old messages.
+  // It also auto-selects the provider when the key format is recognized.
   function handleKeyChange(value: string) {
     setApiKey(value);
     setKeyError(null);
@@ -203,6 +243,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
     }
   }
 
+  // Changes the selected provider and clears previous validation or save messages.
   function handleProviderChange(id: ProviderId) {
     setProviderId(id);
     setKeyError(null);
@@ -210,6 +251,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
     setSaveError(null);
   }
 
+  // Validates and saves the user's API key to the server.
   async function handleSave() {
     const error = validateApiKey(apiKey, providerId);
 
@@ -233,6 +275,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
     }
   }
 
+  // Clears the API key input and removes any messages shown to the user.
   function handleClear() {
     setApiKey("");
     setKeyError(null);
@@ -240,12 +283,14 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
     setSaveError(null);
   }
 
+  // Do not render the modal before mounting or when it should be hidden.
   if (!isMounted || !shouldRender) {
     return null;
   }
 
   return createPortal(
     <div className="fixed inset-0 isolate z-[10000] flex items-center justify-center">
+      {/* Backdrop overlay. Clicking it closes the modal. */}
       <button
         type="button"
         className={`fixed inset-0 z-0 cursor-default bg-[#07111f]/50 backdrop-blur-sm transition-opacity duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
@@ -255,6 +300,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
         aria-label={t("Close AI settings")}
       />
 
+      {/* Main modal panel. */}
       <div
         role="dialog"
         aria-modal="true"
@@ -265,6 +311,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
             : "translate-y-4 scale-95 opacity-0"
         }`}
       >
+        {/* Modal header with title, icon, and close button. */}
         <div className="flex items-center justify-between border-b border-[#dfe5f4] px-7 py-5">
           <div className="flex items-center gap-3">
             <div className="grid h-9 w-9 place-items-center rounded-[10px] bg-[linear-gradient(145deg,#6976d6,#4d5ab8)] shadow-[0_6px_14px_rgba(77,90,184,0.30)]">
@@ -290,7 +337,9 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
           </button>
         </div>
 
+        {/* Modal body with explanation, provider selection, API key input, and messages. */}
         <div className="space-y-5 px-7 py-6">
+          {/* Short explanation about how the key will be used. */}
           <div className="rounded-[12px] border border-[#c9d3f5] bg-[#eef3ff] px-4 py-3">
             <p className="text-[12px] font-semibold leading-relaxed text-[#3b55c9]">
               {t(
@@ -303,6 +352,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
             </p>
           </div>
 
+          {/* Provider selector buttons. */}
           <div>
             <label className="mb-2 block text-[12px] font-black uppercase tracking-wide text-[#6b7db8]">
               {t("LLM Provider")}
@@ -332,6 +382,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
             </div>
           </div>
 
+          {/* API key input area for the selected provider. */}
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <label
@@ -366,6 +417,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
                 }`}
               />
 
+              {/* Input action buttons for clearing and showing or hiding the key. */}
               <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-1">
                 {apiKey ? (
                   <button
@@ -393,6 +445,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
               </div>
             </div>
 
+            {/* Shows validation error or provider-specific key guidance. */}
             {keyError ? (
               <p className="mt-1.5 text-[11.5px] font-semibold text-[#e05c6d]">
                 {t(keyError)}
@@ -404,6 +457,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
             )}
           </div>
 
+          {/* Success message after saving the API key. */}
           {saveSuccess ? (
             <div className="flex items-center gap-2 rounded-[10px] border border-[#b6e8c5] bg-[#edfaf2] px-4 py-3">
               <CheckCircle2
@@ -418,6 +472,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
             </div>
           ) : null}
 
+          {/* Error message when saving fails. */}
           {saveError ? (
             <div className="flex items-center gap-2 rounded-[10px] border border-[#f5c5cb] bg-[#fff5f6] px-4 py-3">
               <XCircle
@@ -431,6 +486,7 @@ export function ConfigureModal({ isOpen, onClose, token }: ConfigureModalProps) 
           ) : null}
         </div>
 
+        {/* Modal footer with cancel and save actions. */}
         <div className="flex items-center justify-end gap-3 border-t border-[#dfe5f4] px-7 py-5">
           <button
             type="button"

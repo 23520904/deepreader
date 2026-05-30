@@ -8,6 +8,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiConfig {
 
+	/**
+	 * Defines the OpenAPI configuration for the DeepReader backend.
+	 *
+	 * This metadata is used by Swagger UI to display the API title,
+	 * description, and version in the generated API documentation.
+	 */
 	@Bean
 	public OpenAPI deepReaderOpenApi() {
 		return new OpenAPI()

@@ -18,8 +18,17 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Tests the main retrieval behavior for document search.
+ *
+ * <p>These tests cover overview queries, lexical search, vector search filtering,
+ * and fallback behavior when embeddings are not used.
+ */
 class RetrievalServiceTest {
 
+	/**
+	 * Checks that broad document questions return sections from different parts of the document.
+	 */
 	@Test
 	void broadDocumentQuestionsUseRepresentativeSections() {
 		IndexedDocument document = new IndexedDocument(
@@ -52,6 +61,9 @@ class RetrievalServiceTest {
 		assertTrue(response.matches().stream().anyMatch(match -> match.content().contains("Constructors")));
 	}
 
+	/**
+	 * Checks that common words are ignored so the real search keyword is prioritized.
+	 */
 	@Test
 	void lexicalQuestionsIgnoreGenericWords() {
 		IndexedDocument document = new IndexedDocument(
@@ -80,6 +92,9 @@ class RetrievalServiceTest {
 		assertTrue(response.matches().getFirst().content().contains("constructor initializes"));
 	}
 
+	/**
+	 * Checks that lexical overview search uses only the current document.
+	 */
 	@Test
 	void lexicalChatOverviewQuestionsUseCurrentDocumentRepresentativeSections() {
 		IndexedDocument document = new IndexedDocument(
@@ -111,6 +126,9 @@ class RetrievalServiceTest {
 		assertTrue(response.matches().stream().anyMatch(match -> match.content().contains("Java OOP")));
 	}
 
+	/**
+	 * Checks that vector results from other documents are removed.
+	 */
 	@Test
 	void vectorSearchFiltersMatchesToRequestedDocument() {
 		IndexedDocument requestedDocument = new IndexedDocument(
@@ -121,6 +139,7 @@ class RetrievalServiceTest {
 				List.of(new DocumentSection("page-1", "Page 1", 1, "", "Lexical fallback content."))
 		);
 
+		// Mock Haystack so it returns one wrong document and one correct document.
 		WebClient.Builder haystackBuilder = WebClient.builder().exchangeFunction(request -> Mono.just(
 				ClientResponse.create(HttpStatus.OK)
 						.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
@@ -150,6 +169,9 @@ class RetrievalServiceTest {
 		assertEquals("Vector result for the requested document", response.matches().getFirst().content());
 	}
 
+	/**
+	 * Simple fake document store used to return one test document.
+	 */
 	private static class FakeDocumentIndexStoreService extends DocumentIndexStoreService {
 		private final IndexedDocument document;
 
@@ -174,6 +196,9 @@ class RetrievalServiceTest {
 		}
 	}
 
+	/**
+	 * Fake embedding service that returns a fixed vector for vector search tests.
+	 */
 	private static class FakeEmbeddingService extends EmbeddingService {
 		FakeEmbeddingService() {
 			super(WebClient.builder(), new GeminiProperties());
@@ -185,6 +210,9 @@ class RetrievalServiceTest {
 		}
 	}
 
+	/**
+	 * Fake embedding service that fails if lexical-only search tries to use embeddings.
+	 */
 	private static class FailingEmbeddingService extends EmbeddingService {
 		FailingEmbeddingService() {
 			super(WebClient.builder(), new GeminiProperties());

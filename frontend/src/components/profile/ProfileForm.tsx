@@ -10,22 +10,46 @@ const EDIT_ICON = "/assets/icons/profile/edit-icon.png";
 export const PROFILE_FORM_ID = "profileForm";
 
 type ProfileFormProps = {
+  // Current logged-in user information, used here to show the email.
   session: AuthResponse;
+
+  // Editable profile data before it is saved.
   draft: ProfileDraft;
+
+  // Temporary avatar URL used to preview the selected image.
   previewAvatarUrl: string | null;
+
+  // Shows whether the profile is currently being saved.
   isSaving: boolean;
+
+  // Success message shown after saving successfully.
   message: string;
+
+  // Error message shown when saving or uploading fails.
   error: string;
+
+  // Ref for the hidden file input, so another button can open it.
   fileInputRef: RefObject<HTMLInputElement | null>;
+
+  // Handles form submission.
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+
+  // Handles avatar file selection.
   onAvatarChange: (event: ChangeEvent<HTMLInputElement>) => void;
+
+  // Opens the hidden avatar file picker.
   onOpenAvatarPicker: () => void;
+
+  // Updates only the changed fields in the profile draft.
   onDraftChange: (patch: Partial<Omit<ProfileDraft, "userId">>) => void;
 };
 
+// Header area for the profile page.
+// The save button is connected to the form by PROFILE_FORM_ID.
 export function ProfileHeader({ isSaving }: { isSaving: boolean }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      {/* Page title block */}
       <div>
         <p className="text-[13px] font-black uppercase tracking-[0.12em] text-[#4053c7]">
           Profile settings
@@ -34,6 +58,8 @@ export function ProfileHeader({ isSaving }: { isSaving: boolean }) {
           Edit Profile
         </h1>
       </div>
+
+      {/* Main save button for the profile form */}
       <button
         type="submit"
         form={PROFILE_FORM_ID}
@@ -46,6 +72,8 @@ export function ProfileHeader({ isSaving }: { isSaving: boolean }) {
   );
 }
 
+// Main profile form component.
+// It receives all data and event handlers from the parent component.
 export function ProfileForm({
   session,
   draft,
@@ -61,12 +89,14 @@ export function ProfileForm({
   return (
     <form id={PROFILE_FORM_ID} onSubmit={onSubmit}>
       <section className="rounded-[8px] border border-white/80 bg-white px-7 py-7 shadow-[0_22px_60px_rgba(31,41,55,0.08)]">
+        {/* Section title */}
         <div className="border-b border-[#e3e8f4] pb-5">
           <h2 className="text-[22px] font-black text-[#1d355b]">
             Personal Information
           </h2>
         </div>
 
+        {/* Avatar preview and edit button */}
         <div className="mt-6 flex justify-center">
           <div className="relative">
             <AccountAvatar
@@ -75,6 +105,8 @@ export function ProfileForm({
               imagePaddingClassName="p-6"
               className="grid h-[108px] w-[108px] place-items-center bg-[#eef3ff] shadow-[0_16px_34px_rgba(36,88,149,0.16)] ring-4 ring-white"
             />
+
+            {/* Button that opens the hidden file input for avatar upload */}
             <button
               type="button"
               onClick={onOpenAvatarPicker}
@@ -93,6 +125,7 @@ export function ProfileForm({
           </div>
         </div>
 
+        {/* Hidden file input used for selecting a new avatar image */}
         <input
           ref={fileInputRef}
           type="file"
@@ -101,7 +134,9 @@ export function ProfileForm({
           onChange={onAvatarChange}
         />
 
+        {/* Profile information fields */}
         <div className="mt-7 grid gap-5 md:grid-cols-2">
+          {/* Email is read-only because it comes from the current session */}
           <label className="grid gap-2 text-[13px] font-black uppercase tracking-[0.04em] text-[#2d3e66]">
             Email
             <input
@@ -111,6 +146,7 @@ export function ProfileForm({
             />
           </label>
 
+          {/* Username field updates only the username value in the draft */}
           <label className="grid gap-2 text-[13px] font-black uppercase tracking-[0.04em] text-[#2d3e66]">
             User Name
             <input
@@ -123,6 +159,7 @@ export function ProfileForm({
             />
           </label>
 
+          {/* Full name field updates only the fullName value in the draft */}
           <label className="grid gap-2 text-[13px] font-black uppercase tracking-[0.04em] text-[#2d3e66]">
             Full Name
             <input
@@ -134,6 +171,7 @@ export function ProfileForm({
             />
           </label>
 
+          {/* Phone field updates only the phoneNumber value in the draft */}
           <label className="grid gap-2 text-[13px] font-black uppercase tracking-[0.04em] text-[#2d3e66]">
             Phone
             <input
@@ -145,6 +183,7 @@ export function ProfileForm({
             />
           </label>
 
+          {/* Location field spans two columns on medium screens */}
           <label className="grid gap-2 text-[13px] font-black uppercase tracking-[0.04em] text-[#2d3e66] md:col-span-2">
             Location
             <input
@@ -157,12 +196,14 @@ export function ProfileForm({
           </label>
         </div>
 
+        {/* Success message shown when there is a message value */}
         {message ? (
           <p className="mt-6 rounded-[8px] bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
             {message}
           </p>
         ) : null}
 
+        {/* Error message shown when there is an error value */}
         {error ? (
           <p className="mt-6 rounded-[8px] bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
             {error}

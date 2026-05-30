@@ -22,6 +22,7 @@ import {
 } from "@/lib/authSession";
 import { useAppPreferences } from "@/lib/appPreferences";
 
+// Lazy load account sidebar to reduce initial bundle size
 const LazyAccountSidebar = dynamic(
   () =>
     import("@/components/AccountSidebar").then(
@@ -33,6 +34,7 @@ const LazyAccountSidebar = dynamic(
   },
 );
 
+// Navigation items for normal users
 const navItems = [
   { label: "Home", href: "/" },
   { label: "About", href: "/about" },
@@ -40,9 +42,12 @@ const navItems = [
   { label: "Flashcards", href: "/flashcards" },
   { label: "Contact", href: "/contact" },
 ];
+
+// Navigation items for admin users
 const adminNavItems = [{ label: "Admin", href: "/admin" }];
 
 type SiteNavbarProps = {
+  // Currently active navigation item
   activeItem?: string;
 };
 
@@ -50,24 +55,38 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
   const router = useRouter();
   const { t } = useAppPreferences();
 
+  // Controls account sidebar visibility
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Prevents loading sidebar until user opens it at least once
   const [hasRequestedSidebar, setHasRequestedSidebar] = useState(false);
+
+  // Controls mobile menu animation state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Controls whether mobile menu should exist in DOM
   const [shouldRenderMobileMenu, setShouldRenderMobileMenu] = useState(false);
+
+  // Stores timeout id for menu closing animation
   const mobileMenuTimerRef = useRef<number | null>(null);
 
+  // Subscribe to authentication session updates
   const session = useSyncExternalStore(
     subscribeAuthSession,
     getAuthSessionSnapshot,
     () => null,
   );
+
+  // Show different navigation based on user role
   const visibleNavItems =
     session?.role?.toUpperCase() === "ADMIN" ? adminNavItems : navItems;
 
+  // Close account sidebar
   const closeSidebar = useCallback(() => {
     setIsSidebarOpen(false);
   }, []);
 
+  // Cleanup mobile menu timeout on unmount
   useEffect(() => {
     return () => {
       if (mobileMenuTimerRef.current) {
@@ -76,6 +95,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
     };
   }, []);
 
+  // Refresh user profile whenever a valid session token exists
   useEffect(() => {
     if (!session?.token) {
       return;
@@ -96,6 +116,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
             }
           })
           .catch((error) => {
+            // Logout user if token is no longer valid
             if (isCancelled || !apiClient.isAuthError(error)) {
               return;
             }
@@ -111,17 +132,20 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
     };
   }, [session?.token]);
 
+  // Logout and redirect to home page
   function handleLogout() {
     setIsSidebarOpen(false);
     clearAuthSession();
     router.push("/");
   }
 
+  // Open account sidebar and mark it as requested
   function openAccountSidebar() {
     setHasRequestedSidebar(true);
     setIsSidebarOpen(true);
   }
 
+  // Open mobile menu with animation
   function openMobileMenu() {
     if (mobileMenuTimerRef.current) {
       window.clearTimeout(mobileMenuTimerRef.current);
@@ -137,6 +161,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
     });
   }
 
+  // Close mobile menu and wait for animation before removing from DOM
   function closeMobileMenu() {
     setIsMobileMenuOpen(false);
 
@@ -150,6 +175,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
     }, 420);
   }
 
+  // Toggle mobile menu state
   function toggleMobileMenu() {
     if (isMobileMenuOpen) {
       closeMobileMenu();
@@ -162,6 +188,8 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-white/70 bg-[#eef2f8]/90 shadow-[0_14px_32px_rgba(18,31,65,0.12)] backdrop-blur-xl">
       <div className="relative mx-auto flex min-h-[76px] w-[min(1180px,calc(100%_-_40px))] items-center justify-between gap-4 max-[700px]:min-h-[66px] max-[700px]:w-[min(calc(100%_-_28px),1180px)] max-[700px]:py-3">
+        
+        {/* Logo section */}
         <Link
           href="/"
           className="flex h-[64px] w-[170px] items-center justify-center overflow-hidden rounded-[8px] transition duration-300 hover:-translate-y-0.5 max-[700px]:h-[46px] max-[700px]:w-[118px]"
@@ -179,6 +207,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
           />
         </Link>
 
+        {/* Desktop navigation menu */}
         <nav className="hidden items-center justify-center gap-1 rounded-[8px] border border-white/80 bg-[rgba(255,255,255,0.72)] p-1 text-[14px] font-bold text-[#2f4195] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_10px_26px_rgba(34,54,111,0.10)] min-[700px]:flex">
           {visibleNavItems.map((item) => (
             <Link
@@ -195,6 +224,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
           ))}
         </nav>
 
+        {/* Mobile menu button and authentication area */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -212,6 +242,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
             </span>
           </button>
 
+          {/* Authenticated user avatar */}
           {session ? (
             <button
               type="button"
@@ -228,6 +259,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
               />
             </button>
           ) : (
+            /* Login button for guests */
             <Link
               href="/login"
               onClick={closeMobileMenu}
@@ -238,6 +270,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
           )}
         </div>
 
+        {/* Mobile navigation menu */}
         {shouldRenderMobileMenu ? (
           <div className="absolute left-1/2 top-full z-50 w-screen -translate-x-1/2 min-[700px]:hidden">
             <nav
@@ -289,6 +322,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
         ) : null}
       </div>
 
+      {/* Lazy loaded account sidebar */}
       {session && hasRequestedSidebar ? (
         <LazyAccountSidebar
           isOpen={isSidebarOpen}
@@ -301,6 +335,7 @@ export function SiteNavbar({ activeItem }: SiteNavbarProps) {
   );
 }
 
+// Mobile menu icon
 function MenuIcon() {
   return (
     <svg
@@ -320,6 +355,7 @@ function MenuIcon() {
   );
 }
 
+// Close menu icon
 function CloseIcon() {
   return (
     <svg

@@ -12,22 +12,50 @@ import {
 import { AccountAvatar } from "@/components/AccountAvatar";
 import type { ChatMessageView, ChatThreadView } from "@/types/study";
 
+/**
+ * Props for the document chat panel.
+ * The parent component sends chat data and handles all chat actions.
+ */
 type DocumentChatPanelProps = {
+  // List of messages in the current chat thread.
   messages: ChatMessageView[];
+
+  // List of saved chat threads shown in the history sidebar.
   chatThreads: ChatThreadView[];
+
+  // The currently selected chat thread id.
+  // Null means the user is starting a new chat.
   activeThreadId: string | null;
+
+  // True while a message is being sent or the AI is replying.
   isSending: boolean;
+
+  // The id of the chat thread currently being deleted.
   deletingThreadId: string;
+
+  // Optional avatar image for the current user.
   userAvatarUrl?: string | null;
+
+  // Called when the user starts a new chat.
   onNewChat: () => void;
+
+  // Called when the user selects a chat thread from history.
   onSelectThread: (threadId: string) => void;
+
+  // Called when the user deletes a chat thread.
   onDeleteThread: (threadId: string) => void;
+
+  // Called when the user sends a new message.
   onSendMessage: (message: string) => void;
 };
 
+// Image paths used in the chat UI.
 const ASTRONAUT_CAT_IMAGE = "/assets/images/library/astronaut-cat.jpg";
 const TRASH_ICON = "/assets/images/library/trash-icon.png";
 
+/**
+ * Small send icon used inside the send button.
+ */
 function SendIcon() {
   return (
     <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -47,6 +75,9 @@ function SendIcon() {
   );
 }
 
+/**
+ * Small plus icon used for the new chat button.
+ */
 function PlusIcon() {
   return (
     <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -60,6 +91,10 @@ function PlusIcon() {
   );
 }
 
+/**
+ * Avatar for the AI assistant.
+ * The size prop allows the same avatar to be used in normal and empty states.
+ */
 function CatAvatar({ size = "md" }: { size?: "md" | "lg" }) {
   const dimensions = size === "lg" ? "h-20 w-20" : "h-11 w-11";
 
@@ -78,6 +113,10 @@ function CatAvatar({ size = "md" }: { size?: "md" | "lg" }) {
   );
 }
 
+/**
+ * Convert a chat thread updated time into a readable history time.
+ * If the value is missing or invalid, show "Just now".
+ */
 function formatHistoryTime(value: string | null) {
   if (!value) {
     return "Just now";
@@ -97,6 +136,9 @@ function formatHistoryTime(value: string | null) {
   }).format(date);
 }
 
+/**
+ * Animated dots shown while the AI assistant is typing.
+ */
 function TypingDots() {
   return (
     <div className="flex items-center gap-1.5 py-1">
@@ -111,30 +153,41 @@ function TypingDots() {
   );
 }
 
+/**
+ * One message bubble in the chat.
+ * User messages are aligned to the right, and AI messages are aligned to the left.
+ */
 function ChatBubble({
   message,
   userAvatarUrl,
 }: {
+  // The message data to display.
   message: ChatMessageView;
+
+  // Optional avatar image for the user.
   userAvatarUrl?: string | null;
 }) {
   const isUser = message.role === "user";
 
   return (
     <div className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
+      {/* AI avatar shown only for assistant messages */}
       {!isUser ? <CatAvatar /> : null}
 
+      {/* Message content */}
       <div
         className={`max-w-[min(78%,760px)] ${
           isUser ? "items-end text-right" : "items-start text-left"
         } flex flex-col gap-2`}
       >
+        {/* Assistant name label */}
         {!isUser ? (
           <span className="text-[12px] font-black uppercase tracking-[0.12em] text-[#245895]">
             Astronaut Cat
           </span>
         ) : null}
 
+        {/* Chat message bubble */}
         <div
           className={`rounded-[18px] px-5 py-4 shadow-[0_10px_24px_rgba(18,24,38,0.08)] ${
             isUser
@@ -149,6 +202,7 @@ function ChatBubble({
 
       </div>
 
+      {/* User avatar shown only for user messages */}
       {isUser ? (
         <AccountAvatar
           avatarUrl={userAvatarUrl}
@@ -173,12 +227,27 @@ export function DocumentChatPanel({
   onDeleteThread,
   onSendMessage,
 }: DocumentChatPanelProps) {
+  // Stores the text currently typed in the message box.
   const [draft, setDraft] = useState("");
+
+  // Ref to the scrollable messages area.
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
+
+  // Ref to the bottom of the message list.
+  // It can be used as an anchor point for scrolling.
   const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
+
+  // The send button is disabled when sending or when the input is empty.
   const isSendBlocked = isSending || !draft.trim();
+
+  // Memoized history list.
+  // This keeps the value stable unless chatThreads changes.
   const historyItems = useMemo(() => chatThreads, [chatThreads]);
 
+  /**
+   * Scroll to the bottom whenever a new message appears
+   * or when the typing state changes.
+   */
   useEffect(() => {
     const viewport = messagesViewportRef.current;
 
@@ -196,6 +265,10 @@ export function DocumentChatPanel({
     return () => window.cancelAnimationFrame(animationFrame);
   }, [messages.length, isSending]);
 
+  /**
+   * Submit the current draft message.
+   * Empty messages are ignored, and the input is cleared after sending.
+   */
   function submitMessage(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     const message = draft.trim();
@@ -208,6 +281,10 @@ export function DocumentChatPanel({
     onSendMessage(message);
   }
 
+  /**
+   * Send the message when the user presses Enter.
+   * Shift + Enter still creates a new line.
+   */
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key !== "Enter" || event.shiftKey) {
       return;
@@ -219,8 +296,11 @@ export function DocumentChatPanel({
 
   return (
     <div className="p-6">
+      {/* Main chat layout: history sidebar on the left and messages on the right */}
       <div className="grid h-[74vh] min-h-[560px] max-h-[760px] overflow-hidden rounded-[14px] border border-[#dce6f4] bg-white md:grid-cols-[280px_minmax(0,1fr)]">
+        {/* Chat history sidebar */}
         <aside className="hidden min-h-0 border-r border-[#dce6f4] bg-[#f4f8ff] p-4 md:flex md:flex-col">
+          {/* Assistant profile card */}
           <div className="flex items-center gap-3 rounded-[10px] bg-white px-3 py-3 ring-1 ring-[#dce6f4]">
             <CatAvatar />
             <div className="min-w-0">
@@ -233,6 +313,7 @@ export function DocumentChatPanel({
             </div>
           </div>
 
+          {/* History header and thread count */}
           <div className="mt-5 flex items-center justify-between gap-3">
             <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#66758d]">
               History
@@ -242,6 +323,7 @@ export function DocumentChatPanel({
             </span>
           </div>
 
+          {/* Button for starting a new chat */}
           <button
             type="button"
             onClick={onNewChat}
@@ -255,6 +337,7 @@ export function DocumentChatPanel({
             New chat
           </button>
 
+          {/* List of previous chat threads */}
           <div className="mt-3 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto pr-1">
             {historyItems.length ? (
               historyItems.map((thread, index) => {
@@ -271,6 +354,7 @@ export function DocumentChatPanel({
                     }`}
                   >
                     <div className="flex items-start gap-2">
+                      {/* Thread information button */}
                       <button
                         type="button"
                         onClick={() => onSelectThread(thread.id)}
@@ -295,6 +379,7 @@ export function DocumentChatPanel({
                         </span>
                       </button>
 
+                      {/* Delete thread button */}
                       <button
                         type="button"
                         onClick={() => onDeleteThread(thread.id)}
@@ -327,6 +412,7 @@ export function DocumentChatPanel({
                 );
               })
             ) : (
+              /* Empty history state */
               <div className="rounded-[9px] border border-dashed border-[#cbd8e8] bg-white px-4 py-5 text-center">
                 <p className="text-[13px] font-bold leading-6 text-[#7a879a]">
                   No chat threads yet.
@@ -336,13 +422,16 @@ export function DocumentChatPanel({
           </div>
         </aside>
 
+        {/* Main conversation area */}
         <div className="flex min-h-0 flex-col bg-[#f8fbff]">
+          {/* Scrollable message list */}
           <div
             ref={messagesViewportRef}
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6"
           >
             <div className="mx-auto grid max-w-[880px] gap-6">
               {messages.length ? (
+                /* Render all chat messages */
                 messages.map((message) => (
                   <div key={message.id}>
                     <ChatBubble
@@ -352,6 +441,7 @@ export function DocumentChatPanel({
                   </div>
                 ))
               ) : (
+                /* Empty chat state */
                 <div className="grid min-h-[380px] place-items-center px-4 text-center">
                   <div className="max-w-[460px]">
                     <div className="flex justify-center">
@@ -368,6 +458,7 @@ export function DocumentChatPanel({
                 </div>
               )}
 
+              {/* Typing indicator shown while the AI is responding */}
               {isSending ? (
                 <div className="flex items-end gap-4">
                   <CatAvatar />
@@ -381,6 +472,7 @@ export function DocumentChatPanel({
             </div>
           </div>
 
+          {/* Message input form */}
           <form
             onSubmit={submitMessage}
             className="shrink-0 border-t border-[#dce6f4] bg-white p-4"
@@ -390,6 +482,7 @@ export function DocumentChatPanel({
                 Message
               </label>
 
+              {/* Textarea for writing a message */}
               <textarea
                 id="documentChatMessage"
                 value={draft}
@@ -401,6 +494,7 @@ export function DocumentChatPanel({
                 className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-2 py-3 text-[15px] font-semibold leading-6 text-[#17213a] outline-none placeholder:text-[#8a96aa]"
               />
 
+              {/* Send button */}
               <button
                 type="submit"
                 disabled={isSendBlocked}

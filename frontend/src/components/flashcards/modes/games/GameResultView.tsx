@@ -2,22 +2,36 @@ import Link from "next/link";
 import { truncateText, type StudyDeck } from "@/lib/flashcardStudy";
 import type { GameResult } from "../types";
 import { GameMetric } from "./GameMetric";
+
+// Shows the final result screen after the user finishes a flashcard game.
+// It displays the score, accuracy, time, weak cards, and next action buttons.
 export function GameResultView({
   result,
   deck,
   onPlayAgain,
   onAnotherGame,
 }: {
+  // Result data from the completed game, including score and wrong cards.
   result: GameResult;
+
+  // Current deck that was used in the game.
   deck: StudyDeck;
+
+  // Starts the same game again.
   onPlayAgain: () => void;
+
+  // Sends the user back to choose another game mode.
   onAnotherGame: () => void;
 }) {
   return (
+    // Main result card shown in the center of the game page.
     <section className="relative overflow-hidden rounded-[22px] border border-[#dbe7f5] bg-white p-7 text-center shadow-[0_18px_54px_rgba(15,23,42,0.1)] max-[520px]:p-5 max-[420px]:rounded-[18px]">
+      {/* Decorative circles in the background of the result card. */}
       <div className="absolute left-8 top-8 h-5 w-5 rounded-full bg-[#facc15]" />
       <div className="absolute right-16 top-14 h-7 w-7 rounded-full bg-[#7dd3fc]" />
       <div className="absolute bottom-12 left-20 h-6 w-6 rounded-full bg-[#c084fc]" />
+
+      {/* Result title and encouragement message. */}
       <p className="text-[14px] font-black uppercase text-[#2563eb]">
         Game Result
       </p>
@@ -28,17 +42,23 @@ export function GameResultView({
         {result.message} You practiced {deck.title} and turned your cards into
         active recall.
       </p>
+
+      {/* Game summary metrics: score, accuracy, total cards, and time used. */}
       <div className="mx-auto mt-7 grid max-w-[760px] gap-3 sm:grid-cols-2 md:grid-cols-4">
         <GameMetric label="Score" value={result.score} />
         <GameMetric label="Accuracy" value={`${result.accuracy}%`} />
         <GameMetric label="Cards" value={result.total} />
         <GameMetric label="Time" value={result.timeLabel} />
       </div>
+
+      {/* Wrong-card review section. It only appears when the user answered some cards incorrectly. */}
       {result.wrongCards.length ? (
         <div className="mx-auto mt-7 max-w-[760px] rounded-[18px] bg-[#fff1f2] p-4 text-left ring-1 ring-[#fecdd3]">
           <p className="text-[14px] font-black text-[#be123c]">
             Review these cards again
           </p>
+
+          {/* Show only the first 4 wrong cards to keep the result screen short. */}
           <div className="mt-3 grid gap-2">
             {result.wrongCards.slice(0, 4).map((card) => (
               <p
@@ -51,6 +71,8 @@ export function GameResultView({
           </div>
         </div>
       ) : null}
+
+      {/* Action buttons after finishing the game. */}
       <div className="mt-7 flex flex-wrap justify-center gap-3 max-[520px]:grid">
         <button
           type="button"

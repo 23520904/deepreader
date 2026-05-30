@@ -6,9 +6,12 @@ import type {
 
 type FlashcardsToolbarProps = FlashcardsToolbarState &
   FlashcardsToolbarActions & {
+    // List of decks used for the document filter options.
     decks: StudyDeck[];
   };
 
+// Toolbar for searching, filtering, and sorting flashcard decks.
+// It has a desktop layout with all controls in one row and a mobile layout with filters inside a dropdown.
 export function FlashcardsToolbar({
   decks,
   query,
@@ -21,7 +24,9 @@ export function FlashcardsToolbar({
   onSortModeChange,
 }: FlashcardsToolbarProps) {
   return (
+    // Main toolbar container.
     <div className="min-w-0 overflow-hidden rounded-[16px] border border-[#dbe7f5] bg-white p-3 shadow-[0_10px_26px_rgba(15,23,42,0.04)]">
+      {/* Desktop toolbar: search input, document filter, status filter, and sort select in one row. */}
       <div className="hidden gap-3 lg:grid lg:grid-cols-[minmax(220px,1fr)_minmax(170px,220px)_minmax(140px,170px)_minmax(130px,160px)]">
         <label className="sr-only" htmlFor="flashcard-search">
           Search decks or cards
@@ -43,6 +48,7 @@ export function FlashcardsToolbar({
         <SortSelect value={sortMode} onChange={onSortModeChange} />
       </div>
 
+      {/* Mobile toolbar: search stays visible, filters are grouped inside a collapsible details element. */}
       <div className="grid min-w-0 gap-3 lg:hidden">
         <input
           value={query}
@@ -55,6 +61,8 @@ export function FlashcardsToolbar({
           <summary className="cursor-pointer text-[14px] font-black text-[#1d4ed8]">
             Filter
           </summary>
+
+          {/* Mobile filter controls shown when the user expands the Filter section. */}
           <div className="mt-3 grid min-w-0 gap-3">
             <DocumentSelect
               decks={decks}
@@ -75,6 +83,8 @@ export function FlashcardsToolbar({
   );
 }
 
+// Select box for filtering decks by the source document.
+// The options are generated from the decks list.
 function DocumentSelect({
   decks,
   value,
@@ -103,6 +113,7 @@ function DocumentSelect({
   );
 }
 
+// Select box for filtering decks by learning status.
 function StatusSelect({
   value,
   onChange,
@@ -127,6 +138,7 @@ function StatusSelect({
   );
 }
 
+// Select box for choosing how the deck list should be sorted.
 function SortSelect({
   value,
   onChange,
@@ -150,6 +162,8 @@ function SortSelect({
   );
 }
 
+// Returns the correct select style for desktop or mobile.
+// Mobile selects use a white background because they sit inside the mobile filter panel.
 function selectClassName(mobile: boolean) {
   return mobile
     ? "h-11 w-full min-w-0 rounded-[10px] border border-[#dbe7f5] bg-white px-4 text-[14px] font-bold text-[#0f172a] outline-none"

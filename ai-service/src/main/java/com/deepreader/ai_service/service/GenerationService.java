@@ -22,14 +22,44 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Service responsible for generating study content from indexed documents.
+ *
+ * This service supports document summarization and flashcard generation by
+ * combining indexed document sections, building prompts, calling the LLM,
+ * parsing generated responses, and filtering low-quality study cards.
+ */
 @Service
 public class GenerationService {
 
+	/**
+	 * Default provider used for study-oriented generation tasks.
+	 */
 	private static final String STUDY_PROVIDER = "groq";
+
+	/**
+	 * Maximum amount of document content sent to Groq for generation prompts.
+	 */
 	private static final int GROQ_MAX_GENERATION_CONTENT_CHARS = 14_000;
+
+	/**
+	 * Default content budget used for providers without a stricter limit.
+	 */
 	private static final int DEFAULT_MAX_GENERATION_CONTENT_CHARS = 28_000;
+
+	/**
+	 * Pattern used to detect definition-style sentences that can become flashcards.
+	 */
 	private static final Pattern DEFINITION_PATTERN = Pattern.compile("(?i)^(?:a|an|the)?\\s*([A-Za-z][A-Za-z0-9 _/()#.+-]{2,80}?)\\s+(?:is|are|means|refers to|represents|defines|describes|contains|consists of|allows|helps|keeps|organizes|uses|supports|enables|provides|hides|groups|combines|stores|creates|implements|extends)\\b");
+
+	/**
+	 * Pattern used to detect heading-like text that can provide a flashcard topic.
+	 */
 	private static final Pattern HEADING_PATTERN = Pattern.compile("^([A-Z][A-Za-z0-9 _/()#.+-]{2,80}):\\s+.+$");
+
+	/**
+	 * Common low-value words ignored when extracting fallback study topics.
+	 */
 	private static final Set<String> STOP_WORDS = Set.of(
 			"about", "after", "also", "another", "because", "before", "between", "chapter", "could",
 			"document", "during", "example", "first", "from", "have", "into", "more", "most",
@@ -43,6 +73,10 @@ public class GenerationService {
 	private final LlmClientService llmClientService;
 	private final ObjectMapper objectMapper;
 
+	/**
+	 * Creates the generation service with document storage, prompt building,
+	 * LLM client, and JSON parsing dependencies.
+	 */
 	public GenerationService(DocumentIndexStoreService documentIndexStoreService, PromptBuilderService promptBuilderService, LlmClientService llmClientService, ObjectMapper objectMapper) {
 		this.documentIndexStoreService = documentIndexStoreService;
 		this.promptBuilderService = promptBuilderService;
@@ -50,6 +84,12 @@ public class GenerationService {
 		this.objectMapper = objectMapper;
 	}
 
+	/**
+	 * Generates a summary for an indexed document.
+	 *
+	 * The document is loaded by user and document id, converted into a bounded
+	 * content prompt, then sent to the LLM client for summary generation.
+	 */
 	public Mono<SummaryResponse> summarize(String userId, String documentId, String provider) {
 		return Mono.fromCallable(() -> {
 			IndexedDocument document = documentIndexStoreService.requireById(userId, documentId);
@@ -62,10 +102,20 @@ public class GenerationService {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Creates flashcards using default language, type, and document scope options.
+	 */
 	public Mono<FlashcardResponse> createFlashcards(String userId, String documentId, String provider, Integer requestedCount) {
 		return createFlashcards(userId, documentId, provider, requestedCount, "en", "mixed", "all");
 	}
 
+	/**
+	 * Creates flashcards for a document using the requested generation options.
+	 *
+	 * The generated LLM response is parsed through several tolerant parsers.
+	 * If too few valid flashcards are found, a repair prompt is sent to the LLM
+	 * to request a cleaner flashcard response.
+	 */
 	public Mono<FlashcardResponse> createFlashcards(String userId, String documentId, String provider, Integer requestedCount, String language, String type, String scope) {
 		return Mono.fromCallable(() -> {
 			int count = requestedCount == null || requestedCount <= 0 ? 10 : Math.min(requestedCount, 25);
@@ -101,6 +151,11 @@ public class GenerationService {
 		}).subscribeOn(Schedulers.boundedElastic());
 	}
 
+	/**
+	 * Combines document sections into one bounded text block for summary generation.
+	 *
+	 * Sections are appended in order until the configured character budget is reached.
+	 */
 	private String combinedContent(IndexedDocument document, int maxChars) {
 		StringBuilder content = new StringBuilder();
 		for (var section : document.sections()) {
@@ -117,10 +172,20 @@ public class GenerationService {
 		return content.toString().trim();
 	}
 
+	/**
+	 * Combines document sections for study content using the full document scope.
+	 */
 	private String combinedStudyContent(IndexedDocument document, int maxChars) {
 		return combinedStudyContent(document, maxChars, "all");
 	}
 
+	/**
+	 * Combines cleaned document sections into a study-focused text block.
+	 *
+	 * When a specific scope is provided, only the matching section is included.
+	 * Each section receives a fair character budget so flashcards can cover
+	 * multiple parts of the document instead of only the beginning.
+	 */
 	private String combinedStudyContent(IndexedDocument document, int maxChars, String scope) {
 		if (document == null || document.sections() == null || document.sections().isEmpty()) {
 			return "";
@@ -162,6 +227,9 @@ public class GenerationService {
 		return content.toString().trim();
 	}
 
+	/**
+	 * Returns the maximum content size allowed for the selected provider.
+	 */
 	private int contentBudget(String provider) {
 		if (provider != null && "groq".equalsIgnoreCase(provider.trim())) {
 			return GROQ_MAX_GENERATION_CONTENT_CHARS;
@@ -170,6 +238,13 @@ public class GenerationService {
 		return DEFAULT_MAX_GENERATION_CONTENT_CHARS;
 	}
 
+	/**
+	 * Builds fallback flashcards directly from document text.
+	 *
+	 * This method extracts candidate study sentences, scores them, and turns the
+	 * highest-quality candidates into question-answer pairs without relying on
+	 * the LLM response format.
+	 */
 	List<Flashcard> createFallbackFlashcards(IndexedDocument document, int limit) {
 		List<Flashcard> flashcards = new ArrayList<>();
 		Set<String> seenQuestions = new LinkedHashSet<>();
@@ -189,10 +264,19 @@ public class GenerationService {
 		return flashcards;
 	}
 
+	/**
+	 * Filters generated flashcards using the default English validation rules.
+	 */
 	List<Flashcard> filterStudyFlashcards(List<Flashcard> flashcards, int limit) {
 		return filterStudyFlashcards(flashcards, limit, "en");
 	}
 
+	/**
+	 * Filters generated flashcards by removing weak, duplicated, or invalid cards.
+	 *
+	 * This keeps the response focused on useful study questions and prevents
+	 * generic questions such as page-based or section-based prompts.
+	 */
 	List<Flashcard> filterStudyFlashcards(List<Flashcard> flashcards, int limit, String language) {
 		List<Flashcard> filtered = new ArrayList<>();
 		Set<String> seenQuestions = new LinkedHashSet<>();
@@ -208,6 +292,9 @@ public class GenerationService {
 		return filtered;
 	}
 
+	/**
+	 * Appends flashcards from another list while preserving uniqueness and limit rules.
+	 */
 	private void appendFlashcards(List<Flashcard> target, List<Flashcard> source, int limit) {
 		Set<String> seenQuestions = new LinkedHashSet<>();
 
@@ -220,6 +307,12 @@ public class GenerationService {
 		}
 	}
 
+	/**
+	 * Detects generic or low-value flashcard questions.
+	 *
+	 * Weak questions often reference pages, slides, sections, or ask about the
+	 * document in a broad way instead of testing a concrete concept.
+	 */
 	private boolean isWeakFlashcardQuestion(String question) {
 		String cleanQuestion = cleanFlashcardText(question);
 
@@ -242,6 +335,12 @@ public class GenerationService {
 				|| normalized.equals("what does the document discuss");
 	}
 
+	/**
+	 * Extracts candidate flashcard content from indexed document sections.
+	 *
+	 * The method splits sections into sentences, identifies useful study sentences,
+	 * extracts a topic and answer, then scores each candidate for fallback generation.
+	 */
 	private List<StudyCandidate> extractStudyCandidates(IndexedDocument document) {
 		if (document == null || document.sections() == null) {
 			return List.of();
@@ -300,6 +399,12 @@ public class GenerationService {
 		return candidates;
 	}
 
+	/**
+	 * Cleans a section title so it can be used as a flashcard topic hint.
+	 *
+	 * Generic titles such as page numbers, slide numbers, and copyright labels
+	 * are removed because they do not make useful study topics.
+	 */
 	private String cleanTopic(String title) {
 		String topic = cleanFlashcardText(title)
 				.replaceAll("(?i)^\\[?slide\\s*\\d+\\]?\\s*", "")
@@ -314,6 +419,12 @@ public class GenerationService {
 		return isGenericTopic(topic) ? "" : truncatePlain(topic, 80);
 	}
 
+	/**
+	 * Splits raw section content into clean study sentences.
+	 *
+	 * Very long sentences are split further on semicolons so fallback flashcard
+	 * answers stay readable and concise.
+	 */
 	private List<String> splitStudySentences(String content) {
 		String normalized = content == null
 				? ""
@@ -352,6 +463,12 @@ public class GenerationService {
 		return safeSentences;
 	}
 
+	/**
+	 * Builds a fallback answer from the selected sentence and nearby context.
+	 *
+	 * The next sentence is included only when it is long enough and does not make
+	 * the final answer exceed the expected study-card length.
+	 */
 	private String extractStudyAnswer(List<String> sentences, int index) {
 		StringBuilder answer = new StringBuilder(sentences.get(index));
 		int nextIndex = index + 1;
@@ -370,6 +487,12 @@ public class GenerationService {
 		return truncatePlain(answer.toString(), 390);
 	}
 
+	/**
+	 * Extracts a concept topic from a sentence.
+	 *
+	 * Definition-style sentences and heading-style sentences are preferred.
+	 * If no topic is found, the section title hint is used as a fallback.
+	 */
 	private String extractConceptTopic(String sentence, String topicHint) {
 		String cleanSentence = cleanFlashcardText(sentence);
 		Matcher definitionMatcher = DEFINITION_PATTERN.matcher(cleanSentence);
@@ -399,6 +522,9 @@ public class GenerationService {
 		return "";
 	}
 
+	/**
+	 * Extracts a topic from the most frequent meaningful words in a sentence.
+	 */
 	private String extractKeywordTopic(String sentence, Map<String, Integer> wordFrequencies) {
 		List<String> words = words(sentence).stream()
 				.filter(word -> !STOP_WORDS.contains(word))
@@ -416,6 +542,9 @@ public class GenerationService {
 		return String.join(" / ", words);
 	}
 
+	/**
+	 * Normalizes a topic candidate before using it in a flashcard question.
+	 */
 	private String normalizeTopic(String value) {
 		String topic = cleanFlashcardText(value)
 				.replaceAll("(?i)^(a|an|the|this|these|those|it|they)\\s+", "")
@@ -429,6 +558,9 @@ public class GenerationService {
 		return truncatePlain(topic, 80);
 	}
 
+	/**
+	 * Checks whether a topic is too generic to become a useful flashcard subject.
+	 */
 	private boolean isGenericTopic(String topic) {
 		String lower = topic == null ? "" : topic.toLowerCase(Locale.ROOT).trim();
 
@@ -439,6 +571,9 @@ public class GenerationService {
 				|| lower.contains("copyright");
 	}
 
+	/**
+	 * Determines whether a sentence contains enough useful content for study cards.
+	 */
 	private boolean isStudySentence(String sentence) {
 		String cleanSentence = cleanFlashcardText(sentence);
 
@@ -448,10 +583,19 @@ public class GenerationService {
 				&& !cleanSentence.toLowerCase(Locale.ROOT).contains("all rights reserved");
 	}
 
+	/**
+	 * Checks whether a sentence starts with a pronoun that lacks standalone context.
+	 */
 	private boolean startsWithReferencePronoun(String sentence) {
 		return cleanFlashcardText(sentence).matches("(?i)^(it|this|these|those|they|there|such)\\b.*");
 	}
 
+	/**
+	 * Scores a sentence based on its usefulness as study material.
+	 *
+	 * Definition sentences, meaningful topics, key concept words, suitable length,
+	 * and repeated important terms all increase the final candidate score.
+	 */
 	private int scoreStudySentence(String sentence, String topic, Map<String, Integer> wordFrequencies) {
 		String lower = sentence.toLowerCase(Locale.ROOT);
 		int score = 0;
@@ -482,6 +626,9 @@ public class GenerationService {
 		return score;
 	}
 
+	/**
+	 * Counts meaningful word frequencies across all extracted study sentences.
+	 */
 	private Map<String, Integer> wordFrequencies(List<String> sentences) {
 		Map<String, Integer> frequencies = new HashMap<>();
 
@@ -496,6 +643,9 @@ public class GenerationService {
 		return frequencies;
 	}
 
+	/**
+	 * Extracts normalized words that are useful for topic and frequency analysis.
+	 */
 	private List<String> words(String value) {
 		Matcher matcher = Pattern.compile("[A-Za-z][A-Za-z0-9+#-]{2,}").matcher(value == null ? "" : value.toLowerCase(Locale.ROOT));
 		List<String> words = new ArrayList<>();
@@ -507,6 +657,12 @@ public class GenerationService {
 		return words;
 	}
 
+	/**
+	 * Builds a fallback question from a topic and answer.
+	 *
+	 * A valid topic is preferred. If no topic is available, the method attempts
+	 * to create a question from keywords found in the answer.
+	 */
 	private String buildFallbackQuestion(String topic, String answer) {
 		String safeTopic = normalizeTopic(topic);
 
@@ -523,6 +679,9 @@ public class GenerationService {
 		return "What is the key idea in this part of the document?";
 	}
 
+	/**
+	 * Truncates plain text without cutting at an awkward word boundary when possible.
+	 */
 	private String truncatePlain(String value, int maxLength) {
 		if (value == null || value.length() <= maxLength) {
 			return value == null ? "" : value.trim();
@@ -537,16 +696,31 @@ public class GenerationService {
 		return value.substring(0, boundary).trim() + "...";
 	}
 
+	/**
+	 * Internal grouping of section title hints and extracted sentences.
+	 */
 	private record SectionSentences(String topicHint, List<String> sentences) {
 	}
 
+	/**
+	 * Internal fallback flashcard candidate with ranking metadata.
+	 */
 	private record StudyCandidate(String topic, String answer, int score, int order) {
 	}
 
+	/**
+	 * Parses flashcards from an LLM response using the default English rules.
+	 */
 	List<Flashcard> parseFlashcards(String response, int limit) {
 		return parseFlashcards(response, limit, "en");
 	}
 
+	/**
+	 * Parses flashcards from JSON, Markdown table, or labelled text responses.
+	 *
+	 * Multiple parsers are used because LLM output may not always follow the exact
+	 * requested format. Duplicate questions are ignored during parsing.
+	 */
 	List<Flashcard> parseFlashcards(String response, int limit, String language) {
 		List<Flashcard> flashcards = new ArrayList<>();
 		Set<String> seenQuestions = new LinkedHashSet<>();
@@ -558,6 +732,12 @@ public class GenerationService {
 		return flashcards.size() > limit ? flashcards.subList(0, limit) : flashcards;
 	}
 
+	/**
+	 * Parses flashcards from a JSON array or an object containing a flashcards array.
+	 *
+	 * This parser supports several common field names so responses using
+	 * question/answer, front/back, prompt/explanation, or term/definition can work.
+	 */
 	private void parseJsonFlashcards(String response, List<Flashcard> flashcards, Set<String> seenQuestions, int limit, String language) {
 		String candidate = extractJsonCandidate(response);
 
@@ -588,6 +768,12 @@ public class GenerationService {
 		}
 	}
 
+	/**
+	 * Parses flashcards from Markdown table rows.
+	 *
+	 * Header rows and separator rows are skipped so only actual question-answer
+	 * pairs are added to the result list.
+	 */
 	private void parseMarkdownTableFlashcards(String response, List<Flashcard> flashcards, Set<String> seenQuestions, int limit, String language) {
 		for (String rawLine : normalizedResponse(response).split("\n")) {
 			String line = rawLine.trim();
@@ -619,6 +805,9 @@ public class GenerationService {
 		}
 	}
 
+	/**
+	 * Parses flashcards from labelled text such as Q/A, Question/Answer, or Front/Back.
+	 */
 	private void parseLabelledFlashcards(String response, List<Flashcard> flashcards, Set<String> seenQuestions, int limit, String language) {
 		String pendingQuestion = null;
 		StringBuilder pendingAnswer = new StringBuilder();
@@ -669,10 +858,19 @@ public class GenerationService {
 		}
 	}
 
+	/**
+	 * Adds a flashcard using default English validation.
+	 */
 	private void addFlashcard(String question, String answer, List<Flashcard> flashcards, Set<String> seenQuestions, int limit) {
 		addFlashcard(question, answer, flashcards, seenQuestions, limit, "en");
 	}
 
+	/**
+	 * Adds a flashcard only when it is valid, unique, and within the requested limit.
+	 *
+	 * This method is the final quality gate shared by all parsers and fallback
+	 * flashcard generation logic.
+	 */
 	private void addFlashcard(String question, String answer, List<Flashcard> flashcards, Set<String> seenQuestions, int limit, String language) {
 		if (flashcards.size() >= limit) {
 			return;
@@ -698,10 +896,19 @@ public class GenerationService {
 		flashcards.add(new Flashcard(safeQuestion, safeAnswer));
 	}
 
+	/**
+	 * Checks answer quality using default English validation rules.
+	 */
 	private boolean isWeakFlashcardAnswer(String answer) {
 		return isWeakFlashcardAnswer(answer, "en");
 	}
 
+	/**
+	 * Detects weak flashcard answers.
+	 *
+	 * Short answers, page/slide references, generic document wording, and unwanted
+	 * Vietnamese text in English mode are filtered out.
+	 */
 	private boolean isWeakFlashcardAnswer(String answer, String language) {
 		String cleanAnswer = cleanFlashcardText(answer);
 		String normalized = cleanAnswer.toLowerCase(Locale.ROOT);
@@ -716,10 +923,19 @@ public class GenerationService {
 				|| (!isVietnamese && containsVietnameseCharacters(cleanAnswer));
 	}
 
+	/**
+	 * Checks whether a value contains Vietnamese accented characters.
+	 */
 	private boolean containsVietnameseCharacters(String value) {
 		return value != null && value.matches(".*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ].*");
 	}
 
+	/**
+	 * Extracts the most likely JSON object or array from an LLM response.
+	 *
+	 * Code fences are removed first because models often wrap JSON output inside
+	 * Markdown blocks.
+	 */
 	private String extractJsonCandidate(String response) {
 		String normalized = normalizedResponse(response)
 				.replace("```json", "")
@@ -742,6 +958,9 @@ public class GenerationService {
 		return "";
 	}
 
+	/**
+	 * Reads the first non-blank textual value from the requested JSON fields.
+	 */
 	private String textValue(JsonNode node, String... fields) {
 		for (String field : fields) {
 			JsonNode value = node.path(field);
@@ -754,10 +973,16 @@ public class GenerationService {
 		return "";
 	}
 
+	/**
+	 * Normalizes line endings from generated text.
+	 */
 	private String normalizedResponse(String response) {
 		return response == null ? "" : response.replace("\r\n", "\n").replace('\r', '\n');
 	}
 
+	/**
+	 * Cleans one generated line before labelled flashcard parsing.
+	 */
 	private String cleanGeneratedLine(String line) {
 		return line
 				.trim()
@@ -768,6 +993,9 @@ public class GenerationService {
 				.trim();
 	}
 
+	/**
+	 * Cleans question, answer, topic, and generated text values for flashcard usage.
+	 */
 	private String cleanFlashcardText(String value) {
 		if (value == null) {
 			return "";

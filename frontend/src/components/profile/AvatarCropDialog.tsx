@@ -20,6 +20,8 @@ import {
   type CropState,
 } from "@/lib/avatarCrop";
 
+// List of resize handles around the crop box.
+// Each handle controls one side or one corner of the crop area.
 const cropResizeHandles: Array<{
   handle: CropResizeHandle;
   className: string;
@@ -77,14 +79,27 @@ const cropResizeHandles: Array<{
 ];
 
 type AvatarCropDialogProps = {
+  // Current crop data, including image source, zoom, offset, and crop box.
   cropState: CropState;
+
+  // Updates the crop state from this dialog.
   setCropState: Dispatch<SetStateAction<CropState | null>>;
+
+  // True while the final cropped avatar is being created or uploaded.
   isCropping: boolean;
+
+  // Closes the avatar crop dialog.
   onClose: () => void;
+
+  // Lets the user choose a different image.
   onChooseOther: () => void;
+
+  // Applies the selected crop and uses it as the avatar.
   onApply: () => void;
 };
 
+// Returns the visual Tailwind class for each resize handle.
+// Corner handles look like small L shapes, while side handles look like small bars.
 function getCropHandleVisualClass(handle: CropResizeHandle) {
   if (handle === "n" || handle === "s") {
     return "h-2 w-11 rounded-[2px] bg-white";
@@ -109,6 +124,7 @@ function getCropHandleVisualClass(handle: CropResizeHandle) {
   return "h-8 w-8 rounded-br-[4px] border-b-[6px] border-r-[6px] border-white";
 }
 
+// Dialog used to crop an uploaded avatar image before applying it.
 export function AvatarCropDialog({
   cropState,
   setCropState,
@@ -117,8 +133,12 @@ export function AvatarCropDialog({
   onChooseOther,
   onApply,
 }: AvatarCropDialogProps) {
+  // Stores the active drag action without causing re-renders on every pointer move.
+  // It can represent dragging the image or resizing the crop box.
   const cropDragRef = useRef<CropDrag | null>(null);
 
+  // Runs when the avatar image finishes loading.
+  // It reads the real image size and sets a safe initial zoom.
   function handleCropImageLoad(event: SyntheticEvent<HTMLImageElement>) {
     const { naturalWidth, naturalHeight } = event.currentTarget;
 
@@ -145,6 +165,8 @@ export function AvatarCropDialog({
     });
   }
 
+  // Starts dragging the image inside the crop viewport.
+  // The first pointer position and current image offset are saved for later movement.
   function handleCropPointerDown(event: PointerEvent<HTMLDivElement>) {
     event.currentTarget.setPointerCapture(event.pointerId);
     cropDragRef.current = {
@@ -158,6 +180,7 @@ export function AvatarCropDialog({
     };
   }
 
+  // Updates the crop state while the user drags the image or resizes the crop box.
   function handleCropPointerMove(event: PointerEvent<HTMLDivElement>) {
     const drag = cropDragRef.current;
 
@@ -170,6 +193,7 @@ export function AvatarCropDialog({
         return current;
       }
 
+      // Resize the crop box when the user drags one of the resize handles.
       if (drag.kind === "resize" && drag.handle) {
         return clampCrop({
           ...current,
@@ -182,6 +206,7 @@ export function AvatarCropDialog({
         });
       }
 
+      // Move the image when the user drags inside the crop area.
       return clampCrop({
         ...current,
         offsetX: drag.offsetX + event.clientX - drag.startX,
@@ -190,6 +215,7 @@ export function AvatarCropDialog({
     });
   }
 
+  // Clears the current drag action when the pointer is released or cancelled.
   function handleCropPointerEnd(event: PointerEvent<HTMLDivElement>) {
     const drag = cropDragRef.current;
 
@@ -198,6 +224,8 @@ export function AvatarCropDialog({
     }
   }
 
+  // Starts resizing the crop box from a specific handle.
+  // stopPropagation prevents this action from also starting an image drag.
   function handleCropResizePointerDown(
     event: PointerEvent<HTMLButtonElement>,
     handle: CropResizeHandle,
@@ -216,6 +244,7 @@ export function AvatarCropDialog({
     };
   }
 
+  // Sets the zoom value from the range input.
   function updateCropZoom(nextZoom: number) {
     setCropState((current) => {
       if (!current) {
@@ -229,6 +258,7 @@ export function AvatarCropDialog({
     });
   }
 
+  // Zooms in or out by a small step when the user clicks the minus or plus button.
   function nudgeCropZoom(direction: -1 | 1) {
     setCropState((current) => {
       if (!current) {
@@ -243,6 +273,7 @@ export function AvatarCropDialog({
     });
   }
 
+  // Allows zooming with the mouse wheel while the pointer is over the crop area.
   function handleCropWheel(event: WheelEvent<HTMLDivElement>) {
     event.preventDefault();
 
@@ -260,8 +291,11 @@ export function AvatarCropDialog({
   }
 
   return (
+    // Full-screen overlay behind the crop dialog.
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/65 px-4 backdrop-blur-[4px]">
+      {/* Main dialog card */}
       <div className="w-[min(520px,100%)] rounded-[8px] bg-white p-5 shadow-[0_34px_90px_rgba(0,0,0,0.42)]">
+        {/* Dialog header with title and close button */}
         <div className="flex items-center justify-between gap-4 border-b border-[#e3e8f4] pb-4">
           <h2 className="text-[22px] font-black text-[#1d355b]">Upload Avatar</h2>
           <button
@@ -274,6 +308,7 @@ export function AvatarCropDialog({
           </button>
         </div>
 
+        {/* Crop editor area */}
         <div className="mt-5 rounded-[8px] bg-black/90 p-4">
           <div
             className="relative mx-auto aspect-square w-[min(360px,calc(100vw_-_72px))] cursor-grab touch-none overflow-hidden rounded-[4px] bg-black active:cursor-grabbing"
@@ -283,6 +318,7 @@ export function AvatarCropDialog({
             onPointerCancel={handleCropPointerEnd}
             onWheel={handleCropWheel}
           >
+            {/* Image being cropped */}
             <img
               src={cropState.imageSrc}
               alt=""
@@ -294,6 +330,8 @@ export function AvatarCropDialog({
                 transform: `translate(calc(-50% + ${cropState.offsetX}px), calc(-50% + ${cropState.offsetY}px))`,
               }}
             />
+
+            {/* Dark overlay above the crop box */}
             <div
               aria-hidden="true"
               className="pointer-events-none absolute left-0 top-0 bg-black/48"
@@ -302,6 +340,8 @@ export function AvatarCropDialog({
                 height: cropState.cropBox.y,
               }}
             />
+
+            {/* Dark overlay below the crop box */}
             <div
               aria-hidden="true"
               className="pointer-events-none absolute left-0 bg-black/48"
@@ -311,6 +351,8 @@ export function AvatarCropDialog({
                 height: CROP_VIEWPORT_SIZE - cropState.cropBox.y - cropState.cropBox.size,
               }}
             />
+
+            {/* Dark overlay on the left side of the crop box */}
             <div
               aria-hidden="true"
               className="pointer-events-none absolute bg-black/48"
@@ -321,6 +363,8 @@ export function AvatarCropDialog({
                 height: cropState.cropBox.size,
               }}
             />
+
+            {/* Dark overlay on the right side of the crop box */}
             <div
               aria-hidden="true"
               className="pointer-events-none absolute bg-black/48"
@@ -331,6 +375,8 @@ export function AvatarCropDialog({
                 height: cropState.cropBox.size,
               }}
             />
+
+            {/* Visible crop box with grid lines and resize handles */}
             <div
               className="pointer-events-none absolute z-20 border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.22)]"
               style={{
@@ -340,7 +386,10 @@ export function AvatarCropDialog({
                 height: cropState.cropBox.size,
               }}
             >
+              {/* Rule-of-thirds grid inside the crop box */}
               <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent_33.333%,rgba(255,255,255,0.26)_33.333%,rgba(255,255,255,0.26)_34%,transparent_34%,transparent_66.666%,rgba(255,255,255,0.26)_66.666%,rgba(255,255,255,0.26)_67.333%,transparent_67.333%),linear-gradient(0deg,transparent_33.333%,rgba(255,255,255,0.26)_33.333%,rgba(255,255,255,0.26)_34%,transparent_34%,transparent_66.666%,rgba(255,255,255,0.26)_66.666%,rgba(255,255,255,0.26)_67.333%,transparent_67.333%)]" />
+
+              {/* Resize buttons around the crop box */}
               {cropResizeHandles.map((item) => (
                 <button
                   key={item.handle}
@@ -357,6 +406,8 @@ export function AvatarCropDialog({
               ))}
             </div>
           </div>
+
+          {/* Zoom controls below the crop area */}
           <div className="mx-auto mt-4 flex w-[min(360px,calc(100vw_-_72px))] items-center gap-3">
             <button
               type="button"
@@ -387,6 +438,7 @@ export function AvatarCropDialog({
           </div>
         </div>
 
+        {/* Footer action buttons */}
         <div className="mt-6 flex flex-wrap justify-end gap-3">
           <button
             type="button"

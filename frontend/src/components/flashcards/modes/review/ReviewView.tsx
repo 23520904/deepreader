@@ -12,15 +12,31 @@ export function ReviewView({
   onNext,
   onToggleAnswer,
 }: {
+  // The deck information used in the header.
   deck: StudyDeck;
+
+  // All cards that are available in review mode.
   reviewCards: StudyFlashcard[];
+
+  // The card currently being shown on the screen.
   activeReviewCard: StudyFlashcard | null;
+
+  // The index of the current card in the reviewCards array.
   reviewCardIndex: number;
+
+  // Controls whether the answer side of the card is visible.
   isAnswerVisible: boolean;
+
+  // Moves to the previous review card.
   onPrevious: () => void;
+
+  // Moves to the next card, or finishes when this is the last card.
   onNext: () => void;
+
+  // Flips the card between question and answer.
   onToggleAnswer: () => void;
 }) {
+  // If there is no active card, show an empty state instead of the review UI.
   if (!activeReviewCard) {
     return (
       <EmptyMode
@@ -30,12 +46,15 @@ export function ReviewView({
     );
   }
 
+  // Check if the user is currently viewing the last card.
   const isLastCard = reviewCardIndex + 1 >= reviewCards.length;
 
   return (
     <section className="rounded-[8px] border border-[#dbe7f5] bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.06)] sm:p-5">
+      {/* Header section for review mode */}
       <ModeHeader deck={deck} label="Review mode" title="Study flashcards" />
 
+      {/* Progress bar showing how far the user is in the review session */}
       <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#e2e8f0]">
         <div
           className="h-full rounded-full bg-[#2563eb]"
@@ -48,12 +67,14 @@ export function ReviewView({
         />
       </div>
 
+      {/* Main flashcard area */}
       <div className="mt-5 rounded-[8px] border border-[#dbe7f5] bg-[#f8fafc] p-3 sm:mt-6 sm:p-5">
         <div
           className="mx-auto w-full max-w-[430px] max-[420px]:max-w-full"
           style={{ perspective: "1600px" }}
         >
           <div className="relative min-h-[min(520px,68dvh)] sm:min-h-[470px] lg:min-h-[570px]">
+            {/* Flip card wrapper. It rotates when the answer is visible. */}
             <div
               key={`${activeReviewCard.id}-${reviewCardIndex}`}
               className="absolute inset-0 rounded-[20px] transition-transform duration-500 sm:rounded-[28px]"
@@ -64,6 +85,7 @@ export function ReviewView({
                 transformStyle: "preserve-3d",
               }}
             >
+              {/* Front side of the card: question */}
               <div
                 className="absolute inset-0 overflow-y-auto rounded-[20px] bg-[#2418f6] px-5 py-8 text-center text-white shadow-[0_24px_54px_rgba(37,99,235,0.18)] ring-1 ring-[#dbeafe] sm:rounded-[28px] sm:px-8 sm:py-10 max-[380px]:px-4"
                 style={{
@@ -89,6 +111,7 @@ export function ReviewView({
                 </div>
               </div>
 
+              {/* Back side of the card: answer */}
               <div
                 className="absolute inset-0 overflow-y-auto rounded-[20px] bg-white px-5 py-8 text-center shadow-[0_24px_54px_rgba(15,118,110,0.14)] ring-1 ring-[#bbf7d0] sm:rounded-[28px] sm:px-8 sm:py-10 max-[380px]:px-4"
                 style={{
@@ -111,6 +134,7 @@ export function ReviewView({
               </div>
             </div>
 
+            {/* Floating button used to flip between question and answer */}
             <button
               type="button"
               onClick={onToggleAnswer}
@@ -135,6 +159,7 @@ export function ReviewView({
           </div>
         </div>
 
+        {/* Navigation buttons for moving through the review cards */}
         <div className="mt-5 grid grid-cols-2 gap-3 max-[360px]:grid-cols-1">
           <button
             type="button"

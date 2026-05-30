@@ -2,31 +2,82 @@ import { forwardRef } from "react";
 import { LibraryCard } from "./LibraryCard";
 import type { FormatFilter, LibraryDocument, SortMode } from "@/types/library";
 
+/**
+ * Props for the main library content section.
+ * The parent component sends all data, filters, pagination values,
+ * and action handlers into this component.
+ */
 type LibraryContentProps = {
+  // Current user session. If it exists, the library can be loaded.
   session: unknown;
+
+  // Error message shown when loading documents fails.
   loadError: string;
+
+  // True while the library documents are being loaded.
   isLoading: boolean;
+
+  // Current search text typed by the user.
   query: string;
+
+  // Current selected document format filter.
   formatFilter: FormatFilter;
+
+  // Current selected sorting mode.
   sortMode: SortMode;
+
+  // Documents for the current page only.
   pagedDocuments: LibraryDocument[];
+
+  // Page numbers and ellipsis values used to render pagination buttons.
   paginationItems: Array<number | "ellipsis">;
+
+  // Controls whether the pagination UI should be displayed.
   shouldShowPagination: boolean;
+
+  // Current page number after being checked and corrected by the parent.
   safeCurrentPage: number;
+
+  // Total number of pages.
   totalPages: number;
+
+  // Called when the user changes the search text.
   onQueryChange: (value: string) => void;
+
+  // Called when the user changes the format filter.
   onFormatFilterChange: (value: FormatFilter) => void;
+
+  // Called when the user changes the sorting mode.
   onSortModeChange: (value: SortMode) => void;
+
+  // Called when the user clicks the upload button.
   onUploadClick: () => void;
+
+  // Called when the user clicks the login button.
   onLoginClick: () => void;
+
+  // Called when the user moves to the previous page.
   onPreviousPage: () => void;
+
+  // Called when the user moves to the next page.
   onNextPage: () => void;
+
+  // Called when the user chooses a specific page number.
   onPageChange: (page: number) => void;
+
+  // Id of the document currently being deleted.
   deletingDocumentId: string;
+
+  // Called when the user wants to read a document.
   onReadDocument: (document: LibraryDocument) => void;
+
+  // Called when the user wants to delete a document.
   onDeleteDocument: (document: LibraryDocument) => void;
 };
 
+/**
+ * Search icon used inside the search input.
+ */
 function SearchIcon() {
   return (
     <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
@@ -41,6 +92,9 @@ function SearchIcon() {
   );
 }
 
+/**
+ * Right arrow icon used in the Next pagination button.
+ */
 function ChevronRightIcon() {
   return (
     <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -55,6 +109,9 @@ function ChevronRightIcon() {
   );
 }
 
+/**
+ * Left arrow icon used in the Prev pagination button.
+ */
 function ChevronLeftIcon() {
   return (
     <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -69,6 +126,10 @@ function ChevronLeftIcon() {
   );
 }
 
+/**
+ * Main library content section.
+ * forwardRef allows the parent component to scroll to this section if needed.
+ */
 export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
   function LibraryContent(
     {
@@ -103,12 +164,15 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
         className="library-content-section min-h-[900px] scroll-mt-[96px] bg-white pb-24 pt-16"
       >
         <div className="mx-auto w-[min(1220px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1220px)]">
+          {/* Section title */}
           <h2 className="text-[34px] font-black tracking-[-0.025em] text-[#1d355b] max-[700px]:text-[28px]">
             Your Library Collection
           </h2>
 
+          {/* Search, filter, and sort controls */}
           <div className="mt-12 rounded-[16px] bg-[#245895] p-7 shadow-[0_12px_26px_rgba(36,88,149,0.18)]">
             <div className="grid gap-8 lg:grid-cols-[1fr_180px_180px]">
+              {/* Search input */}
               <label className="relative block">
                 <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/65">
                   <SearchIcon />
@@ -122,6 +186,7 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
                 />
               </label>
 
+              {/* Format filter dropdown */}
               <select
                 value={formatFilter}
                 onChange={(event) =>
@@ -135,6 +200,7 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
                 <option value="unknown">Unknown</option>
               </select>
 
+              {/* Sort mode dropdown */}
               <select
                 value={sortMode}
                 onChange={(event) =>
@@ -149,6 +215,7 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
             </div>
           </div>
 
+          {/* Error message shown only when the user has a session */}
           {session && loadError ? (
             <div className="mt-10 rounded-[8px] border border-[#ffc4ca] bg-[#fff0f1] px-5 py-4 text-[15px] font-bold text-[#b42335]">
               {loadError}
@@ -156,6 +223,7 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
           ) : null}
 
           {isLoading ? (
+            /* Loading skeleton cards */
             <div className="mt-20 grid gap-x-[52px] gap-y-[48px] md:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
@@ -172,6 +240,7 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
               ))}
             </div>
           ) : pagedDocuments.length ? (
+            /* Document card grid */
             <div className="mt-20 grid gap-x-[52px] gap-y-[48px] md:grid-cols-2 xl:grid-cols-3">
               {pagedDocuments.map((document) => (
                 <LibraryCard
@@ -184,6 +253,7 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
               ))}
             </div>
           ) : (
+            /* Empty state shown when there are no documents to display */
             <div className="mt-20 rounded-[16px] border border-dashed border-[#cbd3e2] bg-[#f9fbff] px-8 py-14 text-center">
               <h3 className="text-[24px] font-black text-black">
                 No documents found
@@ -205,6 +275,7 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
             </div>
           )}
 
+          {/* Pagination controls */}
           {shouldShowPagination ? (
             <div className="mt-14 flex items-center justify-center gap-3 text-[16px] font-black">
               <button
@@ -217,6 +288,7 @@ export const LibraryContent = forwardRef<HTMLElement, LibraryContentProps>(
                 Prev
               </button>
 
+              {/* Page number buttons and ellipsis */}
               {paginationItems.map((item, index) =>
                 item === "ellipsis" ? (
                   <span

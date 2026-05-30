@@ -7,30 +7,53 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+/**
+ * Holds Gemini API settings used by the AI service.
+ *
+ * These values are loaded from application config with the prefix:
+ * deepreader.gemini
+ */
 @ConfigurationProperties(prefix = "deepreader.gemini")
 @Validated
 public class GeminiProperties {
 
+	// API key used to call Gemini services.
 	private String apiKey;
+
+	// Base URL for Gemini API requests.
 	@NotBlank
 	private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
+
+	// Model used to create text embeddings.
 	@NotBlank
 	private String embeddingModel = "gemini-embedding-001";
+
+	// Size of each embedding vector stored in the vector database.
 	@NotNull
 	@Min(1)
 	private Integer embeddingDimensions = 768;
+
+	// Number of texts sent in one embedding request batch.
 	@NotNull
 	@Min(1)
 	private Integer embeddingBatchSize = 50;
+
+	// Delay between embedding batches to reduce rate-limit errors.
 	@NotNull
 	@Min(0)
 	private Long embeddingBatchDelayMs = 32000L;
+
+	// Maximum number of retry attempts when embedding requests fail.
 	@NotNull
 	@Min(0)
 	private Integer embeddingMaxRetries = 5;
+
+	// Delay before retrying a failed embedding request.
 	@NotNull
 	@Min(0)
 	private Long embeddingRetryDelayMs = 15000L;
+
+	// Model used for text generation tasks such as chat or summaries.
 	@NotBlank
 	private String generationModel = "gemini-2.0-flash";
 
