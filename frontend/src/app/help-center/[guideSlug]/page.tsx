@@ -4,6 +4,7 @@ import { HelpGuideContent } from "@/components/help/HelpGuideContent";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
 import { getHelpGuide, helpGuides } from "@/lib/helpGuides";
+import { createPageMetadata } from "@/lib/seo";
 
 type HelpGuidePageProps = {
   params: Promise<{
@@ -29,10 +30,12 @@ export async function generateMetadata({
     };
   }
 
-  return {
+  return createPageMetadata({
     title: `${guide.title} | DeepReader Help Center`,
     description: guide.description,
-  };
+    path: `/help-center/${guide.slug}`,
+    keywords: ["DeepReader guide", "AI document reader help", "study assistant help"],
+  });
 }
 
 export default async function HelpGuidePage({ params }: HelpGuidePageProps) {

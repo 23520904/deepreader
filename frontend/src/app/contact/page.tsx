@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Contact | DeepReader",
-  description: "Contact DeepReader for support, questions, and product feedback.",
-};
+export const metadata: Metadata = createPageMetadata({
+  title: "Contact DeepReader",
+  description:
+    "Contact DeepReader for support, questions, product feedback, and help with the AI document reader, PDF summarizer, and AI flashcards.",
+  path: "/contact",
+  keywords: ["contact DeepReader", "DeepReader support", "AI document reader support"],
+});
 
 const contactItems = [
   {

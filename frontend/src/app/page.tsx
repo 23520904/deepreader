@@ -1,10 +1,25 @@
 /* eslint-disable @next/next/no-img-element */
+import type { Metadata } from "next";
 import { preload } from "react-dom";
 import { FeatureCardsShowcase } from "@/components/FeatureCardsShowcase";
 import { HomeHero } from "@/components/home/HomeHero";
 import { HomeScrollReveal } from "@/components/home/HomeScrollReveal";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteNavbar } from "@/components/SiteNavbar";
+import { createPageMetadata } from "@/lib/seo";
+
+export const metadata: Metadata = createPageMetadata({
+  title: "DeepReader - AI Document Reader, PDF Summarizer, and AI Flashcards",
+  description:
+    "DeepReader helps students and professionals summarize PDFs, read long documents with AI, generate AI flashcards, and study faster with a focused study assistant.",
+  path: "/",
+  keywords: [
+    "PDF summarizer",
+    "AI PDF reader",
+    "AI flashcard generator",
+    "document study assistant",
+  ],
+});
 
 const workflowSteps = [
   {
@@ -101,6 +116,31 @@ export default function Home() {
         <HomeScrollReveal />
         <SiteNavbar activeItem="Home" />
         <HomeHero />
+
+      <section className="home-deferred-section bg-white px-6 py-16 max-[700px]:px-4">
+        <div className="mx-auto grid w-[min(1180px,100%)] gap-8 rounded-[8px] border border-[#e8eef8] bg-[#f7f9fd] px-8 py-10 shadow-[0_18px_46px_rgba(32,55,103,0.08)] md:grid-cols-[1.1fr_0.9fr] md:items-center max-[700px]:px-5">
+          <div>
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.14em] text-[#155796]">
+              AI document reader for focused study
+            </p>
+            <h2 className="mt-3 text-[clamp(28px,4vw,42px)] font-extrabold leading-[1.12] text-[#1d355b]">
+              DeepReader turns PDFs into summaries, AI flashcards, and study-ready answers.
+            </h2>
+            <p className="mt-4 text-[16px] leading-[1.72] text-[#526176]">
+              Use DeepReader as an AI document reader, PDF summarizer, AI flashcards
+              generator, and study assistant for long chapters, research files, class
+              notes, and professional documents.
+            </p>
+          </div>
+          <div className="grid gap-3">
+            {["AI document reader", "PDF summarizer", "AI flashcards", "Study assistant"].map((item) => (
+              <div key={item} className="rounded-[8px] bg-white px-4 py-3 text-[15px] font-extrabold text-[#1d355b] ring-1 ring-[#dbe7f5]">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section id="workflow" className="home-deferred-section bg-white py-[86px] max-[700px]:py-[70px]">
         <div className="mx-auto w-[min(1180px,calc(100%_-_48px))] max-[700px]:w-[min(calc(100%_-_28px),1180px)]">
