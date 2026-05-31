@@ -39,37 +39,40 @@ export function CompactUserList({
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid min-w-0 gap-3">
       {visibleUsers.map((user) => (
         <div
           key={user.user_id}
-          className={`grid gap-3 rounded-[14px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 ${
+          className={[
+            "grid min-w-0 gap-3 overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-3.5 transition hover:bg-slate-50",
+            "sm:px-5",
             onDeleteUser
-              ? "md:grid-cols-[minmax(0,1fr)_110px_100px_46px] md:items-center"
-              : "md:grid-cols-[minmax(0,1fr)_110px_100px] md:items-center"
-          }`}
+              ? "md:grid-cols-[minmax(0,1fr)_minmax(0,230px)_44px] md:items-center"
+              : "md:grid-cols-[minmax(0,1fr)_minmax(0,230px)] md:items-center",
+          ].join(" ")}
         >
-          <div className="min-w-0">
-            <p className="truncate text-[15px] font-black text-[#0f172a]">
+          <div className="min-w-0 overflow-hidden">
+            <p className="truncate text-[15px] font-semibold text-slate-950">
               {user.username || user.email}
             </p>
-            <p className="truncate text-[13px] font-semibold text-[#64748b]">
+
+            <p className="mt-0.5 break-all text-[13px] font-medium leading-5 text-slate-500">
               {user.email}
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2 md:contents">
-            <span className="h-fit rounded-full bg-white px-3 py-1 text-center text-[12px] font-black text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
-              {user.role}
+          <div className="flex min-w-0 flex-wrap gap-2 md:justify-end">
+            <span className="inline-flex max-w-full items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+              <span className="truncate">{user.role}</span>
             </span>
 
-            <span className="h-fit rounded-full bg-white px-3 py-1 text-center text-[12px] font-black text-[#64748b] ring-1 ring-[#e2e8f0]">
-              {user.document_count} docs
+            <span className="inline-flex max-w-full items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
+              <span className="truncate">{user.document_count} docs</span>
             </span>
           </div>
 
           {onDeleteUser ? (
-            <div className="flex justify-end md:block">
+            <div className="flex shrink-0 justify-end">
               <TrashButton
                 label={`Delete ${user.username || user.email}`}
                 disabled={
@@ -117,32 +120,36 @@ export function CompactDocumentList({
   }
 
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
+    <div className="grid min-w-0 gap-3 xl:grid-cols-2">
       {visibleDocuments.map((document) => (
         <div
           key={document.document_id}
-          className="grid min-w-0 gap-3 rounded-[14px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-4"
+          className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white px-4 py-4 transition hover:bg-slate-50 sm:px-5"
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="line-clamp-2 text-[15px] font-black leading-6 text-[#0f172a]">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3">
+            <div className="min-w-0 overflow-hidden">
+              <p className="line-clamp-2 break-words text-[15px] font-semibold leading-6 text-slate-950 [overflow-wrap:anywhere]">
                 {document.file_name}
               </p>
-              <p className="mt-2 truncate text-[13px] font-semibold text-[#64748b]">
+
+              <p className="mt-2 break-words text-[13px] font-medium leading-5 text-slate-500 [overflow-wrap:anywhere]">
                 Owner: {document.username || document.email || "Unknown"}
               </p>
-              <p className="mt-1 text-[12px] font-bold text-[#94a3b8]">
+
+              <p className="mt-1 text-xs font-medium text-slate-400">
                 {formatAdminDate(document.created_at)}
               </p>
             </div>
 
             {onDeleteDocument ? (
-              <TrashButton
-                label={`Delete ${document.file_name}`}
-                disabled={deletingDocumentId === document.document_id}
-                isBusy={deletingDocumentId === document.document_id}
-                onClick={() => onDeleteDocument(document)}
-              />
+              <div className="shrink-0">
+                <TrashButton
+                  label={`Delete ${document.file_name}`}
+                  disabled={deletingDocumentId === document.document_id}
+                  isBusy={deletingDocumentId === document.document_id}
+                  onClick={() => onDeleteDocument(document)}
+                />
+              </div>
             ) : null}
           </div>
         </div>

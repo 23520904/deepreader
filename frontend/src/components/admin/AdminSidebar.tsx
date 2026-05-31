@@ -20,10 +20,12 @@ export function AdminSidebar({
   onLogout: () => void;
 }) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[292px] border-r border-[#dbe7f5] bg-white/95 px-5 py-6 shadow-[18px_0_44px_rgba(30,64,175,0.08)] backdrop-blur-xl lg:flex lg:flex-col">
-      <AdminBrand />
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[300px] border-r border-blue-100 bg-gradient-to-b from-white via-sky-50/40 to-blue-50/60 px-5 py-6 shadow-[12px_0_32px_rgba(59,130,246,0.06)] lg:flex lg:flex-col">
+      <div className="px-2">
+        <AdminBrand />
+      </div>
 
-      <nav className="mt-8 grid gap-2" aria-label="Admin sections">
+      <nav className="mt-8 space-y-1.5" aria-label="Admin sections">
         {adminNavItems.map((item) => {
           const isActive = activeSection === item.id;
 
@@ -32,33 +34,49 @@ export function AdminSidebar({
               key={item.id}
               type="button"
               onClick={() => onChangeSection(item.id)}
-              className={`flex cursor-pointer items-center gap-3 rounded-[14px] px-4 py-3 text-left transition ${
+              className={[
+                "group relative flex w-full cursor-pointer items-center gap-3.5 rounded-2xl px-4 py-3.5 text-left transition",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200",
                 isActive
-                  ? "bg-[#2563eb] text-white shadow-[0_16px_34px_rgba(37,99,235,0.22)]"
-                  : "bg-transparent text-[#475569] hover:bg-[#eff6ff] hover:text-[#1d4ed8]"
-              }`}
+                  ? "bg-white text-blue-700 shadow-[0_10px_24px_rgba(59,130,246,0.12)] ring-1 ring-blue-100"
+                  : "text-slate-600 hover:bg-white/80 hover:text-blue-700 hover:ring-1 hover:ring-blue-100",
+              ].join(" ")}
             >
+              {isActive && (
+                <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-blue-500" />
+              )}
+
               <span
-                className={`grid h-10 w-10 shrink-0 place-items-center rounded-[12px] ${
-                  isActive ? "bg-white/20" : "bg-[#eff6ff] ring-1 ring-[#dbeafe]"
-                }`}
+                className={[
+                  "grid h-11 w-11 shrink-0 place-items-center rounded-xl border transition",
+                  isActive
+                    ? "border-blue-100 bg-blue-50"
+                    : "border-blue-100/70 bg-white group-hover:bg-blue-50",
+                ].join(" ")}
               >
                 <img
                   src={item.iconSrc}
                   alt=""
-                  className="h-7 w-7 object-contain"
+                  className={[
+                    "h-6 w-6 object-contain transition",
+                    isActive
+                      ? "opacity-95"
+                      : "opacity-65 group-hover:opacity-85",
+                  ].join(" ")}
                   aria-hidden="true"
                 />
               </span>
 
-              <span className="min-w-0">
-                <span className="block text-[14px] font-black">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-semibold">
                   {item.label}
                 </span>
+
                 <span
-                  className={`mt-0.5 block text-[12px] font-semibold ${
-                    isActive ? "text-white/75" : "text-[#94a3b8]"
-                  }`}
+                  className={[
+                    "mt-1 block truncate text-[13px] font-medium",
+                    isActive ? "text-blue-400" : "text-slate-400",
+                  ].join(" ")}
                 >
                   {item.description}
                 </span>
@@ -68,11 +86,11 @@ export function AdminSidebar({
         })}
       </nav>
 
-      <div className="mt-auto">
+      <div className="mt-auto border-t border-blue-100 pt-5">
         <button
           type="button"
           onClick={onLogout}
-          className="h-12 w-full cursor-pointer rounded-[14px] bg-[#fff1f2] text-[14px] font-black text-[#be123c] ring-1 ring-[#fecdd3] transition hover:bg-[#ffe4e6]"
+          className="flex h-11 w-full cursor-pointer items-center justify-center rounded-2xl border border-transparent text-[15px] font-semibold text-slate-500 transition hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
         >
           Logout
         </button>

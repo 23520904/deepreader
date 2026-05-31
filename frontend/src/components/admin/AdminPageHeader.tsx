@@ -19,26 +19,36 @@ export function AdminPageHeader({
   onRefresh: () => void;
 }) {
   const item = adminNavItems.find((navItem) => navItem.id === activeSection);
+
   const title =
     activeSection === "dashboard" ? "Dashboard" : item?.label || "Admin";
+
   const description =
     activeSection === "dashboard"
       ? "Monitor system health, study activity, and document usage."
       : item?.description || "Manage DeepReader";
 
   return (
-    <header className="rounded-[18px] border border-[#dbe7f5] bg-white px-4 py-5 shadow-[0_18px_46px_rgba(15,23,42,0.06)] sm:rounded-[22px] sm:px-7 sm:py-6">
-      <div className="grid gap-4 sm:flex sm:items-start sm:justify-between">
+    <header className="min-w-0 rounded-3xl border border-blue-100 bg-gradient-to-br from-white via-sky-50/60 to-blue-50/80 px-4 py-5 shadow-[0_16px_38px_rgba(59,130,246,0.07)] sm:px-6 sm:py-6">
+      <div className="grid min-w-0 gap-5 md:flex md:items-center md:justify-between">
         <div className="min-w-0">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#2563eb] sm:text-[13px]">
-            Admin Workspace
-          </p>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="rounded-full border border-blue-100 bg-blue-100/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-700">
+              Admin Workspace
+            </p>
 
-          <h1 className="mt-2 text-[clamp(30px,8vw,52px)] font-black leading-tight text-[#0f172a] sm:mt-3">
+            {item?.label ? (
+              <p className="rounded-full border border-blue-100 bg-white/85 px-3 py-1 text-xs font-semibold text-blue-600">
+                {item.label}
+              </p>
+            ) : null}
+          </div>
+
+          <h1 className="mt-4 break-words text-[30px] font-bold tracking-tight text-slate-950 sm:text-[38px] lg:text-[42px]">
             {title}
           </h1>
 
-          <p className="mt-2 max-w-[680px] text-[14px] font-semibold leading-6 text-[#64748b] sm:text-[15px] sm:leading-7">
+          <p className="mt-2 max-w-2xl break-words text-sm font-medium leading-6 text-slate-500 sm:text-[15px] sm:leading-7">
             {description}
           </p>
         </div>
@@ -47,9 +57,25 @@ export function AdminPageHeader({
           type="button"
           onClick={onRefresh}
           disabled={isLoading}
-          className="h-11 w-full cursor-pointer rounded-[12px] bg-[#2563eb] px-5 text-[14px] font-black text-white shadow-[0_14px_30px_rgba(37,99,235,0.2)] transition hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          aria-busy={isLoading}
+          className="inline-flex h-12 w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-blue-500 px-5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(59,130,246,0.18)] transition hover:bg-blue-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
         >
-          {isLoading ? "Refreshing..." : "Refresh"}
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            className={`h-[18px] w-[18px] ${isLoading ? "animate-spin" : ""}`}
+          >
+            <path
+              d="M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+
+          <span>{isLoading ? "Refreshing..." : "Refresh data"}</span>
         </button>
       </div>
     </header>

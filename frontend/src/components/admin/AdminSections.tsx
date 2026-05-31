@@ -43,18 +43,18 @@ export function DashboardSection({
   const [timelineRange, setTimelineRange] = useState<TimelineRange>("day");
 
   const volumeRows = [
-    { label: "Users", value: summary.users, color: "#2563eb" },
-    { label: "Documents", value: summary.indexedDocuments, color: "#10b981" },
-    { label: "Sessions", value: summary.activeSessions, color: "#7c3aed" },
-    { label: "Logs today", value: summary.auditEventsToday, color: "#f59e0b" },
+    { label: "Users", value: summary.users, color: "#334155" },
+    { label: "Documents", value: summary.indexedDocuments, color: "#0f766e" },
+    { label: "Sessions", value: summary.activeSessions, color: "#4f46e5" },
+    { label: "Logs today", value: summary.auditEventsToday, color: "#b45309" },
   ];
 
   const roleRows = [
-    { label: "Admins", value: summary.admins, color: "#2563eb" },
+    { label: "Admins", value: summary.admins, color: "#334155" },
     {
       label: "Users",
       value: Math.max(0, summary.users - summary.admins),
-      color: "#10b981",
+      color: "#94a3b8",
     },
   ];
 
@@ -70,14 +70,14 @@ export function DashboardSection({
   }[timelineRange];
 
   const operationRows = [
-    { label: "Sessions", value: summary.activeSessions, color: "#2563eb" },
-    { label: "Audit today", value: summary.auditEventsToday, color: "#10b981" },
-    { label: "Dead letters", value: summary.deadLettersToday, color: "#ef4444" },
+    { label: "Sessions", value: summary.activeSessions, color: "#334155" },
+    { label: "Audit today", value: summary.auditEventsToday, color: "#0f766e" },
+    { label: "Dead letters", value: summary.deadLettersToday, color: "#e11d48" },
   ];
 
   return (
-    <div className="grid gap-5 sm:gap-6">
-      <section className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+    <div className="grid gap-6">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <AdminMetric label="Users" value={summary.users} tone="blue" />
         <AdminMetric
           label="Documents"
@@ -96,7 +96,7 @@ export function DashboardSection({
         />
       </section>
 
-      <section className="grid gap-5 sm:gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <AdminPanel
           title="System volume"
           description="Users, documents, sessions, and activity"
@@ -116,7 +116,7 @@ export function DashboardSection({
         </AdminPanel>
       </section>
 
-      <section className="grid gap-5 sm:gap-6 xl:grid-cols-2">
+      <section className="grid gap-6 xl:grid-cols-2">
         <AdminPanel
           title="Document ownership"
           description="Indexed files by owner"
@@ -127,7 +127,10 @@ export function DashboardSection({
           />
         </AdminPanel>
 
-        <AdminPanel title="Activity mix" description="Recent audit events by action">
+        <AdminPanel
+          title="Activity mix"
+          description="Recent audit events by action"
+        >
           <DonutChart
             rows={activityMixRows}
             centerLabel={`${auditLogs.length}`}
@@ -136,23 +139,29 @@ export function DashboardSection({
         </AdminPanel>
       </section>
 
-      <section className="grid gap-5 sm:gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <AdminPanel title="Document timeline" description={timelineDescription}>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {(["day", "week", "month", "year"] as const).map((range) => (
-              <button
-                key={range}
-                type="button"
-                onClick={() => setTimelineRange(range)}
-                className={`h-9 cursor-pointer rounded-full px-4 text-[12px] font-black capitalize transition ${
-                  timelineRange === range
-                    ? "bg-[#2563eb] text-white shadow-[0_10px_22px_rgba(37,99,235,0.2)]"
-                    : "bg-[#eff6ff] text-[#1d4ed8] ring-1 ring-[#bfdbfe] hover:bg-[#dbeafe]"
-                }`}
-              >
-                {range}
-              </button>
-            ))}
+          <div className="mb-5 flex flex-wrap gap-2">
+            {(["day", "week", "month", "year"] as const).map((range) => {
+              const isActive = timelineRange === range;
+
+              return (
+                <button
+                  key={range}
+                  type="button"
+                  onClick={() => setTimelineRange(range)}
+                  className={[
+                    "h-10 cursor-pointer rounded-xl px-4 text-sm font-semibold capitalize transition",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+                    isActive
+                      ? "bg-slate-900 text-white"
+                      : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950",
+                  ].join(" ")}
+                >
+                  {range}
+                </button>
+              );
+            })}
           </div>
 
           <LineChart
@@ -252,18 +261,19 @@ export function ActivitySection({
           {logs.map((log, index) => (
             <div
               key={`${log.created_at}-${index}`}
-              className="rounded-[14px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3"
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 transition hover:bg-slate-50"
             >
-              <div className="flex flex-wrap justify-between gap-2">
-                <p className="text-[14px] font-black text-[#0f172a]">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[15px] font-semibold text-slate-950">
                   {log.action}
                 </p>
-                <p className="text-[12px] font-bold text-[#64748b]">
+
+                <p className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
                   {formatAdminDate(log.created_at)}
                 </p>
               </div>
 
-              <p className="mt-1 line-clamp-2 text-[13px] font-semibold text-[#64748b]">
+              <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
                 {log.details || "No details"}
               </p>
             </div>
