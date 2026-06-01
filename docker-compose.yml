@@ -141,7 +141,7 @@ services:
     container_name: deepreader-data-service
     environment:
       SERVER_PORT: 8081
-      MONGODB_URI: ${DOCKER_MONGODB_URI:-mongodb://mongodb:27017/deepreader}
+      MONGODB_URI: ${DOCKER_MONGODB_URI:-${MONGODB_URI:-mongodb://mongodb:27017/deepreader}}
       RELATIONAL_DATABASE_URL: ${DOCKER_RELATIONAL_DATABASE_URL:-jdbc:postgresql://postgres:5432/deepreader}
       RELATIONAL_DATABASE_USERNAME: ${DOCKER_RELATIONAL_DATABASE_USERNAME:-deepreader}
       RELATIONAL_DATABASE_PASSWORD: ${DOCKER_RELATIONAL_DATABASE_PASSWORD:-deepreader}
