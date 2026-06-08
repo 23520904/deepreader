@@ -5,6 +5,8 @@ import java.util.List;
 public record ChatAskResponse(
 		String query,
 		String answer,
-		List<SourceReference> sources
+		List<SourceReference> sources,
+		boolean grounded,
+		List<String> usedChunkIds
 ) {
 }

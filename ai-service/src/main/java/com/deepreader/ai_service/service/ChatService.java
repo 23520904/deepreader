@@ -4,7 +4,10 @@ import com.deepreader.ai_service.model.RetrievedChunk;
 import com.deepreader.ai_service.model.api.internal.ChatAskResponse;
 import com.deepreader.ai_service.model.api.internal.SearchResponse;
 import com.deepreader.ai_service.model.api.internal.SourceReference;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -12,7 +15,10 @@ import java.text.Normalizer;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Service responsible for answering user questions based on retrieved document chunks.
@@ -22,6 +28,8 @@ import java.util.Set;
  */
 @Service
 public class ChatService {
+
+	private static final String UNSUPPORTED_DOCUMENT_ANSWER = "I could not find this information in the document.";
 
 	/**
 	 * Maximum number of chunks used as final context for the LLM answer.
@@ -66,6 +74,7 @@ public class ChatService {
 	private final RetrievalService retrievalService;
 	private final PromptBuilderService promptBuilderService;
 	private final LlmClientService llmClientService;
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	/**
 	 * Creates the chat service with retrieval, prompt building, and LLM client dependencies.
@@ -118,15 +127,32 @@ public class ChatService {
 				GROQ_MAX_CHUNK_CHARS
 		);
 
-		String answer = cleanAnswer(llmClientService.generateAnswer(userId, STUDY_PROVIDER, prompt));
+		String rawAnswer = llmClientService.generateAnswer(userId, STUDY_PROVIDER, prompt);
+		StructuredChatAnswer structuredAnswer = parseStructuredChatAnswer(rawAnswer);
 
-		// Retry with a repair prompt when the answer contains unwanted language or source wording.
-		for (int attempt = 0; attempt < MAX_REPAIR_ATTEMPTS && needsAnswerRepair(answer); attempt += 1) {
-			String repairPrompt = promptBuilderService.buildAnswerRepairPrompt(searchResponse.query(), answer);
-			answer = cleanAnswer(llmClientService.generateAnswer(userId, STUDY_PROVIDER, repairPrompt));
+		for (int attempt = 0; attempt < MAX_REPAIR_ATTEMPTS && structuredAnswer == null; attempt += 1) {
+			String repairPrompt = promptBuilderService.buildAnswerRepairPrompt(searchResponse.query(), rawAnswer);
+			rawAnswer = llmClientService.generateAnswer(userId, STUDY_PROVIDER, repairPrompt);
+			structuredAnswer = parseStructuredChatAnswer(rawAnswer);
 		}
 
-		List<SourceReference> sources = matches.stream()
+		if (structuredAnswer == null || !Boolean.TRUE.equals(structuredAnswer.grounded()) || !StringUtils.hasText(structuredAnswer.answer())) {
+			return new ChatAskResponse(
+				searchResponse.query(),
+				UNSUPPORTED_DOCUMENT_ANSWER,
+				List.of(),
+				false,
+				List.of()
+			);
+		}
+
+		List<String> usedChunkIds = structuredAnswer.usedChunkIds() == null
+			? List.of()
+			: structuredAnswer.usedChunkIds();
+
+		List<SourceReference> sources = usedChunkIds.stream()
+				.map(chunkId -> chunkId == null ? null : chunkById(matches).get(chunkId))
+				.filter(Objects::nonNull)
 				.map(chunk -> new SourceReference(
 						chunk.documentId(),
 						chunk.chunkId(),
@@ -139,7 +165,13 @@ public class ChatService {
 				))
 				.toList();
 
-		return new ChatAskResponse(searchResponse.query(), answer, sources);
+		return new ChatAskResponse(
+				searchResponse.query(),
+				cleanAnswer(structuredAnswer.answer()),
+				sources,
+				true,
+				structuredAnswer.usedChunkIds()
+			);
 	}
 
 	/**
@@ -354,4 +386,39 @@ public class ChatService {
 		return answer.matches(".*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ].*")
 				|| answer.matches("(?s).*\\b(là|việc|của|và|hoặc|trong|phương\\s+thức|tham\\s+số|đối\\s+tượng)\\b.*");
 	}
+
+	private Map<String, RetrievedChunk> chunkById(List<RetrievedChunk> matches) {
+		return matches.stream()
+				.filter(chunk -> chunk.chunkId() != null && !chunk.chunkId().isBlank())
+				.collect(Collectors.toMap(RetrievedChunk::chunkId, chunk -> chunk, (first, second) -> first));
+	}
+
+	private StructuredChatAnswer parseStructuredChatAnswer(String rawAnswer) {
+		if (rawAnswer == null || rawAnswer.isBlank()) {
+			return null;
+		}
+
+		String json = extractJson(rawAnswer);
+		if (json == null) {
+			return null;
+		}
+
+		try {
+			return objectMapper.readValue(json, StructuredChatAnswer.class);
+		} catch (JsonProcessingException e) {
+			return null;
+		}
+	}
+
+	private String extractJson(String rawAnswer) {
+		String trimmed = rawAnswer.trim();
+		int start = trimmed.indexOf('{');
+		int end = trimmed.lastIndexOf('}');
+		if (start < 0 || end <= start) {
+			return null;
+		}
+		return trimmed.substring(start, end + 1);
+	}
+
+	private record StructuredChatAnswer(String answer, Boolean grounded, List<String> usedChunkIds) {}
 }

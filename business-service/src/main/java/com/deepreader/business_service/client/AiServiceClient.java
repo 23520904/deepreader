@@ -254,8 +254,8 @@ public class AiServiceClient {
 	// Request body for asking a question about a document.
 	public record AiChatRequest(String documentId, String query, Integer limit, String provider) {}
 
-	// Chat response containing the generated answer and supporting sources.
-	public record AiChatResponse(String query, String answer, java.util.List<AiSourceReference> sources, String threadId) {}
+	// Chat response containing the generated answer, grounding metadata, and supporting sources.
+	public record AiChatResponse(String query, String answer, java.util.List<AiSourceReference> sources, boolean grounded, java.util.List<String> usedChunkIds, String threadId) {}
 
 	// Source chunk used to explain or support a chat answer.
 	public record AiSourceReference(String documentId, String chunkId, String fileName, String sectionId, String title, Integer chunkIndex, String content, float score) {}

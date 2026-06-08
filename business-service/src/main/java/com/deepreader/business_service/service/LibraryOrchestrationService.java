@@ -229,7 +229,13 @@ public class LibraryOrchestrationService {
 
 							return dataServiceClient.saveChat(userMessage)
 									.then(dataServiceClient.saveChat(assistantMessage))
-									.thenReturn(new AiServiceClient.AiChatResponse(response.query(), response.answer(), response.sources(), threadId));
+									.thenReturn(new AiServiceClient.AiChatResponse(
+										response.query(),
+										response.answer(),
+										response.sources(),
+										response.grounded(),
+										response.usedChunkIds(),
+										threadId));
 						});
 				});
 	}

@@ -31,10 +31,10 @@ public class PromptBuilderService {
 		// Add retrieved chunks one by one until the total context size reaches the configured limit.
 		for (int i = 0; i < chunks.size(); i++) {
 			RetrievedChunk chunk = chunks.get(i);
-			String source = "[Document excerpt " + (i + 1) + "]\n"
-					+ "File: " + nullSafe(chunk.fileName()) + "\n"
-					+ "Location: " + displayLocation(chunk) + "\n"
-					+ "Content: " + truncate(nullSafe(chunk.content()), maxChunkChars) + "\n\n";
+			String source = "[chunkId: " + nullSafe(chunk.chunkId()) + "]\n"
+				+ "File: " + nullSafe(chunk.fileName()) + "\n"
+				+ "Location: " + displayLocation(chunk) + "\n"
+				+ "Content: " + truncate(nullSafe(chunk.content()), maxChunkChars) + "\n\n";
 
 			// Stop adding chunks before exceeding the maximum context size allowed for the prompt.
 			if (context.length() + source.length() > maxContextChars) {
@@ -46,22 +46,23 @@ public class PromptBuilderService {
 
 		// Ensure at least one chunk is included when available, even if the normal size check skipped all chunks.
 		if (context.isEmpty() && !chunks.isEmpty()) {
-			RetrievedChunk chunk = chunks.getFirst();
-			context.append("[Document excerpt 1]\n")
+			RetrievedChunk chunk = chunks.get(0);
+			context.append("[chunkId: " + nullSafe(chunk.chunkId()) + "]\n")
 					.append("File: ").append(nullSafe(chunk.fileName())).append("\n")
 					.append("Location: ").append(displayLocation(chunk)).append("\n")
 					.append("Content: ").append(truncate(nullSafe(chunk.content()), Math.max(500, maxContextChars / 2))).append("\n\n");
 		}
 
-		return "You are a document question-answering assistant for the document the user is currently reading. "
-				+ "The sources below are the only allowed facts. "
-				+ "Do not use prior knowledge, conversation memory, or content from any other document. "
-				+ "If the answer cannot be found in these sources, say that clearly without guessing. "
-				+ "For broad questions such as what the document is about, key points, overview, or summary, synthesize the overall topic across all provided sources and the file name; do not focus on a single matching word or one isolated page. "
-				+ "For concept questions, answer the exact concept the user asked about and ignore unrelated source snippets. "
-				+ "For example requests, give only examples that are explicitly present in the sources. "
-				+ "Write the final answer in English only. Every sentence must be English. Translate source ideas into natural English when the source is Vietnamese. "
-				+ "Do not include source labels, page labels, chunk IDs, citations, or text like \"Page 1\", \"Source 2\", or \"the provided sources\" in the final answer. "
+		return "You are a document-grounded assistant for the document the user is currently reading. "
+				+ "Answer the user's question using ONLY the provided document context. "
+				+ "Do not use outside or general knowledge. "
+				+ "If the answer is not clearly supported by the provided sources, say that the information was not found in the document. "
+				+ "Return only valid JSON with this exact shape: {\"answer\": \"...\", \"grounded\": true|false, \"usedChunkIds\": [\"...\"]}. "
+				+ "grounded must be true only when the answer is supported by the context. "
+				+ "usedChunkIds must contain only chunk ids that directly support the answer. "
+				+ "If the question is unrelated or unsupported, set grounded=false and usedChunkIds=[]. "
+				+ "Do not include any text outside the JSON object. "
+				+ "Do not include source labels, page labels, chunk IDs, citations, or phrases like \"based on the provided sources\" in the answer text. "
 				+ "Keep the answer concise, factual, and useful for studying.\n\n"
 				+ "Question:\n" + query + "\n\n"
 				+ "Sources:\n" + context;
@@ -71,13 +72,12 @@ public class PromptBuilderService {
 	 * Builds a repair prompt used to clean a previous answer without introducing new facts.
 	 */
 	public String buildAnswerRepairPrompt(String query, String previousAnswer) {
-		return "Rewrite the assistant answer below for the user. "
-				+ "Return only the cleaned answer, with no preface and no commentary. "
-				+ "The answer must be fully in English only. If any word, phrase, or sentence is Vietnamese or another language, translate it into natural English. "
-				+ "Remove every mention of sources, pages, chunks, citations, excerpts, or phrases such as \"based on the provided sources\". "
-				+ "Do not add new facts. Preserve the meaning of the answer and keep it concise.\n\n"
+		return "The previous assistant response did not follow the required JSON output format. "
+				+ "Return only valid JSON with this exact shape: {\"answer\": \"...\", \"grounded\": true|false, \"usedChunkIds\": [\"...\"]}. "
+				+ "Do not include any explanation, commentary, or text outside the JSON object. "
+				+ "If the information is not supported by the provided sources, set grounded=false and usedChunkIds=[].\n\n"
 				+ "Question:\n" + nullSafe(query) + "\n\n"
-				+ "Answer to clean:\n" + nullSafe(previousAnswer);
+				+ "Previous response:\n" + nullSafe(previousAnswer);
 	}
 
 	/**
