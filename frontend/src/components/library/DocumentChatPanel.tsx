@@ -10,7 +10,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { AccountAvatar } from "@/components/AccountAvatar";
-import type { ChatMessageView, ChatThreadView } from "@/types/study";
+import type { ChatMessageView, ChatThreadView, ChatSourceReference } from "@/types/study";
 
 /**
  * Props for the document chat panel.
@@ -47,6 +47,12 @@ type DocumentChatPanelProps = {
 
   // Called when the user sends a new message.
   onSendMessage: (message: string) => void;
+
+  // Optional pending source references while the assistant is still retrieving.
+  pendingSources?: ChatSourceReference[];
+
+  // Called when the user clicks a source chip.
+  onSourceClick?: (source: ChatSourceReference) => void;
 };
 
 // Image paths used in the chat UI.
@@ -153,6 +159,39 @@ function TypingDots() {
   );
 }
 
+function getValidSourceReferences(sources?: ChatSourceReference[]) {
+  return (sources ?? []).filter((source) => {
+    const hasLabel =
+      source.title?.trim() ||
+      source.fileName?.trim() ||
+      source.sectionId?.trim() ||
+      typeof source.chunkIndex === "number";
+
+    const hasTarget =
+      source.chunkId?.trim() ||
+      source.sectionId?.trim() ||
+      typeof source.chunkIndex === "number" ||
+      source.content?.trim();
+
+    const hasGoodScore =
+      typeof source.score !== "number" || source.score >= 0.2;
+
+    return hasLabel && hasTarget && hasGoodScore;
+  });
+}
+
+function isUngroundedAnswer(message: ChatMessageView) {
+  return message.role === "assistant" && message.grounded === false;
+}
+
+function getDisplaySources(message: ChatMessageView) {
+  if (isUngroundedAnswer(message)) {
+    return [];
+  }
+
+  return getValidSourceReferences(message.sources);
+}
+
 /**
  * One message bubble in the chat.
  * User messages are aligned to the right, and AI messages are aligned to the left.
@@ -160,14 +199,21 @@ function TypingDots() {
 function ChatBubble({
   message,
   userAvatarUrl,
+  onSourceClick,
 }: {
   // The message data to display.
   message: ChatMessageView;
 
   // Optional avatar image for the user.
   userAvatarUrl?: string | null;
+
+  // Called when clicking a source chip.
+  onSourceClick?: (source: ChatSourceReference) => void;
 }) {
   const isUser = message.role === "user";
+  const displaySources = getDisplaySources(message);
+  const visibleSources = displaySources.slice(0, 3);
+  const hiddenSourceCount = Math.max(displaySources.length - visibleSources.length, 0);
 
   return (
     <div className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -198,6 +244,43 @@ function ChatBubble({
           <p className="whitespace-pre-wrap text-[15px] font-semibold leading-7">
             {message.content}
           </p>
+
+          {/* Sources citation line */}
+          {!isUser && visibleSources.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-[#6b7a90]">
+              <span className="font-black text-[#245895]">Nguồn:</span>
+
+              {visibleSources.map((source, index) => {
+                const fileLabel = source.fileName?.trim();
+                const chunkLabel =
+                  typeof source.chunkIndex === "number"
+                    ? ` · đoạn ${source.chunkIndex}`
+                    : "";
+                const label =
+                  fileLabel
+                    ? `${fileLabel}${chunkLabel}`
+                    : source.title?.trim() || `Chunk ${source.chunkIndex ?? index + 1}`;
+
+                return (
+                  <button
+                    key={source.chunkId ?? `${source.documentId}-${index}`}
+                    type="button"
+                    onClick={() => onSourceClick?.(source)}
+                    className="max-w-[180px] truncate rounded-full bg-[#eef5ff] px-2 py-0.5 text-[#245895] ring-1 ring-[#dce6f4] transition hover:bg-[#dce6f4] hover:text-[#1a3f6b] cursor-pointer"
+                    title={label}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+
+              {hiddenSourceCount > 0 ? (
+                <span className="rounded-full bg-[#f6f8fb] px-2 py-0.5 text-[#7a879a] ring-1 ring-[#e4eaf3]">
+                  +{hiddenSourceCount} nguồn
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
       </div>
@@ -226,6 +309,8 @@ export function DocumentChatPanel({
   onSelectThread,
   onDeleteThread,
   onSendMessage,
+  pendingSources,
+  onSourceClick,
 }: DocumentChatPanelProps) {
   // Stores the text currently typed in the message box.
   const [draft, setDraft] = useState("");
@@ -239,6 +324,8 @@ export function DocumentChatPanel({
 
   // The send button is disabled when sending or when the input is empty.
   const isSendBlocked = isSending || !draft.trim();
+
+  const validPendingSources = getValidSourceReferences(pendingSources);
 
   // Memoized history list.
   // This keeps the value stable unless chatThreads changes.
@@ -437,6 +524,7 @@ export function DocumentChatPanel({
                     <ChatBubble
                       message={message}
                       userAvatarUrl={userAvatarUrl}
+                      onSourceClick={onSourceClick}
                     />
                   </div>
                 ))
@@ -460,10 +548,47 @@ export function DocumentChatPanel({
 
               {/* Typing indicator shown while the AI is responding */}
               {isSending ? (
-                <div className="flex items-end gap-4">
+                <div className="flex items-start gap-4">
                   <CatAvatar />
                   <div className="rounded-[18px] rounded-bl-[6px] bg-white px-5 py-4 shadow-[0_10px_24px_rgba(18,24,38,0.08)] ring-1 ring-[#dce6f4]">
-                    <TypingDots />
+                    <div className="flex flex-wrap items-center gap-3">
+                      <TypingDots />
+                      <span className="text-[13px] font-semibold text-[#17213a]">
+                        Đang tìm nguồn trong tài liệu…
+                      </span>
+                    </div>
+
+                    {validPendingSources.length ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-[#6b7a90]">
+                        <span className="font-black text-[#245895]">Nguồn:</span>
+                        {validPendingSources.slice(0, 3).map((source, index) => {
+                          const fileLabel = source.fileName?.trim();
+                          const chunkLabel =
+                            typeof source.chunkIndex === "number"
+                              ? ` · đoạn ${source.chunkIndex}`
+                              : "";
+                          const label =
+                            fileLabel
+                              ? `${fileLabel}${chunkLabel}`
+                              : source.title?.trim() || `Chunk ${source.chunkIndex ?? index + 1}`;
+
+                          return (
+                            <span
+                              key={source.chunkId ?? `${source.documentId}-${index}`}
+                              className="max-w-[180px] truncate rounded-full bg-[#eef5ff] px-2 py-0.5 text-[#245895] ring-1 ring-[#dce6f4]"
+                              title={label}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })}
+                        {Math.max(validPendingSources.length - 3, 0) > 0 ? (
+                          <span className="rounded-full bg-[#f6f8fb] px-2 py-0.5 text-[#7a879a] ring-1 ring-[#e4eaf3]">
+                            +{validPendingSources.length - 3} nguồn
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ) : null}

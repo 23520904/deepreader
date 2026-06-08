@@ -256,6 +256,7 @@ export function normalizeChatRecords(records: ChatHistoryRecord[]) {
         role,
         content,
         createdAt: record.timestamp ?? record.createdAt ?? null,
+        grounded: record.grounded ?? undefined,
       };
     })
     .filter(isPresent)
@@ -433,6 +434,7 @@ export function createAssistantChatMessage(
     content: payload.answer?.trim() || "No answer was returned.",
     createdAt,
     sources: payload.sources ?? [],
+    grounded: payload.grounded ?? undefined,
   } satisfies ChatMessageView;
 }
 

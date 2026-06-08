@@ -41,6 +41,7 @@ export type ChatHistoryRecord = {
   threadId?: string | null;
   timestamp?: string | null;
   createdAt?: string | null;
+  grounded?: boolean | null;
 };
 
 export type ChatGenerationResponse = {
@@ -57,6 +58,7 @@ export type ChatGenerationResponse = {
     content?: string | null;
     score?: number | null;
   }> | null;
+  grounded?: boolean | null;
 };
 
 export type SummaryGenerationResponse = {

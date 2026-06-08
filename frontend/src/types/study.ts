@@ -32,6 +32,7 @@ export type ChatMessageView = {
   content: string;
   createdAt: string | null;
   sources?: ChatSourceReference[];
+  grounded?: boolean | null;
 };
 
 export type ChatThreadView = {

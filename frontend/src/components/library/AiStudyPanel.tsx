@@ -7,6 +7,7 @@ import type {
   AiStudyTab,
   ChatMessageView,
   ChatThreadView,
+  ChatSourceReference,
   FlashcardView,
   SummaryView,
 } from "@/types/study";
@@ -17,6 +18,7 @@ export type {
   ChatThreadView,
   FlashcardView,
   SummaryView,
+  ChatSourceReference,
 } from "@/types/study";
 
 /**
@@ -35,6 +37,9 @@ type AiStudyPanelProps = {
 
   // Messages for the active chat thread.
   chatMessages: ChatMessageView[];
+
+  // Optional pending source references while the assistant is still retrieving.
+  pendingSources?: ChatSourceReference[];
 
   // List of available chat threads.
   chatThreads: ChatThreadView[];
@@ -79,6 +84,7 @@ type AiStudyPanelProps = {
   onGenerateSummary: () => void;
   onGenerateFlashcards: () => void;
   onSendChatMessage: (message: string) => void;
+  onSourceClick?: (source: ChatSourceReference) => void;
 };
 
 /**
@@ -474,6 +480,8 @@ export function AiStudyPanel({
   onGenerateSummary,
   onGenerateFlashcards,
   onSendChatMessage,
+  onSourceClick,
+  pendingSources,
 }: AiStudyPanelProps) {
   // Stores which flashcard answer is currently visible.
   const [visibleAnswerCardId, setVisibleAnswerCardId] = useState<string | null>(
@@ -947,6 +955,8 @@ export function AiStudyPanel({
           onSelectThread={onSelectChatThread}
           onDeleteThread={onDeleteChatThread}
           onSendMessage={onSendChatMessage}
+          pendingSources={pendingSources}
+          onSourceClick={onSourceClick}
         />
       )}
     </section>

@@ -50,6 +50,7 @@ import type {
   AiStudyTab,
   ChatMessageView,
   ChatThreadView,
+  ChatSourceReference,
   FlashcardView,
   SummaryView,
 } from "@/types/study";
@@ -831,6 +832,36 @@ export default function ReadBookPage() {
     }
   }
 
+  function handleSourceClick(source: ChatSourceReference) {
+    // Try to find the section by sectionId to get the page number
+    if (!source.sectionId) {
+      // Fallback: if no sectionId, just go to the first page
+      if (pages.length > 0) {
+        goToPage(0);
+      }
+      return;
+    }
+
+    const targetSection = sections.find((sec) => sec.sectionId === source.sectionId);
+
+    if (!targetSection || !targetSection.pageNumber) {
+      // Fallback: section not found, go to first page
+      if (pages.length > 0) {
+        goToPage(0);
+      }
+      return;
+    }
+
+    // Find the page key for this page number
+    const targetPage = pages.find((page) => page.pageNumber === targetSection.pageNumber);
+
+    if (targetPage) {
+      // Navigate to the target page
+      const pageIndex = pages.indexOf(targetPage);
+      goToPage(pageIndex);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#e8ebf4] text-[#101827]">
       {/* UI: Top navigation bar of the website.
@@ -924,6 +955,7 @@ export default function ReadBookPage() {
           onGenerateSummary={generateSummary}
           onGenerateFlashcards={generateFlashcards}
           onSendChatMessage={sendChatMessage}
+          onSourceClick={handleSourceClick}
         />
       </section>
 
