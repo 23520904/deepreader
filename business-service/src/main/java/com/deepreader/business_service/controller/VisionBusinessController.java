@@ -30,7 +30,7 @@ public class VisionBusinessController {
 	 * the analysis or let the AI service use its default behavior.
 	 */
 	@PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<Map> analyzeImage(
+	public Mono<Map<String, Object>> analyzeImage(
 			@RequestParam("userId") String userId,
 			@RequestParam(value = "provider", required = false) String provider,
 			@RequestPart(value = "prompt", required = false) String prompt,
@@ -58,7 +58,7 @@ public class VisionBusinessController {
 	 * when building the multipart request.
 	 */
 	@PostMapping(value = "/analyze-pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-	public Mono<Map> analyzePdf(
+	public Mono<Map<String, Object>> analyzePdf(
 			@RequestParam("userId") String userId,
 			@RequestParam(value = "provider", required = false) String provider,
 			@RequestPart(value = "prompt", required = false) String prompt,

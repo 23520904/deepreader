@@ -11,6 +11,7 @@ import com.deepreader.core.model.ChapterSummary;
 import com.deepreader.core.model.ChatHistory;
 import com.deepreader.core.model.Flashcard;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,8 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.Map;
 
 /**
  * Client used by the web module to call internal business-service APIs.
@@ -217,7 +220,7 @@ public class BusinessServiceClient {
 	 * <p>Prompt and provider are optional so the caller can customize the request
 	 * only when needed.
 	 */
-	public Mono<java.util.Map> analyzeImage(String userId, String provider, String prompt, byte[] content, String mimeType) {
+	public Mono<Map<String, Object>> analyzeImage(String userId, String provider, String prompt, byte[] content, String mimeType) {
 		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
 
 		// Multipart requires a filename even when the image is represented only as bytes.
@@ -243,13 +246,13 @@ public class BusinessServiceClient {
 				.contentType(MediaType.MULTIPART_FORM_DATA)
 				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))
 				.retrieve()
-				.bodyToMono(java.util.Map.class);
+				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
 	}
 
 	/**
 	 * Sends a PDF file to the business-service vision PDF analysis endpoint.
 	 */
-	public Mono<java.util.Map> analyzePdf(String userId, String provider, String prompt, String fileName, byte[] content) {
+	public Mono<Map<String, Object>> analyzePdf(String userId, String provider, String prompt, String fileName, byte[] content) {
 		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
 
 		// Use a safe fallback name when the caller does not provide a valid filename.
@@ -277,7 +280,7 @@ public class BusinessServiceClient {
 				.contentType(MediaType.MULTIPART_FORM_DATA)
 				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))
 				.retrieve()
-				.bodyToMono(java.util.Map.class);
+				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
 	}
 
 	/**

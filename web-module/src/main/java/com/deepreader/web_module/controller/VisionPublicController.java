@@ -33,7 +33,7 @@ public class VisionPublicController {
 	 * behavior to be used when they are not provided.
 	 */
 	@PostMapping(value = "/analyze", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public Mono<Map> analyzeImage(
+	public Mono<Map<String, Object>> analyzeImage(
 			@RequestParam(required = false) String provider,
 			@RequestPart(value = "prompt", required = false) String prompt,
 			@RequestPart("image") FilePart imagePart,
@@ -63,7 +63,7 @@ public class VisionPublicController {
 	 * useful file context when processing the document.
 	 */
 	@PostMapping(value = "/analyze-pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	public Mono<Map> analyzePdf(
+	public Mono<Map<String, Object>> analyzePdf(
 			@RequestParam(required = false) String provider,
 			@RequestPart(value = "prompt", required = false) String prompt,
 			@RequestPart("file") FilePart filePart,

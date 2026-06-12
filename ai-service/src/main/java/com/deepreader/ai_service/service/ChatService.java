@@ -130,7 +130,7 @@ public class ChatService {
 		String rawAnswer = llmClientService.generateAnswer(userId, STUDY_PROVIDER, prompt);
 		StructuredChatAnswer structuredAnswer = parseStructuredChatAnswer(rawAnswer);
 
-		for (int attempt = 0; attempt < MAX_REPAIR_ATTEMPTS && structuredAnswer == null; attempt += 1) {
+		for (int attempt = 0; attempt < MAX_REPAIR_ATTEMPTS && (structuredAnswer == null || needsAnswerRepair(structuredAnswer.answer())); attempt += 1) {
 			String repairPrompt = promptBuilderService.buildAnswerRepairPrompt(searchResponse.query(), rawAnswer);
 			rawAnswer = llmClientService.generateAnswer(userId, STUDY_PROVIDER, repairPrompt);
 			structuredAnswer = parseStructuredChatAnswer(rawAnswer);

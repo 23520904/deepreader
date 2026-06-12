@@ -1,6 +1,7 @@
 package com.deepreader.business_service.client;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -164,7 +166,7 @@ public class AiServiceClient {
 	 * when they are provided, which keeps the request compatible with default
 	 * AI-service behavior.
 	 */
-	public Mono<java.util.Map> analyzeImage(String userId, String provider, String prompt, byte[] content, String mimeType) {
+	public Mono<Map<String, Object>> analyzeImage(String userId, String provider, String prompt, byte[] content, String mimeType) {
 		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
 
 		// The image content is in memory, but multipart still needs a filename value.
@@ -191,7 +193,7 @@ public class AiServiceClient {
 				.contentType(MediaType.MULTIPART_FORM_DATA)
 				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))
 				.retrieve()
-				.bodyToMono(java.util.Map.class);
+				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
 	}
 
 	/**
@@ -200,7 +202,7 @@ public class AiServiceClient {
 	 * <p>This is different from normal document upload because it directly asks
 	 * the AI service to analyze the PDF content through its vision flow.
 	 */
-	public Mono<java.util.Map> analyzePdf(String userId, String provider, String prompt, String fileName, byte[] content) {
+	public Mono<Map<String, Object>> analyzePdf(String userId, String provider, String prompt, String fileName, byte[] content) {
 		MultipartBodyBuilder bodyBuilder = new MultipartBodyBuilder();
 
 		// Fallback filename prevents an empty multipart filename when the caller does not provide one.
@@ -230,7 +232,7 @@ public class AiServiceClient {
 				.contentType(MediaType.MULTIPART_FORM_DATA)
 				.body(BodyInserters.fromMultipartData(bodyBuilder.build()))
 				.retrieve()
-				.bodyToMono(java.util.Map.class);
+				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
 	}
 
 	// Upload result returned after the AI service ingests and indexes a document.

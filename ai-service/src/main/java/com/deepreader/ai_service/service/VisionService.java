@@ -4,6 +4,7 @@ import com.deepreader.ai_service.config.GeminiProperties;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -67,6 +68,7 @@ public class VisionService {
 	/**
 	 * Sends the prompt and images to Gemini and returns the text response.
 	 */
+	@SuppressWarnings("unchecked")
 	private Mono<String> analyzeWithGemini(String userToken, String prompt, List<ImagePart> images) {
 		String apiKey = isGeminiApiKey(userToken) ? userToken : geminiProperties.getApiKey();
 		WebClient client = webClientBuilder.baseUrl(normalizeGeminiBaseUrl(geminiProperties.getBaseUrl())).build();
@@ -94,7 +96,7 @@ public class VisionService {
 						.queryParam("key", apiKey).build(modelId))
 				.bodyValue(request)
 				.retrieve()
-				.bodyToMono(Map.class)
+				.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
 				.map(response -> {
 					List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
 					Map<String, Object> content = (Map<String, Object>) candidates.getFirst().get("content");

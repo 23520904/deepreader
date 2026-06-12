@@ -4,6 +4,7 @@ import com.deepreader.ai_service.model.IndexedDocument;
 import com.deepreader.ai_service.model.api.internal.Flashcard;
 import com.deepreader.ai_service.model.api.internal.FlashcardResponse;
 import com.deepreader.ai_service.model.api.internal.SummaryResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
@@ -144,7 +145,8 @@ public class GenerationService {
 
 				LlmClientService.GeneratedAnswer repaired = llmClientService.generateAnswer(userId, repairPrompt);
 				responseProvider = repaired.provider();
-				flashcards = filterStudyFlashcards(parseFlashcards(repaired.answer(), count, language), count, language);
+				List<Flashcard> repairedFlashcards = filterStudyFlashcards(parseFlashcards(repaired.answer(), count, language), count, language);
+				appendFlashcards(flashcards, repairedFlashcards, count);
 			}
 
 			return new FlashcardResponse(documentId, responseProvider, flashcards);
@@ -170,13 +172,6 @@ public class GenerationService {
 			content.append(nextSection);
 		}
 		return content.toString().trim();
-	}
-
-	/**
-	 * Combines document sections for study content using the full document scope.
-	 */
-	private String combinedStudyContent(IndexedDocument document, int maxChars) {
-		return combinedStudyContent(document, maxChars, "all");
 	}
 
 	/**
@@ -763,7 +758,7 @@ public class GenerationService {
 						language
 				);
 			}
-		} catch (Exception ignored) {
+		} catch (JsonProcessingException ignored) {
 			// Fall through to tolerant text parsers.
 		}
 	}
@@ -894,13 +889,6 @@ public class GenerationService {
 		}
 
 		flashcards.add(new Flashcard(safeQuestion, safeAnswer));
-	}
-
-	/**
-	 * Checks answer quality using default English validation rules.
-	 */
-	private boolean isWeakFlashcardAnswer(String answer) {
-		return isWeakFlashcardAnswer(answer, "en");
 	}
 
 	/**
