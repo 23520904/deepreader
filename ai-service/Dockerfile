@@ -14,6 +14,9 @@ RUN --mount=type=cache,target=/root/.m2 mvn -pl ai-service -am package -DskipTes
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+RUN addgroup --system app && adduser --system --ingroup app app
 COPY --from=build /app/ai-service/target/*.jar app.jar
+RUN chown app:app app.jar
+USER app
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]
