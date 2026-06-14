@@ -10,7 +10,6 @@ import {
   Gauge,
   LogOut,
   Shield,
-  Sparkles,
   Users,
 } from "lucide-react";
 import {
@@ -22,7 +21,6 @@ import {
 const adminLinks = [
   { href: "/admin", label: "Dashboard", description: "System overview", icon: Gauge },
   { href: "/admin/users", label: "Users", description: "Accounts and roles", icon: Users },
-  { href: "/admin/ai-usage", label: "AI Usage", description: "Tokens and providers", icon: Sparkles },
   { href: "/admin/audit-logs", label: "Audit Logs", description: "Admin timeline", icon: Activity },
   { href: "/admin?section=documents", label: "Documents", description: "Indexed library", icon: BookOpen },
 ];
@@ -30,9 +28,6 @@ const adminLinks = [
 function resolveActiveHref(pathname: string, section: string | null) {
   if (pathname.startsWith("/admin/users")) {
     return "/admin/users";
-  }
-  if (pathname.startsWith("/admin/ai-usage")) {
-    return "/admin/ai-usage";
   }
   if (pathname.startsWith("/admin/audit-logs")) {
     return "/admin/audit-logs";

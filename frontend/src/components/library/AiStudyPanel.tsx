@@ -6,6 +6,7 @@ import { DocumentChatPanel } from "@/components/library/DocumentChatPanel";
 import type {
   AiStudyTab,
   ChatMessageView,
+  ChatSourceReference,
   ChatThreadView,
   FlashcardView,
   SummaryView,
@@ -44,6 +45,7 @@ type AiStudyPanelProps = {
   onGenerateSummary: () => void;
   onGenerateFlashcards: () => void;
   onSendChatMessage: (message: string) => void;
+  onCitationClick?: (source: ChatSourceReference) => void;
 };
 
 type SummaryBlock =
@@ -400,6 +402,7 @@ export function AiStudyPanel({
   onGenerateSummary,
   onGenerateFlashcards,
   onSendChatMessage,
+  onCitationClick,
 }: AiStudyPanelProps) {
   const [visibleAnswerCardId, setVisibleAnswerCardId] = useState<string | null>(
     null,
@@ -829,6 +832,7 @@ export function AiStudyPanel({
           onSelectThread={onSelectChatThread}
           onDeleteThread={onDeleteChatThread}
           onSendMessage={onSendChatMessage}
+          onCitationClick={onCitationClick}
         />
       )}
     </section>

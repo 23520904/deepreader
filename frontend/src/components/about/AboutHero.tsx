@@ -1,4 +1,4 @@
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 
 export function AboutHero() {
@@ -28,14 +28,13 @@ export function AboutHero() {
           className="about-fade-right home-reveal-delay-1 relative h-[318px] overflow-hidden rounded-[8px] bg-white shadow-[0_18px_45px_rgba(21,36,67,0.12)] max-[700px]:h-[230px]"
           data-home-reveal
         >
-          <Image
+          <img
             src="/assets/images/about/reading.png"
             alt="Reading book"
-            fill
-            priority
-            quality={70}
-            sizes="(min-width: 1024px) 500px, calc(100vw - 28px)"
-            className="object-cover transition duration-500 hover:scale-105"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            className="h-full min-h-full w-full object-cover transition duration-500 hover:scale-105"
           />
         </div>
       </div>

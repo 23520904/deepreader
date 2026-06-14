@@ -559,45 +559,56 @@ function CompactDocumentList({
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {visibleDocuments.map((document) => (
-        <div
-          key={document.document_id}
-          className="grid min-w-0 gap-4 rounded-[20px] border border-white/80 bg-[linear-gradient(135deg,#ffffff,#f8fbff)] p-4 shadow-[0_16px_36px_rgba(20,40,90,0.08)]"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 gap-3">
+    <div className="grid min-w-0 items-stretch gap-4 overflow-hidden md:grid-cols-2 xl:grid-cols-3">
+      {visibleDocuments.map((document) => {
+        const ownerLabel = document.username || document.email || "Unknown owner";
+        const uploadedLabel = formatAdminDate(document.created_at);
+
+        return (
+          <div
+            key={document.document_id}
+            className="relative grid h-full min-h-[176px] min-w-0 grid-rows-[1fr_auto] gap-4 overflow-hidden rounded-[20px] border border-white/80 bg-[linear-gradient(135deg,#ffffff,#f8fbff)] p-4 shadow-[0_16px_36px_rgba(20,40,90,0.08)]"
+          >
+            {onDeleteDocument ? (
+              <div className="absolute right-4 top-4 z-10">
+                <TrashButton
+                  label={`Delete ${document.file_name}`}
+                  disabled={deletingDocumentId === document.document_id}
+                  isBusy={deletingDocumentId === document.document_id}
+                  onClick={() => onDeleteDocument(document)}
+                />
+              </div>
+            ) : null}
+            <div className="flex min-w-0 items-start gap-3 pr-12">
               <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px] bg-[#e9f2ff] text-[11px] font-black text-[#244fbe] ring-1 ring-[#cfe0ff]">
                 {fileExtension(document.file_name)}
               </div>
-              <div className="min-w-0">
-                <p className="line-clamp-2 text-[15px] font-black leading-6 text-[#0f1f3d]">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <p
+                  className="line-clamp-2 max-w-full break-words text-[15px] font-black leading-6 text-[#0f1f3d]"
+                  title={document.file_name}
+                >
                   {document.file_name}
                 </p>
-                <p className="mt-2 truncate text-[13px] font-semibold text-[#64748b]">
-                  {document.username || document.email || "Unknown owner"}
+                <p
+                  className="mt-2 truncate text-[13px] font-semibold text-[#64748b]"
+                  title={ownerLabel}
+                >
+                  {ownerLabel}
                 </p>
               </div>
             </div>
-            {onDeleteDocument ? (
-              <TrashButton
-                label={`Delete ${document.file_name}`}
-                disabled={deletingDocumentId === document.document_id}
-                isBusy={deletingDocumentId === document.document_id}
-                onClick={() => onDeleteDocument(document)}
-              />
-            ) : null}
+            <div className="mt-auto flex min-w-0 items-center justify-between gap-2 rounded-[14px] bg-[#f8fbff] px-3 py-2 ring-1 ring-[#e2e8f0]">
+              <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.1em] text-[#94a3b8]">
+                Uploaded
+              </span>
+              <span className="min-w-0 truncate text-right text-[12px] font-black text-[#52637a]" title={uploadedLabel}>
+                {uploadedLabel}
+              </span>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-[14px] bg-[#f8fbff] px-3 py-2 ring-1 ring-[#e2e8f0]">
-            <span className="text-[11px] font-black uppercase tracking-[0.1em] text-[#94a3b8]">
-              Uploaded
-            </span>
-            <span className="text-[12px] font-black text-[#52637a]">
-              {formatAdminDate(document.created_at)}
-            </span>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

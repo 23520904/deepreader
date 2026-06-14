@@ -48,6 +48,7 @@ import type { DocumentContentResponse } from "@/types/reading";
 import type {
   AiStudyTab,
   ChatMessageView,
+  ChatSourceReference,
   ChatThreadView,
   FlashcardView,
   SummaryView,
@@ -58,6 +59,7 @@ export default function ReadBookPage() {
   const params = useParams<{ bookId: string }>();
   const pdfCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const pdfCanvasContainerRef = useRef<HTMLDivElement | null>(null);
+  const readerSectionRef = useRef<HTMLDivElement | null>(null);
 
   const session = useSyncExternalStore(
     subscribeAuthSession,
@@ -421,6 +423,23 @@ export default function ReadBookPage() {
     });
   }
 
+  function jumpToCitation(source: ChatSourceReference) {
+    const pageNumber = source.pageNumber ?? source.chunkIndex;
+
+    if (typeof pageNumber !== "number" || pageNumber <= 0) {
+      return;
+    }
+
+    goToPage(pageNumber - 1);
+
+    window.requestAnimationFrame(() => {
+      readerSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
+
   function toggleActivePageRead() {
     if (!activePage) {
       return;
@@ -678,22 +697,24 @@ export default function ReadBookPage() {
           </div>
         ) : null}
 
-        <ReadingWorkspace
-          isLoading={isLoading}
-          isFocusMode={isFocusMode}
-          pages={pages}
-          activePage={activePage}
-          activePageKey={activePageKey}
-          readPageKeys={readPageKeys}
-          title={title}
-          pdfSourceUrl={pdfSourceUrl}
-          isPdfSourceLoading={isPdfSourceLoading}
-          isPdfPageRendering={isPdfPageRendering}
-          pdfRenderMessage={pdfRenderMessage}
-          pdfCanvasRef={pdfCanvasRef}
-          pdfCanvasContainerRef={pdfCanvasContainerRef}
-          onPageSelect={goToPage}
-        />
+        <div ref={readerSectionRef}>
+          <ReadingWorkspace
+            isLoading={isLoading}
+            isFocusMode={isFocusMode}
+            pages={pages}
+            activePage={activePage}
+            activePageKey={activePageKey}
+            readPageKeys={readPageKeys}
+            title={title}
+            pdfSourceUrl={pdfSourceUrl}
+            isPdfSourceLoading={isPdfSourceLoading}
+            isPdfPageRendering={isPdfPageRendering}
+            pdfRenderMessage={pdfRenderMessage}
+            pdfCanvasRef={pdfCanvasRef}
+            pdfCanvasContainerRef={pdfCanvasContainerRef}
+            onPageSelect={goToPage}
+          />
+        </div>
 
         <AiStudyPanel
           activeTab={studyTab}
@@ -720,6 +741,7 @@ export default function ReadBookPage() {
           onGenerateSummary={generateSummary}
           onGenerateFlashcards={generateFlashcards}
           onSendChatMessage={sendChatMessage}
+          onCitationClick={jumpToCitation}
         />
       </section>
 

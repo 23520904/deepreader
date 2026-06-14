@@ -9,7 +9,9 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -23,11 +25,21 @@ public class ChatService {
 	private static final int GROQ_MAX_CHUNK_CHARS = 1_100;
 	private static final String STUDY_PROVIDER = "groq";
 	private static final int MAX_REPAIR_ATTEMPTS = 2;
+	private static final double MIN_PRIMARY_CITATION_SCORE = 1.0;
+	private static final double MIN_SECONDARY_CITATION_SCORE = 8.0;
+	private static final double SECONDARY_CITATION_SCORE_RATIO = 0.72;
 	private static final Set<String> CHAT_STOP_WORDS = Set.of(
 			"a", "an", "and", "are", "as", "at", "be", "by", "can", "could", "did", "do", "does",
 			"document", "file", "for", "from", "give", "i", "in", "is", "it", "key", "main", "me",
 			"of", "on", "please", "point", "points", "show", "slide", "slides", "tell", "that",
 			"the", "this", "to", "topic", "topics", "what", "which", "with", "you"
+	);
+	private static final Set<String> CITATION_STOP_WORDS = Set.of(
+			"a", "an", "and", "are", "as", "at", "be", "by", "can", "could", "did", "do", "does",
+			"document", "file", "for", "from", "give", "i", "in", "is", "it", "key", "main", "me",
+			"of", "on", "please", "point", "points", "show", "slide", "slides", "tell", "that",
+			"the", "this", "to", "topic", "topics", "what", "which", "with", "you",
+			"la", "gi", "cua", "cho", "ve", "va", "hay", "nhu", "nao"
 	);
 
 	private final RetrievalService retrievalService;
@@ -69,20 +81,179 @@ public class ChatService {
 			answer = cleanAnswer(llmClientService.generateAnswer(userId, STUDY_PROVIDER, repairPrompt));
 		}
 
-		List<SourceReference> sources = matches.stream()
-				.map(chunk -> new SourceReference(
-						chunk.documentId(),
-						chunk.chunkId(),
-						chunk.fileName(),
-						chunk.sectionId(),
-						chunk.title(),
-						chunk.chunkIndex(),
-						chunk.content(),
-						chunk.score()
-				))
-				.toList();
+		List<SourceReference> sources = buildCitationSources(searchResponse.query(), answer, matches);
 
 		return new ChatAskResponse(searchResponse.query(), answer, sources);
+	}
+
+	private List<SourceReference> buildCitationSources(String query, String answer, List<RetrievedChunk> matches) {
+		if (matches == null || matches.isEmpty()) {
+			return List.of();
+		}
+
+		boolean broadSummaryQuery = isBroadCitationSummaryQuery(query);
+		int maxCitations = broadSummaryQuery ? 3 : 2;
+		List<SourceReference> citations = new ArrayList<>();
+		Set<Integer> seenPages = new HashSet<>();
+		List<CitationCandidate> candidates = new ArrayList<>();
+
+		for (int i = 0; i < matches.size(); i++) {
+			RetrievedChunk chunk = matches.get(i);
+			if (chunk.content() == null || chunk.content().isBlank()) {
+				continue;
+			}
+
+			candidates.add(new CitationCandidate(chunk, citationRelevanceScore(query, answer, chunk), i));
+		}
+
+		candidates.sort(Comparator.comparing(CitationCandidate::score).reversed()
+				.thenComparing(candidate -> candidate.chunk().score(), Comparator.reverseOrder())
+				.thenComparing(CitationCandidate::originalIndex));
+
+		double bestScore = candidates.isEmpty() ? 0.0 : candidates.getFirst().score();
+
+		for (CitationCandidate candidate : candidates) {
+			if (citations.size() >= maxCitations) {
+				break;
+			}
+
+			if (!shouldIncludeCitation(candidate.score(), bestScore, citations.size(), broadSummaryQuery, answer)) {
+				continue;
+			}
+
+			RetrievedChunk chunk = candidate.chunk();
+			Integer pageNumber = normalizePageNumber(chunk.chunkIndex());
+			if (pageNumber != null && !seenPages.add(pageNumber)) {
+				continue;
+			}
+
+			citations.add(new SourceReference(
+					citations.size() + 1,
+					pageNumber,
+					chunk.documentId(),
+					chunk.chunkId(),
+					chunk.fileName(),
+					chunk.sectionId(),
+					displayTitle(chunk.title(), pageNumber),
+					chunk.chunkIndex(),
+					snippet(chunk.content()),
+					chunk.score()
+			));
+		}
+
+		return citations;
+	}
+
+	private boolean shouldIncludeCitation(double score, double bestScore, int selectedCount, boolean broadSummaryQuery, String answer) {
+		if (selectedCount == 0) {
+			return broadSummaryQuery || score >= MIN_PRIMARY_CITATION_SCORE;
+		}
+
+		if (broadSummaryQuery) {
+			return score >= MIN_PRIMARY_CITATION_SCORE || selectedCount < 3;
+		}
+
+		String safeAnswer = answer == null ? "" : answer.trim();
+		return safeAnswer.length() > 350
+				&& score >= MIN_SECONDARY_CITATION_SCORE
+				&& score >= bestScore * SECONDARY_CITATION_SCORE_RATIO;
+	}
+
+	private double citationRelevanceScore(String query, String answer, RetrievedChunk chunk) {
+		String title = normalizeCitationText(chunk.title());
+		String content = normalizeCitationText(chunk.content());
+		String haystack = (title + " " + content).trim();
+		double score = 0.0;
+
+		for (String phrase : citationPhrases(query)) {
+			if (containsPhrase(haystack, phrase)) {
+				score += 7.0 + phrase.split(" ").length;
+			}
+		}
+
+		for (String term : citationTerms(query)) {
+			if (containsPhrase(title, term)) {
+				score += 3.0;
+			}
+			if (containsPhrase(content, term)) {
+				score += 2.0;
+			}
+		}
+
+		for (String term : citationTerms(answer)) {
+			if (containsPhrase(title, term)) {
+				score += 1.5;
+			}
+			if (containsPhrase(content, term)) {
+				score += 1.0;
+			}
+		}
+
+		return score;
+	}
+
+	private List<String> citationTerms(String value) {
+		String normalized = normalizeCitationText(value);
+		if (normalized.isBlank()) {
+			return List.of();
+		}
+
+		return List.of(normalized.split("\\W+")).stream()
+				.filter(term -> term.length() > 1)
+				.filter(term -> !CITATION_STOP_WORDS.contains(term))
+				.distinct()
+				.toList();
+	}
+
+	private List<String> citationPhrases(String value) {
+		List<String> terms = citationTerms(value);
+		List<String> phrases = new ArrayList<>();
+
+		for (int size = Math.min(4, terms.size()); size >= 2; size--) {
+			for (int i = 0; i + size <= terms.size(); i++) {
+				phrases.add(String.join(" ", terms.subList(i, i + size)));
+			}
+		}
+
+		return phrases.stream().distinct().toList();
+	}
+
+	private boolean containsPhrase(String value, String phrase) {
+		return (" " + value + " ").contains(" " + phrase + " ");
+	}
+
+	private boolean isBroadCitationSummaryQuery(String query) {
+		String normalized = normalizeCitationText(query);
+		return isOverviewQuery(query)
+				|| normalized.matches(".*\\b(tom tat|tong quan|noi dung chinh|y chinh|diem chinh)\\b.*\\b(tai lieu|document|file|slide|slides)\\b.*")
+				|| normalized.matches(".*\\b(tai lieu|document|file|slide|slides)\\b.*\\b(tom tat|tong quan|noi dung chinh|y chinh|diem chinh)\\b.*");
+	}
+
+	private Integer normalizePageNumber(Integer chunkIndex) {
+		if (chunkIndex == null || chunkIndex <= 0) {
+			return null;
+		}
+		return chunkIndex;
+	}
+
+	private String displayTitle(String title, Integer pageNumber) {
+		if (title != null && !title.isBlank()) {
+			return title.trim();
+		}
+		return pageNumber == null ? "Document section" : "Page " + pageNumber;
+	}
+
+	private String snippet(String content) {
+		if (content == null || content.isBlank()) {
+			return "";
+		}
+
+		String normalized = content.replaceAll("\\s+", " ").trim();
+		if (normalized.length() <= 240) {
+			return normalized;
+		}
+
+		return normalized.substring(0, 240).trim() + "...";
 	}
 
 	private List<RetrievedChunk> selectContextChunks(String query, List<RetrievedChunk> matches) {
@@ -183,6 +354,23 @@ public class ChatService {
 						.replaceAll("[^a-z0-9 ]", " ")
 						.replaceAll("\\s+", " ")
 						.trim();
+	}
+
+	private String normalizeCitationText(String value) {
+		if (value == null) {
+			return "";
+		}
+
+		String normalized = Normalizer.normalize(value.replace('đ', 'd').replace('Đ', 'D'), Normalizer.Form.NFD)
+				.replaceAll("\\p{M}+", "");
+
+		return normalized.toLowerCase(Locale.ROOT)
+				.replaceAll("[^a-z0-9 ]", " ")
+				.replaceAll("\\s+", " ")
+				.trim();
+	}
+
+	private record CitationCandidate(RetrievedChunk chunk, double score, int originalIndex) {
 	}
 
 	private int normalizeLimit(Integer limit) {

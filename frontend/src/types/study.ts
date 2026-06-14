@@ -15,6 +15,8 @@ export type FlashcardView = {
 };
 
 export type ChatSourceReference = {
+  index?: number | null;
+  pageNumber?: number | null;
   documentId?: string | null;
   chunkId?: string | null;
   fileName?: string | null;
@@ -22,6 +24,7 @@ export type ChatSourceReference = {
   title?: string | null;
   chunkIndex?: number | null;
   content?: string | null;
+  snippet?: string | null;
   score?: number | null;
 };
 

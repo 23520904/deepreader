@@ -154,7 +154,7 @@ public class AiServiceClient {
 	public record AiRetrievedChunk(String documentId, String chunkId, String fileName, String sectionId, String title, Integer chunkIndex, String content, float score) {}
 	public record AiChatRequest(String documentId, String query, Integer limit, String provider) {}
 	public record AiChatResponse(String query, String answer, java.util.List<AiSourceReference> sources, String threadId) {}
-	public record AiSourceReference(String documentId, String chunkId, String fileName, String sectionId, String title, Integer chunkIndex, String content, float score) {}
+	public record AiSourceReference(Integer index, Integer pageNumber, String documentId, String chunkId, String fileName, String sectionId, String title, Integer chunkIndex, String snippet, float score) {}
 	public record AiSummaryRequest(String documentId, String provider) {}
 	public record AiSummaryResponse(String documentId, String provider, String summary) {}
 	public record AiFlashcardRequest(String documentId, String provider, Integer count) {}

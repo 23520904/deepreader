@@ -10,7 +10,11 @@ import {
   type KeyboardEvent,
 } from "react";
 import { AccountAvatar } from "@/components/AccountAvatar";
-import type { ChatMessageView, ChatThreadView } from "@/types/study";
+import type {
+  ChatMessageView,
+  ChatSourceReference,
+  ChatThreadView,
+} from "@/types/study";
 
 type DocumentChatPanelProps = {
   messages: ChatMessageView[];
@@ -23,6 +27,7 @@ type DocumentChatPanelProps = {
   onSelectThread: (threadId: string) => void;
   onDeleteThread: (threadId: string) => void;
   onSendMessage: (message: string) => void;
+  onCitationClick?: (source: ChatSourceReference) => void;
 };
 
 const ASTRONAUT_CAT_IMAGE = "/assets/images/library/astronaut-cat.jpg";
@@ -111,14 +116,41 @@ function TypingDots() {
   );
 }
 
+function citationPageNumber(source: ChatSourceReference) {
+  const pageNumber = source.pageNumber ?? source.chunkIndex;
+
+  return typeof pageNumber === "number" && pageNumber > 0 ? pageNumber : null;
+}
+
+function citationSnippet(source: ChatSourceReference) {
+  return (source.snippet ?? source.content ?? "").trim();
+}
+
+function citationTooltip(source: ChatSourceReference, fallbackIndex: number) {
+  const pageNumber = citationPageNumber(source);
+  const label = source.title?.trim() || (pageNumber ? `Page ${pageNumber}` : `Citation ${fallbackIndex}`);
+  const snippet = citationSnippet(source);
+
+  return snippet ? `${label}\n\n${snippet}` : label;
+}
+
+function citationIndex(source: ChatSourceReference, fallbackIndex: number) {
+  return typeof source.index === "number" && source.index > 0
+    ? source.index
+    : fallbackIndex;
+}
+
 function ChatBubble({
   message,
   userAvatarUrl,
+  onCitationClick,
 }: {
   message: ChatMessageView;
   userAvatarUrl?: string | null;
+  onCitationClick?: (source: ChatSourceReference) => void;
 }) {
   const isUser = message.role === "user";
+  const citations = !isUser ? (message.sources ?? []).slice(0, 3) : [];
 
   return (
     <div className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -144,6 +176,27 @@ function ChatBubble({
         >
           <p className="whitespace-pre-wrap text-[15px] font-semibold leading-7">
             {message.content}
+            {citations.length ? (
+              <span className="ml-2 inline-flex align-baseline gap-1">
+                {citations.map((source, index) => {
+                  const fallbackIndex = index + 1;
+                  const badgeIndex = citationIndex(source, fallbackIndex);
+
+                  return (
+                    <button
+                      key={`${message.id}-citation-${badgeIndex}-${source.chunkId ?? source.sectionId ?? fallbackIndex}`}
+                      type="button"
+                      onClick={() => onCitationClick?.(source)}
+                      className="inline-flex h-6 min-w-6 cursor-pointer items-center justify-center rounded-full bg-[#eef5ff] px-2 text-[12px] font-black leading-none text-[#245895] ring-1 ring-[#c8d9ee] transition hover:bg-[#dfeeff] hover:text-[#174f87]"
+                      title={citationTooltip(source, badgeIndex)}
+                      aria-label={`Jump to citation ${badgeIndex}`}
+                    >
+                      [{badgeIndex}]
+                    </button>
+                  );
+                })}
+              </span>
+            ) : null}
           </p>
         </div>
 
@@ -172,6 +225,7 @@ export function DocumentChatPanel({
   onSelectThread,
   onDeleteThread,
   onSendMessage,
+  onCitationClick,
 }: DocumentChatPanelProps) {
   const [draft, setDraft] = useState("");
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
@@ -348,6 +402,7 @@ export function DocumentChatPanel({
                     <ChatBubble
                       message={message}
                       userAvatarUrl={userAvatarUrl}
+                      onCitationClick={onCitationClick}
                     />
                   </div>
                 ))

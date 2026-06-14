@@ -1,5 +1,4 @@
-import Image from "next/image";
-
+/* eslint-disable @next/next/no-img-element */
 type LibraryHeroProps = {
   onUploadClick: () => void;
   onViewLibraryClick: () => void;
@@ -51,15 +50,13 @@ export function LibraryHero({
           <div className="absolute inset-x-10 top-1/2 -z-10 h-48 -translate-y-1/2 rounded-full bg-[#cfe3ff]/45 blur-3xl max-[700px]:inset-x-8 max-[700px]:h-32" />
 
           <div className="relative mx-auto h-[430px] w-full max-w-[520px] overflow-hidden max-[900px]:h-[360px] max-[700px]:h-[250px] max-[420px]:h-[215px]">
-            <Image
+            <img
               src="/assets/images/library/upload-banner-lcp.webp"
               alt="Cloud upload illustration"
-              fill
-              priority
               fetchPriority="high"
-              quality={70}
-              sizes="(min-width: 1024px) 340px, (min-width: 768px) 320px, min(360px, calc(100vw - 32px))"
-              className="object-contain drop-shadow-[0_26px_42px_rgba(36,88,149,0.16)]"
+              loading="eager"
+              decoding="async"
+              className="h-full min-h-full w-full object-contain drop-shadow-[0_26px_42px_rgba(36,88,149,0.16)]"
             />
           </div>
         </div>

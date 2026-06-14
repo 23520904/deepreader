@@ -214,6 +214,7 @@ export function normalizeChatRecords(records: ChatHistoryRecord[]) {
         role,
         content,
         createdAt: record.timestamp ?? record.createdAt ?? null,
+        sources: record.sources ?? [],
       };
     })
     .filter(isPresent)

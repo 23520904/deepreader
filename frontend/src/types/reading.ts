@@ -41,6 +41,7 @@ export type ChatHistoryRecord = {
   threadId?: string | null;
   timestamp?: string | null;
   createdAt?: string | null;
+  sources?: ChatGenerationResponse["sources"];
 };
 
 export type ChatGenerationResponse = {
@@ -48,6 +49,8 @@ export type ChatGenerationResponse = {
   answer?: string | null;
   threadId?: string | null;
   sources?: Array<{
+    index?: number | null;
+    pageNumber?: number | null;
     documentId?: string | null;
     chunkId?: string | null;
     fileName?: string | null;
@@ -55,6 +58,7 @@ export type ChatGenerationResponse = {
     title?: string | null;
     chunkIndex?: number | null;
     content?: string | null;
+    snippet?: string | null;
     score?: number | null;
   }> | null;
 };
