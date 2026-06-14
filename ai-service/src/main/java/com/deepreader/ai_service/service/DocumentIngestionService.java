@@ -211,14 +211,32 @@ public class DocumentIngestionService {
 				))
 				.toList();
 
-		haystackClient.post()
-				.uri("/ingest")
-				.bodyValue(new HaystackIngestRequest(provider, payloadChunks, embeddings))
-				.retrieve()
-				.toBodilessEntity()
-				.block();
-
+		callHaystackIngest(new HaystackIngestRequest(provider, payloadChunks, embeddings));
 		indexedProviders.add(provider);
+	}
+
+	private void callHaystackIngest(HaystackIngestRequest body) {
+		int maxRetries = ingestionProperties.getMaxRetries();
+		for (int attempt = 0; attempt <= maxRetries; attempt++) {
+			try {
+				haystackClient.post()
+						.uri("/ingest")
+						.bodyValue(body)
+						.retrieve()
+						.toBodilessEntity()
+						.block();
+				return;
+			} catch (Exception ex) {
+				if (attempt == maxRetries) throw ex;
+				log.warn("Haystack ingest attempt {}/{} failed: {}", attempt + 1, maxRetries, ex.getMessage());
+				try {
+					Thread.sleep(1000L << attempt);
+				} catch (InterruptedException ie) {
+					Thread.currentThread().interrupt();
+					throw new RuntimeException(ie);
+				}
+			}
+		}
 	}
 
 	/**

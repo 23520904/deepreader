@@ -148,8 +148,8 @@ public class RetrievalService {
 		try {
 			List<Float> queryVector = embeddingService.embed(VECTOR_PROVIDER, query);
 
-			// Ask for more candidates first, then filter them by allowed document IDs.
-			int candidateLimit = Math.min(MAX_LIMIT, Math.max(limit, limit * 4));
+			// Ask for more candidates than needed so filtering by documentId leaves enough matches.
+			int candidateLimit = limit * 4;
 
 			return searchViaHaystack(VECTOR_PROVIDER, queryVector, candidateLimit).stream()
 					.filter(match -> allowedDocumentIds.contains(match.documentId()))
@@ -199,7 +199,7 @@ public class RetrievalService {
 	 * Converts a document section into a RetrievedChunk result.
 	 */
 	private RetrievedChunk toRetrievedChunk(IndexedDocument document, DocumentSection section, float score) {
-		return new RetrievedChunk(document.documentId(), section.sectionId(), document.fileName(), section.sectionId(), section.title(), section.pageNumber(), section.content(), score);
+		return new RetrievedChunk(document.documentId(), section.sectionId(), document.fileName(), section.sectionId(), section.title(), section.pageNumber(), section.pageNumber(), section.content(), score);
 	}
 
 	/**
@@ -265,7 +265,7 @@ public class RetrievalService {
 
 		for (IndexedDocument document : documents) {
 			List<DocumentSection> sections = document.sections() == null ? List.of() : document.sections().stream()
-					.filter(section -> StringUtils.hasText(section.content()))
+					.filter(section -> StringUtils.hasText(section.content()) && section.content().trim().length() >= 100)
 					.toList();
 
 			if (sections.isEmpty()) {
@@ -342,11 +342,10 @@ public class RetrievalService {
 	}
 
 	/**
-	 * Gives more weight to important technical words.
+	 * Gives more weight to example-seeking queries, which benefit any study domain.
 	 */
 	private float importantQueryTokenWeight(String token) {
 		return switch (token) {
-			case "oop", "java", "class", "object", "constructor", "inheritance", "encapsulation", "polymorphism", "abstraction", "method" -> 2.0f;
 			case "example", "examples" -> 1.5f;
 			default -> 1.0f;
 		};
@@ -385,12 +384,7 @@ public class RetrievalService {
 	 * Sends the query vector to Haystack and converts the response into retrieved chunks.
 	 */
 	private List<RetrievedChunk> searchViaHaystack(String provider, List<Float> queryVector, int limit) {
-		HaystackSearchResponse response = haystackClient.post()
-				.uri("/search")
-				.bodyValue(new HaystackSearchRequest(provider, queryVector, limit))
-				.retrieve()
-				.bodyToMono(HaystackSearchResponse.class)
-				.block();
+		HaystackSearchResponse response = callHaystackSearch(new HaystackSearchRequest(provider, queryVector, limit));
 
 		if (response == null || response.matches() == null) {
 			return List.of();
@@ -404,10 +398,35 @@ public class RetrievalService {
 						match.sectionId(),
 						match.title(),
 						match.chunkIndex(),
+						null,
 						match.content(),
 						match.score() == null ? 0f : match.score()
 				))
 				.toList();
+	}
+
+	private HaystackSearchResponse callHaystackSearch(HaystackSearchRequest body) {
+		int maxRetries = 2;
+		for (int attempt = 0; attempt <= maxRetries; attempt++) {
+			try {
+				return haystackClient.post()
+						.uri("/search")
+						.bodyValue(body)
+						.retrieve()
+						.bodyToMono(HaystackSearchResponse.class)
+						.block();
+			} catch (Exception ex) {
+				if (attempt == maxRetries) throw ex;
+				log.warn("Haystack search attempt {}/{} failed: {}", attempt + 1, maxRetries, ex.getMessage());
+				try {
+					Thread.sleep(1000L << attempt);
+				} catch (InterruptedException ie) {
+					Thread.currentThread().interrupt();
+					throw new RuntimeException(ie);
+				}
+			}
+		}
+		return null;
 	}
 
 	/**

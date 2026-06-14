@@ -7,6 +7,7 @@ public record SourceReference(
 		String sectionId,
 		String title,
 		Integer chunkIndex,
+		Integer pageNumber,
 		String content,
 		float score
 ) {

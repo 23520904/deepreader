@@ -69,6 +69,18 @@ export default function ReadBookPage() {
   // It is used to get the viewer width and scroll back to the top.
   const pdfCanvasContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // Overlay canvas for drawing text highlights on top of the PDF canvas.
+  const highlightCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Tracks the viewport scale and pixel ratio set during the last PDF render.
+  // The highlight effect reads these so it can match canvas coordinates exactly.
+  const viewportScaleRef = useRef<number>(1);
+  const pixelRatioRef = useRef<number>(1);
+
+  // Set to true while handleSourceClick is triggering goToPage so that goToPage
+  // knows not to clear the pending highlight.
+  const highlightNavRef = useRef(false);
+
   // Get the current login session.
   // This is used to know if the user can read the document and use AI tools.
   const session = useSyncExternalStore(
@@ -159,6 +171,9 @@ export default function ReadBookPage() {
 
   // UI loading state for the chat send button.
   const [isSendingChatMessage, setIsSendingChatMessage] = useState(false);
+
+  // Chunk content to highlight in the PDF after a source chip is clicked.
+  const [highlightContent, setHighlightContent] = useState<string | null>(null);
 
   // UI state for the chat thread currently being deleted.
   const [deletingChatThreadId, setDeletingChatThreadId] = useState("");
@@ -490,6 +505,10 @@ export default function ReadBookPage() {
 
         // Use device pixel ratio for sharper PDF rendering.
         const pixelRatio = window.devicePixelRatio || 1;
+
+        // Persist these for the highlight effect which runs after rendering.
+        viewportScaleRef.current = viewportScale;
+        pixelRatioRef.current = pixelRatio;
         const context = canvas.getContext("2d");
 
         if (!context) {
@@ -540,7 +559,144 @@ export default function ReadBookPage() {
     };
   }, [activePage, isFocusMode, pdfDocument]);
 
+  // Draws a yellow highlight over text items that match the clicked chunk content.
+  // Runs after the PDF page finishes rendering so canvas dimensions are correct.
+  useEffect(() => {
+    const overlay = highlightCanvasRef.current;
+
+    if (!overlay) {
+      return;
+    }
+
+    // Clear the overlay while rendering or when no highlight is requested.
+    if (isPdfPageRendering || !highlightContent || !pdfDocument || !activePage) {
+      const ctx = overlay.getContext("2d");
+      ctx?.clearRect(0, 0, overlay.width, overlay.height);
+      return;
+    }
+
+    // Capture into a const so TypeScript knows it's non-null inside the async closure.
+    const content = highlightContent;
+    let cancelled = false;
+
+    async function drawHighlightOverlay() {
+      const pdfCanvas = pdfCanvasRef.current;
+      if (!pdfCanvas || !overlay || !pdfDocument || !activePage) {
+        return;
+      }
+
+      try {
+        const pageNumber = Math.min(
+          Math.max(activePage.pageNumber, 1),
+          pdfDocument.numPages,
+        );
+        const page = await pdfDocument.getPage(pageNumber);
+        if (cancelled) return;
+
+        const textContent = await page.getTextContent();
+        if (cancelled) return;
+
+        const scale = viewportScaleRef.current;
+        const ratio = pixelRatioRef.current;
+        const viewport = page.getViewport({ scale });
+
+        // Match the overlay canvas exactly to the PDF canvas.
+        overlay.width = pdfCanvas.width;
+        overlay.height = pdfCanvas.height;
+        overlay.style.width = pdfCanvas.style.width;
+        overlay.style.height = pdfCanvas.style.height;
+
+        const ctx = overlay.getContext("2d");
+        if (!ctx) return;
+
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+        // --- Step 1: collect valid text items ---
+        type TItem = { str: string; transform: number[]; width: number; height: number };
+        const tItems: TItem[] = [];
+        for (const raw of textContent.items) {
+          if ("str" in raw && "transform" in raw) {
+            const t = raw as TItem;
+            if (t.str && t.transform) tItems.push(t);
+          }
+        }
+
+        // --- Step 2: build char→itemIndex map from concatenated raw page text ---
+        const charToItem: number[] = [];
+        let rawPage = "";
+        for (let i = 0; i < tItems.length; i++) {
+          const s = tItems[i].str;
+          for (let j = 0; j < s.length; j++) charToItem.push(i);
+          rawPage += s;
+        }
+
+        // --- Step 3: build normalized page text with normPos→rawPos mapping ---
+        // Whitespace is collapsed to one space; chars are lowercased.
+        const normToRaw: number[] = [];
+        let normPage = "";
+        for (let r = 0; r < rawPage.length; r++) {
+          const c = rawPage[r];
+          if (/\s/.test(c)) {
+            if (normPage.length > 0 && normPage[normPage.length - 1] !== " ") {
+              normToRaw.push(r);
+              normPage += " ";
+            }
+          } else {
+            normToRaw.push(r);
+            normPage += c.toLowerCase();
+          }
+        }
+
+        // --- Step 4: locate the chunk's fingerprint in normalized page text ---
+        const normChunk = content.toLowerCase().replace(/\s+/g, " ").trim();
+        // 120-char prefix is long enough to be unique across typical pages.
+        const fingerprint = normChunk.slice(0, Math.min(120, normChunk.length));
+        const matchNormStart = normPage.indexOf(fingerprint);
+        if (matchNormStart < 0) return; // chunk not on this page — nothing to draw
+
+        const matchNormEnd = Math.min(matchNormStart + normChunk.length, normPage.length);
+
+        // Map norm positions back to raw character positions.
+        const rawStart = normToRaw[matchNormStart] ?? 0;
+        const rawEnd =
+          matchNormEnd < normToRaw.length ? normToRaw[matchNormEnd] : rawPage.length;
+
+        // --- Step 5: collect item indices that overlap the matched range ---
+        const toHighlight = new Set<number>();
+        for (let r = rawStart; r < rawEnd && r < charToItem.length; r++) {
+          toHighlight.add(charToItem[r]);
+        }
+
+        // --- Step 6: draw only the matched items ---
+        ctx.fillStyle = "rgba(255, 220, 0, 0.4)";
+        for (const idx of toHighlight) {
+          const { transform, width, height } = tItems[idx];
+          // convertToViewportPoint converts PDF baseline coords to CSS-pixel viewport coords.
+          const pt = viewport.convertToViewportPoint(transform[4], transform[5]);
+          const itemH = height * scale;
+          const itemW = width * scale;
+          // Canvas pixels = viewport CSS pixels × device pixel ratio.
+          ctx.fillRect(pt[0] * ratio, (pt[1] - itemH) * ratio, itemW * ratio, itemH * ratio);
+        }
+      } catch {
+        // Highlight drawing is non-critical — silently ignore failures.
+      }
+    }
+
+    void drawHighlightOverlay();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage, highlightContent, isPdfPageRendering, pdfDocument]);
+
   function goToPage(index: number) {
+    // Clear any active highlight when the user navigates manually (not via a chip).
+    if (!highlightNavRef.current) {
+      setHighlightContent(null);
+    }
+    highlightNavRef.current = false;
+
     // Keep the requested page index inside the valid range.
     const nextPage = pages[Math.min(Math.max(index, 0), pages.length - 1)];
 
@@ -804,7 +960,7 @@ export default function ReadBookPage() {
         bookId,
         query: trimmedMessage,
         threadId,
-        limit: 4,
+        limit: 10,
       });
 
       // Use backend thread id if it returns one.
@@ -833,32 +989,27 @@ export default function ReadBookPage() {
   }
 
   function handleSourceClick(source: ChatSourceReference) {
-    // Try to find the section by sectionId to get the page number
+    // Store the chunk content so the highlight effect can draw it after navigation.
+    setHighlightContent(source.content ?? null);
+    // Tell goToPage that this navigation came from a chip, not manual user action.
+    highlightNavRef.current = true;
+
     if (!source.sectionId) {
-      // Fallback: if no sectionId, just go to the first page
-      if (pages.length > 0) {
-        goToPage(0);
-      }
+      if (pages.length > 0) goToPage(0);
       return;
     }
 
     const targetSection = sections.find((sec) => sec.sectionId === source.sectionId);
 
     if (!targetSection || !targetSection.pageNumber) {
-      // Fallback: section not found, go to first page
-      if (pages.length > 0) {
-        goToPage(0);
-      }
+      if (pages.length > 0) goToPage(0);
       return;
     }
 
-    // Find the page key for this page number
     const targetPage = pages.find((page) => page.pageNumber === targetSection.pageNumber);
 
     if (targetPage) {
-      // Navigate to the target page
-      const pageIndex = pages.indexOf(targetPage);
-      goToPage(pageIndex);
+      goToPage(pages.indexOf(targetPage));
     }
   }
 
@@ -922,6 +1073,7 @@ export default function ReadBookPage() {
           isPdfPageRendering={isPdfPageRendering}
           pdfRenderMessage={pdfRenderMessage}
           pdfCanvasRef={pdfCanvasRef}
+          pdfHighlightCanvasRef={highlightCanvasRef}
           pdfCanvasContainerRef={pdfCanvasContainerRef}
           onPageSelect={goToPage}
         />

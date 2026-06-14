@@ -1,5 +1,6 @@
 package com.deepreader.ai_service.service;
 
+import com.deepreader.ai_service.config.IngestionProperties;
 import com.deepreader.ai_service.model.DocumentChunk;
 import com.deepreader.ai_service.model.DocumentSection;
 import org.springframework.stereotype.Service;
@@ -18,15 +19,13 @@ import java.util.UUID;
 @Service
 public class ChunkingService {
 
-	/**
-	 * Default maximum number of characters in each generated chunk.
-	 */
-	private static final int DEFAULT_CHUNK_SIZE = 1000;
+	private final int chunkSize;
+	private final int chunkOverlap;
 
-	/**
-	 * Number of characters reused from the previous chunk to preserve context.
-	 */
-	private static final int DEFAULT_OVERLAP = 150;
+	public ChunkingService(IngestionProperties ingestionProperties) {
+		this.chunkSize = ingestionProperties.getChunkSize();
+		this.chunkOverlap = ingestionProperties.getChunkOverlap();
+	}
 
 	/**
 	 * Converts document sections into overlapping chunks for vector embedding and search retrieval.
@@ -47,7 +46,7 @@ public class ChunkingService {
 
 			int start = 0;
 			while (start < normalized.length()) {
-				int end = Math.min(start + DEFAULT_CHUNK_SIZE, normalized.length());
+				int end = Math.min(start + chunkSize, normalized.length());
 				String chunk = normalized.substring(start, end).trim();
 
 				if (!chunk.isEmpty()) {
@@ -66,7 +65,7 @@ public class ChunkingService {
 					break;
 				}
 
-				start = Math.max(0, end - DEFAULT_OVERLAP);
+				start = Math.max(0, end - chunkOverlap);
 			}
 		}
 

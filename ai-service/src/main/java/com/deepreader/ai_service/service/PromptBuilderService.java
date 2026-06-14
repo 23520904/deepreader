@@ -31,7 +31,8 @@ public class PromptBuilderService {
 		// Add retrieved chunks one by one until the total context size reaches the configured limit.
 		for (int i = 0; i < chunks.size(); i++) {
 			RetrievedChunk chunk = chunks.get(i);
-			String source = "[chunkId: " + nullSafe(chunk.chunkId()) + "]\n"
+			String source = "Source [" + (i + 1) + "]\n"
+				+ "[chunkId: " + nullSafe(chunk.chunkId()) + "]\n"
 				+ "File: " + nullSafe(chunk.fileName()) + "\n"
 				+ "Location: " + displayLocation(chunk) + "\n"
 				+ "Content: " + truncate(nullSafe(chunk.content()), maxChunkChars) + "\n\n";
@@ -47,37 +48,68 @@ public class PromptBuilderService {
 		// Ensure at least one chunk is included when available, even if the normal size check skipped all chunks.
 		if (context.isEmpty() && !chunks.isEmpty()) {
 			RetrievedChunk chunk = chunks.get(0);
-			context.append("[chunkId: " + nullSafe(chunk.chunkId()) + "]\n")
+			context.append("Source [1]\n")
+					.append("[chunkId: ").append(nullSafe(chunk.chunkId())).append("]\n")
 					.append("File: ").append(nullSafe(chunk.fileName())).append("\n")
 					.append("Location: ").append(displayLocation(chunk)).append("\n")
 					.append("Content: ").append(truncate(nullSafe(chunk.content()), Math.max(500, maxContextChars / 2))).append("\n\n");
 		}
 
-		return "You are a document-grounded assistant for the document the user is currently reading. "
-				+ "Answer the user's question using ONLY the provided document context. "
-				+ "Do not use outside or general knowledge. "
-				+ "If the answer is not clearly supported by the provided sources, say that the information was not found in the document. "
-				+ "Return only valid JSON with this exact shape: {\"answer\": \"...\", \"grounded\": true|false, \"usedChunkIds\": [\"...\"]}. "
-				+ "grounded must be true only when the answer is supported by the context. "
-				+ "usedChunkIds must contain only chunk ids that directly support the answer. "
-				+ "If the question is unrelated or unsupported, set grounded=false and usedChunkIds=[]. "
-				+ "Do not include any text outside the JSON object. "
-				+ "Do not include source labels, page labels, chunk IDs, citations, or phrases like \"based on the provided sources\" in the answer text. "
-				+ "Keep the answer concise, factual, and useful for studying.\n\n"
-				+ "Question:\n" + query + "\n\n"
+		return "You are a document-grounded assistant. "
+				+ "Answer the user's question using ONLY the numbered sources provided below — not from outside knowledge.\n\n"
+				+ "CITATION RULE (required): After each claim, place [N] inline to show which source it comes from. "
+				+ "You may cite multiple sources together. "
+				+ "Example answer field: \"LatticeProbe applies transformer models [1] and graph neural networks. [1][2] It targets three tasks. [2]\"\n\n"
+				+ "RESPONSE FORMAT — return ONLY this JSON, nothing before or after it:\n"
+				+ "{\"answer\": \"Detailed answer with inline [N] citations.\", \"grounded\": true|false, \"usedChunkIds\": [\"chunkId\", ...]}\n\n"
+				+ "RULES:\n"
+				+ "- grounded = true only when the answer is directly supported by the sources; otherwise false.\n"
+				+ "- usedChunkIds = the chunkId values whose content directly backs the answer.\n"
+				+ "- If unsupported, set grounded=false and usedChunkIds=[] and say the information was not found.\n"
+				+ "- Do not include source file names, page labels, chunk IDs as text, or phrases like \"based on the provided sources\".\n"
+				+ "- Format your answer with Markdown: use **bold** for key terms, ## headers when the answer spans multiple topics, and - bullet lists for enumerations.\n"
+				+ "- Write a detailed answer that fully covers all relevant aspects from the sources.\n\n"
+				+ "Question: " + query + "\n\n"
 				+ "Sources:\n" + context;
 	}
 
 	/**
-	 * Builds a repair prompt used to clean a previous answer without introducing new facts.
+	 * Builds a repair prompt that includes the original source context so the LLM can re-ground its answer.
 	 */
-	public String buildAnswerRepairPrompt(String query, String previousAnswer) {
-		return "The previous assistant response did not follow the required JSON output format. "
-				+ "Return only valid JSON with this exact shape: {\"answer\": \"...\", \"grounded\": true|false, \"usedChunkIds\": [\"...\"]}. "
-				+ "Do not include any explanation, commentary, or text outside the JSON object. "
-				+ "If the information is not supported by the provided sources, set grounded=false and usedChunkIds=[].\n\n"
+	public String buildAnswerRepairPrompt(String query, String previousAnswer, List<RetrievedChunk> chunks, int maxContextChars, int maxChunkChars) {
+		StringBuilder context = new StringBuilder();
+		for (int i = 0; i < chunks.size(); i++) {
+			RetrievedChunk chunk = chunks.get(i);
+			String source = "[chunkId: " + nullSafe(chunk.chunkId()) + "]\n"
+				+ "File: " + nullSafe(chunk.fileName()) + "\n"
+				+ "Location: " + displayLocation(chunk) + "\n"
+				+ "Content: " + truncate(nullSafe(chunk.content()), maxChunkChars) + "\n\n";
+			if (context.length() + source.length() > maxContextChars) {
+				break;
+			}
+			context.append(source);
+		}
+		if (context.isEmpty() && !chunks.isEmpty()) {
+			RetrievedChunk chunk = chunks.get(0);
+			context.append("[chunkId: ").append(nullSafe(chunk.chunkId())).append("]\n")
+				   .append("File: ").append(nullSafe(chunk.fileName())).append("\n")
+				   .append("Location: ").append(displayLocation(chunk)).append("\n")
+				   .append("Content: ").append(truncate(nullSafe(chunk.content()), Math.max(500, maxContextChars / 2))).append("\n\n");
+		}
+
+		String sourceSection = context.isEmpty() ? "" : "\n\nSources:\n" + context;
+
+		return "The previous assistant response was unsuitable — it contained non-English text, "
+				+ "referenced sources by name, or did not follow the required JSON format. "
+				+ "Using ONLY the numbered document sources below, produce a corrected answer.\n\n"
+				+ "CITATION RULE (required): After each claim place [N] inline — e.g. \"X is true. [1] Y also holds. [1][2]\"\n\n"
+				+ "Return only valid JSON — nothing before or after it:\n"
+				+ "{\"answer\": \"Corrected answer with [N] citations.\", \"grounded\": true|false, \"usedChunkIds\": [\"id\"]}\n\n"
+				+ "Do not include source labels, page labels, chunk IDs as text, non-English text, or phrases like \"based on the provided sources\".\n"
+				+ "If unsupported, set grounded=false and usedChunkIds=[].\n\n"
 				+ "Question:\n" + nullSafe(query) + "\n\n"
-				+ "Previous response:\n" + nullSafe(previousAnswer);
+				+ "Previous unsuitable response:\n" + nullSafe(previousAnswer)
+				+ sourceSection;
 	}
 
 	/**
@@ -163,14 +195,12 @@ public class PromptBuilderService {
 	 * Builds a flashcard generation prompt with configurable language and flashcard type.
 	 */
 	public String buildFlashcardPrompt(String fileName, String content, int count, String language, String type) {
-		// Select the required response language, defaulting to English when the language is missing or unsupported.
 		String langInstruction = switch (language != null ? language.toLowerCase().trim() : "en") {
 			case "vi" -> "Respond entirely in Vietnamese. Every question and every answer must be written in standard Vietnamese only. Do not use English unless it is a necessary technical term.";
 			case "ja" -> "Respond entirely in Japanese. Every question and every answer must be written in standard Japanese only.";
 			default  -> "Respond entirely in English. Every question and every answer must be written in standard English only.";
 		};
 
-		// Select the flashcard generation style, defaulting to a mixed set of card types.
 		String typeInstruction = switch (type != null ? type.toLowerCase().trim() : "mixed") {
 			case "concept"   -> "Focus only on definitions and key concepts. Each card must test a definition, terminology, or a fundamental concept.";
 			case "question"  -> "Generate question-answer pairs only. Each card should ask a direct question and provide a direct answer.";
@@ -196,17 +226,14 @@ public class PromptBuilderService {
 
 	/**
 	 * Builds a repair prompt for configurable flashcard generation.
-	 * The repair keeps the requested language and flashcard type constraints.
 	 */
 	public String buildFlashcardRepairPrompt(String fileName, String content, String previousResponse, int count, String language, String type) {
-		// Select the required response language, defaulting to English when the language is missing or unsupported.
 		String langInstruction = switch (language != null ? language.toLowerCase().trim() : "en") {
 			case "vi" -> "Respond entirely in Vietnamese. Every question and every answer must be written in standard Vietnamese only. Do not use English unless it is a necessary technical term.";
 			case "ja" -> "Respond entirely in Japanese. Every question and every answer must be written in standard Japanese only.";
 			default  -> "Respond entirely in English. Every question and every answer must be written in standard English only.";
 		};
 
-		// Select the flashcard generation style, defaulting to a mixed set of card types.
 		String typeInstruction = switch (type != null ? type.toLowerCase().trim() : "mixed") {
 			case "concept"   -> "Focus only on definitions and key concepts. Each card must test a definition, terminology, or a fundamental concept.";
 			case "question"  -> "Generate question-answer pairs only. Each card should ask a direct question and provide a direct answer.";
@@ -229,7 +256,7 @@ public class PromptBuilderService {
 			+ "Document content:\n" + content + "\n\n"
 			+ "Previous bad response:\n" + nullSafe(previousResponse);
 	}
-	
+
 	/**
 	 * Truncates text to the requested character limit and appends a notice when truncation happens.
 	 */

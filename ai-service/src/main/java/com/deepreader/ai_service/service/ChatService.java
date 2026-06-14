@@ -34,22 +34,22 @@ public class ChatService {
 	/**
 	 * Maximum number of chunks used as final context for the LLM answer.
 	 */
-	private static final int GROQ_CONTEXT_MATCHES = 6;
+	private static final int GROQ_CONTEXT_MATCHES = 8;
 
 	/**
 	 * Number of candidate chunks retrieved before relevance filtering is applied.
 	 */
-	private static final int GROQ_CANDIDATE_MATCHES = 12;
+	private static final int GROQ_CANDIDATE_MATCHES = 24;
 
 	/**
 	 * Maximum number of characters allowed in the full context sent to the LLM.
 	 */
-	private static final int GROQ_MAX_CONTEXT_CHARS = 12_000;
+	private static final int GROQ_MAX_CONTEXT_CHARS = 16_000;
 
 	/**
 	 * Maximum number of characters included from each individual chunk.
 	 */
-	private static final int GROQ_MAX_CHUNK_CHARS = 1_100;
+	private static final int GROQ_MAX_CHUNK_CHARS = 1_600;
 
 	/**
 	 * Default provider used for study-oriented chat answers.
@@ -131,7 +131,7 @@ public class ChatService {
 		StructuredChatAnswer structuredAnswer = parseStructuredChatAnswer(rawAnswer);
 
 		for (int attempt = 0; attempt < MAX_REPAIR_ATTEMPTS && (structuredAnswer == null || needsAnswerRepair(structuredAnswer.answer())); attempt += 1) {
-			String repairPrompt = promptBuilderService.buildAnswerRepairPrompt(searchResponse.query(), rawAnswer);
+			String repairPrompt = promptBuilderService.buildAnswerRepairPrompt(searchResponse.query(), rawAnswer, matches.subList(0, Math.min(3, matches.size())), GROQ_MAX_CONTEXT_CHARS, GROQ_MAX_CHUNK_CHARS);
 			rawAnswer = llmClientService.generateAnswer(userId, STUDY_PROVIDER, repairPrompt);
 			structuredAnswer = parseStructuredChatAnswer(rawAnswer);
 		}
@@ -150,8 +150,9 @@ public class ChatService {
 			? List.of()
 			: structuredAnswer.usedChunkIds();
 
+		Map<String, RetrievedChunk> chunkMap = chunkById(matches);
 		List<SourceReference> sources = usedChunkIds.stream()
-				.map(chunkId -> chunkId == null ? null : chunkById(matches).get(chunkId))
+				.map(chunkId -> chunkId == null ? null : chunkMap.get(chunkId))
 				.filter(Objects::nonNull)
 				.map(chunk -> new SourceReference(
 						chunk.documentId(),
@@ -160,6 +161,7 @@ public class ChatService {
 						chunk.sectionId(),
 						chunk.title(),
 						chunk.chunkIndex(),
+						chunk.pageNumber(),
 						chunk.content(),
 						chunk.score()
 				))
@@ -213,7 +215,6 @@ public class ChatService {
 	private double chatRelevanceScore(String query, List<String> queryTerms, RetrievedChunk chunk) {
 		String title = normalizeText(chunk.title());
 		String content = normalizeText(chunk.content());
-		String haystack = title + " " + content;
 		double score = chunk.score();
 
 		for (String term : queryTerms) {
@@ -221,25 +222,13 @@ public class ChatService {
 				score += 2.5;
 			}
 			if (content.contains(term)) {
-				score += importantChatTermWeight(term);
+				score += 1.0;
 			}
 		}
 
 		String normalizedQuery = normalizeText(query);
-		if (normalizedQuery.contains("example") && containsAny(haystack, "example", "for example", "sample", "instance")) {
+		if (normalizedQuery.contains("example") && containsAny(title + " " + content, "example", "for example", "sample", "instance")) {
 			score += 3.0;
-		}
-		if (normalizedQuery.contains("constructor") && content.contains("constructor")) {
-			score += 2.0;
-		}
-		if (normalizedQuery.contains("overloading") && containsAny(content, "overload", "overloading", "same name", "parameter")) {
-			score += 2.0;
-		}
-		if (normalizedQuery.contains("public") && content.contains("public")) {
-			score += 2.0;
-		}
-		if (normalizedQuery.contains("private") && content.contains("private")) {
-			score += 2.0;
 		}
 
 		return score;
@@ -247,9 +236,6 @@ public class ChatService {
 
 	/**
 	 * Extracts meaningful query terms used for chunk relevance scoring.
-	 *
-	 * The query is normalized, split into terms, filtered by length and stop words,
-	 * and deduplicated before scoring.
 	 */
 	private List<String> queryTerms(String query) {
 		return List.of(normalizeText(query).split("\\W+"))
@@ -262,15 +248,15 @@ public class ChatService {
 
 	/**
 	 * Detects broad overview questions that should preserve document order.
-	 *
-	 * Overview queries usually ask for summaries, key points, takeaways,
-	 * or a general explanation of the uploaded document.
 	 */
 	private boolean isOverviewQuery(String query) {
 		String normalized = normalizeText(query);
-		return normalized.matches(".*\\b(about|overview|summarize|summary|key ideas?|key points?|main ideas?|main points?|takeaways?)\\b.*")
-				|| normalized.matches(".*\\b(what|tell|describe|explain)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*")
-				|| normalized.matches(".*\\b(what|tell|describe|explain)\\b.*\\b(learn|study|review)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*");
+		return normalized.matches(".*\\b(about|overview|summarize|summarise|summary|key ideas?|key points?|main ideas?|main points?|takeaways?|general idea)\\b.*")
+				|| normalized.matches(".*\\b(what|tell|describe|explain|give)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*")
+				|| normalized.matches(".*\\b(what|tell|describe|explain)\\b.*\\b(learn|study|review)\\b.*\\b(document|file|slide|slides|deck|presentation)\\b.*")
+				|| normalized.matches(".*\\bgive\\b.*\\boverview\\b.*")
+				|| normalized.matches(".*\\bwhat.*\\b(covers?|topics?|concepts?)\\b.*")
+				|| normalized.matches(".*\\bmain\\s+(topic|concept|idea|point)s?\\b.*");
 	}
 
 	/**
@@ -287,24 +273,7 @@ public class ChatService {
 	}
 
 	/**
-	 * Gives extra weight to important programming and OOP terms.
-	 *
-	 * These boosts help technical chunks rank higher when the user asks about
-	 * Java or object-oriented programming concepts.
-	 */
-	private double importantChatTermWeight(String term) {
-		return switch (term) {
-			case "oop", "java", "class", "object", "constructor", "inheritance", "encapsulation",
-					"polymorphism", "abstraction", "overloading", "public", "private", "method" -> 1.8;
-			default -> 1.0;
-		};
-	}
-
-	/**
 	 * Normalizes text for consistent matching and scoring.
-	 *
-	 * The method lowercases text, removes non-alphanumeric characters,
-	 * collapses whitespace, and safely handles null values.
 	 */
 	private String normalizeText(String value) {
 		return value == null
@@ -317,8 +286,6 @@ public class ChatService {
 
 	/**
 	 * Normalizes the requested retrieval limit.
-	 *
-	 * Invalid or missing limits fall back to the default context match count.
 	 */
 	private int normalizeLimit(Integer limit) {
 		if (limit == null || limit <= 0) {
@@ -337,10 +304,6 @@ public class ChatService {
 
 	/**
 	 * Determines whether an answer should be regenerated with a repair prompt.
-	 *
-	 * Repair is triggered when the answer appears to use Vietnamese text,
-	 * mentions internal source wording, or exposes page/chunk/source references
-	 * that should not appear in the final response.
 	 */
 	private boolean needsAnswerRepair(String answer) {
 		if (answer == null || answer.isBlank()) {
@@ -355,7 +318,6 @@ public class ChatService {
 				|| normalized.contains("based on the sources")
 				|| normalized.contains("based on these sources")
 				|| normalized.contains("based on the provided")
-				|| normalized.contains("the sources")
 				|| normalized.matches("(?s).*\\bsource\\s*\\d+\\b.*")
 				|| normalized.matches("(?s).*\\bpage\\s*\\d+\\b.*")
 				|| normalized.matches("(?s).*\\bchunk\\s*\\d+\\b.*");
@@ -363,9 +325,6 @@ public class ChatService {
 
 	/**
 	 * Detects Vietnamese text by checking Unicode characters and normalized keywords.
-	 *
-	 * This helper catches both accented Vietnamese text and normalized Vietnamese
-	 * words that may remain after diacritic removal.
 	 */
 	private boolean containsVietnameseUnicodeText(String answer) {
 		String normalized = Normalizer.normalize(answer, Normalizer.Form.NFD)
@@ -378,9 +337,6 @@ public class ChatService {
 
 	/**
 	 * Detects Vietnamese text using accented characters and common Vietnamese words.
-	 *
-	 * This is used as an additional safeguard before deciding whether the answer
-	 * needs to be repaired.
 	 */
 	private boolean containsVietnameseText(String answer) {
 		return answer.matches(".*[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ].*")
@@ -406,12 +362,54 @@ public class ChatService {
 		try {
 			return objectMapper.readValue(json, StructuredChatAnswer.class);
 		} catch (JsonProcessingException e) {
+			String extracted = extractAnswerText(json);
+			return extracted != null ? new StructuredChatAnswer(extracted, true, List.of()) : null;
+		}
+	}
+
+	private String extractAnswerText(String json) {
+		int answerKey = json.indexOf("\"answer\"");
+		if (answerKey < 0) {
 			return null;
 		}
+		int colon = json.indexOf(':', answerKey);
+		if (colon < 0) {
+			return null;
+		}
+		int valueStart = colon + 1;
+		while (valueStart < json.length() && json.charAt(valueStart) != '"') {
+			valueStart++;
+		}
+		if (valueStart >= json.length()) {
+			return null;
+		}
+		valueStart++;
+		int groundedKey = json.indexOf("\"grounded\"", valueStart);
+		if (groundedKey < 0) {
+			return null;
+		}
+		int valueEnd = groundedKey - 1;
+		while (valueEnd > valueStart && (json.charAt(valueEnd) == ' ' || json.charAt(valueEnd) == ',' || json.charAt(valueEnd) == '"')) {
+			valueEnd--;
+		}
+		if (valueEnd <= valueStart) {
+			return null;
+		}
+		String extracted = json.substring(valueStart, valueEnd + 1).trim();
+		return extracted.isBlank() ? null : extracted;
 	}
 
 	private String extractJson(String rawAnswer) {
 		String trimmed = rawAnswer.trim();
+		if (trimmed.startsWith("```")) {
+			int newline = trimmed.indexOf('\n');
+			if (newline >= 0) {
+				trimmed = trimmed.substring(newline + 1).trim();
+			}
+			if (trimmed.endsWith("```")) {
+				trimmed = trimmed.substring(0, trimmed.length() - 3).trim();
+			}
+		}
 		int start = trimmed.indexOf('{');
 		int end = trimmed.lastIndexOf('}');
 		if (start < 0 || end <= start) {

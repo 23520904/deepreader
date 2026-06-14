@@ -23,6 +23,14 @@ public class IngestionProperties {
 	@Min(0)
 	private int maxRetries = 3;
 
+	// Maximum number of characters in each generated chunk.
+	@Min(100)
+	private int chunkSize = 1000;
+
+	// Number of characters reused from the previous chunk to preserve context.
+	@Min(0)
+	private int chunkOverlap = 150;
+
 	public long getMaxFileSizeBytes() {
 		return maxFileSizeBytes;
 	}
@@ -37,5 +45,21 @@ public class IngestionProperties {
 
 	public void setMaxRetries(int maxRetries) {
 		this.maxRetries = maxRetries;
+	}
+
+	public int getChunkSize() {
+		return chunkSize;
+	}
+
+	public void setChunkSize(int chunkSize) {
+		this.chunkSize = chunkSize;
+	}
+
+	public int getChunkOverlap() {
+		return chunkOverlap;
+	}
+
+	public void setChunkOverlap(int chunkOverlap) {
+		this.chunkOverlap = chunkOverlap;
 	}
 }

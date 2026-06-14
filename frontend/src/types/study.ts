@@ -21,6 +21,7 @@ export type ChatSourceReference = {
   sectionId?: string | null;
   title?: string | null;
   chunkIndex?: number | null;
+  pageNumber?: number | null;
   content?: string | null;
   score?: number | null;
 };

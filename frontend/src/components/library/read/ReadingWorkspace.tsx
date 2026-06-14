@@ -41,6 +41,9 @@ type ReadingWorkspaceProps = {
   /** Ref to the canvas element where the PDF page is drawn. */
   pdfCanvasRef: RefObject<HTMLCanvasElement | null>;
 
+  /** Ref to the overlay canvas drawn on top of the PDF canvas for text highlights. */
+  pdfHighlightCanvasRef: RefObject<HTMLCanvasElement | null>;
+
   /** Ref to the scrollable container around the PDF canvas. */
   pdfCanvasContainerRef: RefObject<HTMLDivElement | null>;
 
@@ -61,6 +64,7 @@ export function ReadingWorkspace({
   isPdfPageRendering,
   pdfRenderMessage,
   pdfCanvasRef,
+  pdfHighlightCanvasRef,
   pdfCanvasContainerRef,
   onPageSelect,
 }: ReadingWorkspaceProps) {
@@ -310,11 +314,18 @@ export function ReadingWorkspace({
                   ref={pdfCanvasContainerRef}
                   className="flex h-[calc(100dvh-250px)] min-h-[460px] items-start justify-center overflow-y-auto overflow-x-hidden overscroll-contain rounded-[6px] bg-[#edf3fb] p-1 sm:h-[76vh] sm:min-h-[620px] sm:p-3 lg:p-4"
                 >
-                  <canvas
-                    ref={pdfCanvasRef}
-                    aria-label={`${title} - page ${activePage.pageNumber}`}
-                    className="h-auto w-full max-w-full bg-white shadow-[0_16px_32px_rgba(15,36,66,0.14)]"
-                  />
+                  <div className="relative h-auto w-full max-w-full">
+                    <canvas
+                      ref={pdfCanvasRef}
+                      aria-label={`${title} - page ${activePage.pageNumber}`}
+                      className="h-auto w-full max-w-full bg-white shadow-[0_16px_32px_rgba(15,36,66,0.14)]"
+                    />
+                    <canvas
+                      ref={pdfHighlightCanvasRef}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-0 top-0"
+                    />
+                  </div>
                 </div>
 
                 {/* Small loading text shown while the current PDF page is rendering. */}

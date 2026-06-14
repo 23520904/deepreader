@@ -30,7 +30,7 @@ public class LlmClientService {
 	/**
 	 * Maximum prompt size sent to Groq before truncation is applied.
 	 */
-	private static final int GROQ_MAX_PROMPT_CHARS = 16_000;
+	private static final int GROQ_MAX_PROMPT_CHARS = 20_000;
 
 	/**
 	 * Provider order used for generation fallback.
@@ -131,7 +131,8 @@ public class LlmClientService {
 			throw new IllegalStateException("Missing required property: deepreader.groq.api-key or Groq user LLM API Token");
 		}
 		WebClient client = webClientBuilder.baseUrl(normalizeUrl(groqProperties.getBaseUrl())).build();
-		GroqChatRequest request = new GroqChatRequest(groqProperties.getChatModel(), List.of(new GroqChatRequest.Message("user", fitGroqPrompt(prompt))), 0.2d);
+		String model = isGroqApiKey(userToken) ? "llama-3.3-70b-versatile" : groqProperties.getChatModel();
+		GroqChatRequest request = new GroqChatRequest(model, List.of(new GroqChatRequest.Message("user", fitGroqPrompt(prompt))), 0.2d, null);
 		GroqChatResponse response;
 		try {
 			response = client.post()
@@ -178,9 +179,6 @@ public class LlmClientService {
 
 	/**
 	 * Normalizes the Gemini base URL before request paths are appended.
-	 *
-	 * If the configured URL already includes a model path, the model-specific
-	 * portion is removed so requests can build the path consistently.
 	 */
 	private String normalizeGeminiBaseUrl(String configuredBaseUrl) {
 		String normalized = StringUtils.hasText(configuredBaseUrl) ? configuredBaseUrl.trim() : "https://generativelanguage.googleapis.com/v1beta";
@@ -192,9 +190,6 @@ public class LlmClientService {
 
 	/**
 	 * Normalizes the Gemini model name used in the generation endpoint.
-	 *
-	 * The request path already adds the models segment, so this method removes it
-	 * when the configured value includes the full model path.
 	 */
 	private String normalizeGeminiModel(String configuredModel) {
 		String normalized = StringUtils.hasText(configuredModel) ? configuredModel.trim() : "gemini-2.0-flash";
@@ -218,9 +213,6 @@ public class LlmClientService {
 
 	/**
 	 * Loads the user's saved LLM API token from the database.
-	 *
-	 * A null value is returned when the user id is missing, the database is not
-	 * available, or no token is saved for the user.
 	 */
 	private String findUserLlmToken(String userId) {
 		if (!StringUtils.hasText(userId) || jdbcTemplate == null) {
@@ -240,9 +232,6 @@ public class LlmClientService {
 
 	/**
 	 * Converts provider HTTP errors into clear application-level exceptions.
-	 *
-	 * This gives callers more actionable messages for invalid keys, quota limits,
-	 * oversized prompts, temporary provider outages, and unknown provider failures.
 	 */
 	private IllegalStateException providerGenerationException(String provider, String envName, WebClientResponseException exception) {
 		int status = exception.getStatusCode().value();

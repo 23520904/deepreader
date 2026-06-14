@@ -8,6 +8,7 @@ import {
   useState,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { AccountAvatar } from "@/components/AccountAvatar";
 import type { ChatMessageView, ChatThreadView, ChatSourceReference } from "@/types/study";
@@ -192,6 +193,150 @@ function getDisplaySources(message: ChatMessageView) {
   return getValidSourceReferences(message.sources);
 }
 
+/** Renders inline Markdown (bold, italic) and [N] citation buttons within a single text string. */
+function renderInline(
+  text: string,
+  keyPrefix: string,
+  sources: ChatSourceReference[],
+  onSourceClick?: (source: ChatSourceReference) => void,
+): ReactNode[] {
+  return text.split(/(\*\*[^*\n]+\*\*|\*[^*\n]+\*|\[\d+\])/).map((part, j) => {
+    if (/^\*\*[^*]+\*\*$/.test(part))
+      return <strong key={`${keyPrefix}-b${j}`}>{part.slice(2, -2)}</strong>;
+    if (/^\*[^*]+\*$/.test(part))
+      return <em key={`${keyPrefix}-i${j}`}>{part.slice(1, -1)}</em>;
+    const m = /^\[(\d+)\]$/.exec(part);
+    if (m) {
+      const num = parseInt(m[1], 10);
+      const src = sources[num - 1];
+      if (src)
+        return (
+          <button
+            key={`${keyPrefix}-c${j}`}
+            type="button"
+            onClick={() => onSourceClick?.(src)}
+            title={`View source ${num}`}
+            className="mx-0.5 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-[#245895] align-middle text-[10px] font-black text-white transition hover:bg-[#1a3f6e]"
+          >
+            {num}
+          </button>
+        );
+    }
+    return <span key={`${keyPrefix}-t${j}`}>{part}</span>;
+  });
+}
+
+/**
+ * Renders an LLM answer as Gemini-style Markdown with inline [N] citation buttons.
+ * Handles: ## headings, **bold**, *italic*, - bullet lists, 1. numbered lists, paragraphs.
+ */
+function renderMarkdownWithCitations(
+  text: string,
+  sources: ChatSourceReference[],
+  onSourceClick?: (source: ChatSourceReference) => void,
+): ReactNode {
+  const lines = text.split("\n");
+  const blocks: ReactNode[] = [];
+  let i = 0;
+
+  const inl = (t: string, kp: string) => renderInline(t, kp, sources, onSourceClick);
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (!line.trim()) { i++; continue; }
+
+    // ATX headings — check most specific first
+    if (line.startsWith("### ")) {
+      blocks.push(
+        <h3 key={i} className="mb-1 mt-4 text-[15px] font-black text-[#0f2442] first:mt-0">
+          {inl(line.slice(4), `h3-${i}`)}
+        </h3>,
+      );
+      i++; continue;
+    }
+    if (line.startsWith("## ")) {
+      blocks.push(
+        <h2 key={i} className="mb-1.5 mt-5 text-[16px] font-black text-[#0f2442] first:mt-0">
+          {inl(line.slice(3), `h2-${i}`)}
+        </h2>,
+      );
+      i++; continue;
+    }
+    if (line.startsWith("# ")) {
+      blocks.push(
+        <h1 key={i} className="mb-2 mt-5 text-[17px] font-black text-[#0f2442] first:mt-0">
+          {inl(line.slice(2), `h1-${i}`)}
+        </h1>,
+      );
+      i++; continue;
+    }
+
+    // Unordered list
+    if (/^[-*] /.test(line)) {
+      const listKey = i;
+      const items: ReactNode[] = [];
+      while (i < lines.length && /^[-*] /.test(lines[i])) {
+        items.push(<li key={i}>{inl(lines[i].slice(2), `li-${i}`)}</li>);
+        i++;
+      }
+      blocks.push(
+        <ul key={`ul-${listKey}`} className="my-1.5 ml-5 list-disc space-y-1">
+          {items}
+        </ul>,
+      );
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+\. /.test(line)) {
+      const listKey = i;
+      const items: ReactNode[] = [];
+      while (i < lines.length && /^\d+\. /.test(lines[i])) {
+        items.push(
+          <li key={i}>{inl(lines[i].replace(/^\d+\. /, ""), `li-${i}`)}</li>,
+        );
+        i++;
+      }
+      blocks.push(
+        <ol key={`ol-${listKey}`} className="my-1.5 ml-5 list-decimal space-y-1">
+          {items}
+        </ol>,
+      );
+      continue;
+    }
+
+    // Paragraph: collect consecutive non-special lines
+    const paraKey = i;
+    const paraLines: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !lines[i].startsWith("# ") &&
+      !lines[i].startsWith("## ") &&
+      !lines[i].startsWith("### ") &&
+      !/^[-*] /.test(lines[i]) &&
+      !/^\d+\. /.test(lines[i])
+    ) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    if (paraLines.length > 0) {
+      blocks.push(
+        <p key={`p-${paraKey}`} className="leading-7">
+          {inl(paraLines.join(" "), `p-${paraKey}`)}
+        </p>,
+      );
+    }
+  }
+
+  return (
+    <div className="space-y-2.5 text-[15px] font-medium text-[#17213a]">
+      {blocks}
+    </div>
+  );
+}
+
 /**
  * One message bubble in the chat.
  * User messages are aligned to the right, and AI messages are aligned to the left.
@@ -212,8 +357,6 @@ function ChatBubble({
 }) {
   const isUser = message.role === "user";
   const displaySources = getDisplaySources(message);
-  const visibleSources = displaySources.slice(0, 3);
-  const hiddenSourceCount = Math.max(displaySources.length - visibleSources.length, 0);
 
   return (
     <div className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
@@ -241,47 +384,55 @@ function ChatBubble({
               : "rounded-bl-[6px] bg-white text-[#17213a] ring-1 ring-[#dce6f4]"
           }`}
         >
-          <p className="whitespace-pre-wrap text-[15px] font-semibold leading-7">
-            {message.content}
-          </p>
-
-          {/* Sources citation line */}
-          {!isUser && visibleSources.length > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-[#6b7a90]">
-              <span className="font-black text-[#245895]">Nguồn:</span>
-
-              {visibleSources.map((source, index) => {
-                const fileLabel = source.fileName?.trim();
-                const chunkLabel =
-                  typeof source.chunkIndex === "number"
-                    ? ` · đoạn ${source.chunkIndex}`
-                    : "";
-                const label =
-                  fileLabel
-                    ? `${fileLabel}${chunkLabel}`
-                    : source.title?.trim() || `Chunk ${source.chunkIndex ?? index + 1}`;
-
-                return (
-                  <button
-                    key={source.chunkId ?? `${source.documentId}-${index}`}
-                    type="button"
-                    onClick={() => onSourceClick?.(source)}
-                    className="max-w-[180px] truncate rounded-full bg-[#eef5ff] px-2 py-0.5 text-[#245895] ring-1 ring-[#dce6f4] transition hover:bg-[#dce6f4] hover:text-[#1a3f6b] cursor-pointer"
-                    title={label}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-
-              {hiddenSourceCount > 0 ? (
-                <span className="rounded-full bg-[#f6f8fb] px-2 py-0.5 text-[#7a879a] ring-1 ring-[#e4eaf3]">
-                  +{hiddenSourceCount} nguồn
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+          {isUser ? (
+            <p className="whitespace-pre-wrap text-[15px] font-semibold leading-7">
+              {message.content}
+            </p>
+          ) : (
+            renderMarkdownWithCitations(message.content, displaySources, onSourceClick)
+          )}
         </div>
+
+        {/* Numbered source cards below assistant messages */}
+        {!isUser && displaySources.length > 0 ? (
+          <div className="mt-1 grid gap-1.5">
+            {displaySources.map((source, index) => {
+              const rawFile = source.fileName?.trim() ?? "";
+              const fileLabel = rawFile
+                ? rawFile.split(/[/\\]/).pop()!.replace(/\.[^.]+$/, "")
+                : source.title?.trim() || "Source";
+              const locationLabel =
+                typeof source.pageNumber === "number"
+                  ? ` · page ${source.pageNumber}`
+                  : typeof source.chunkIndex === "number"
+                  ? ` · chunk ${source.chunkIndex}`
+                  : "";
+              const excerpt = source.content?.trim().slice(0, 120) ?? "";
+              return (
+                <button
+                  key={source.chunkId ?? `${source.documentId}-${index}`}
+                  type="button"
+                  onClick={() => onSourceClick?.(source)}
+                  className="flex items-start gap-2.5 rounded-xl bg-[#f0f6ff] px-3 py-2.5 text-left ring-1 ring-[#d1e3f8] transition hover:bg-[#e0eeff]"
+                >
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#245895] text-[10px] font-black text-white">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-black text-[#245895]">
+                      {fileLabel}{locationLabel}
+                    </p>
+                    {excerpt ? (
+                      <p className="mt-0.5 line-clamp-2 text-[11px] font-medium leading-relaxed text-[#5a7090]">
+                        &ldquo;{excerpt}{excerpt.length >= 120 ? "…" : ""}&rdquo;
+                      </p>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
 
       </div>
 
@@ -315,6 +466,9 @@ export function DocumentChatPanel({
   // Stores the text currently typed in the message box.
   const [draft, setDraft] = useState("");
 
+  // Becomes true when isSending has been true for more than 8 seconds.
+  const [isSlowResponse, setIsSlowResponse] = useState(false);
+
   // Ref to the scrollable messages area.
   const messagesViewportRef = useRef<HTMLDivElement | null>(null);
 
@@ -330,6 +484,17 @@ export function DocumentChatPanel({
   // Memoized history list.
   // This keeps the value stable unless chatThreads changes.
   const historyItems = useMemo(() => chatThreads, [chatThreads]);
+
+  useEffect(() => {
+    if (!isSending) {
+      return;
+    }
+    const timer = window.setTimeout(() => setIsSlowResponse(true), 8000);
+    return () => {
+      window.clearTimeout(timer);
+      setIsSlowResponse(false);
+    };
+  }, [isSending]);
 
   /**
    * Scroll to the bottom whenever a new message appears
@@ -554,22 +719,29 @@ export function DocumentChatPanel({
                     <div className="flex flex-wrap items-center gap-3">
                       <TypingDots />
                       <span className="text-[13px] font-semibold text-[#17213a]">
-                        Đang tìm nguồn trong tài liệu…
+                        {isSlowResponse
+                          ? "Retrying, please wait a moment…"
+                          : "Searching the document…"}
                       </span>
                     </div>
 
                     {validPendingSources.length ? (
                       <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-[#6b7a90]">
-                        <span className="font-black text-[#245895]">Nguồn:</span>
+                        <span className="font-black text-[#245895]">Sources:</span>
                         {validPendingSources.slice(0, 3).map((source, index) => {
-                          const fileLabel = source.fileName?.trim();
-                          const chunkLabel =
-                            typeof source.chunkIndex === "number"
-                              ? ` · đoạn ${source.chunkIndex}`
+                          const rawFile = source.fileName?.trim() ?? "";
+                          const fileLabel = rawFile
+                            ? rawFile.split(/[/\\]/).pop()!.replace(/\.[^.]+$/, "")
+                            : "";
+                          const locationLabel =
+                            typeof source.pageNumber === "number"
+                              ? ` · page ${source.pageNumber}`
+                              : typeof source.chunkIndex === "number"
+                              ? ` · chunk ${source.chunkIndex}`
                               : "";
                           const label =
                             fileLabel
-                              ? `${fileLabel}${chunkLabel}`
+                              ? `${fileLabel}${locationLabel}`
                               : source.title?.trim() || `Chunk ${source.chunkIndex ?? index + 1}`;
 
                           return (
@@ -584,7 +756,7 @@ export function DocumentChatPanel({
                         })}
                         {Math.max(validPendingSources.length - 3, 0) > 0 ? (
                           <span className="rounded-full bg-[#f6f8fb] px-2 py-0.5 text-[#7a879a] ring-1 ring-[#e4eaf3]">
-                            +{validPendingSources.length - 3} nguồn
+                            +{validPendingSources.length - 3} more
                           </span>
                         ) : null}
                       </div>

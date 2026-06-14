@@ -35,16 +35,17 @@ class PromptBuilderServiceTest {
 						"page-1",
 						"Page 1",
 						1,
+						null,
 						"Object-oriented programming in Java uses classes and objects.",
 						1f
 				))
 		);
 
-		// The prompt must clearly tell the AI to hide source and page labels.
-		assertTrue(prompt.contains("Do not include source labels, page labels"));
+		// The prompt must clearly tell the AI to hide source file names and page labels.
+		assertTrue(prompt.contains("Do not include source file names, page labels"));
 
-		// The prompt must also tell the AI to summarize the whole topic for broad questions.
-		assertTrue(prompt.contains("synthesize the overall topic"));
+		// The prompt must restrict the AI to the numbered sources only.
+		assertTrue(prompt.contains("ONLY the numbered sources provided below"));
 	}
 
 	/**
@@ -57,16 +58,19 @@ class PromptBuilderServiceTest {
 	void answerRepairPromptRequiresEnglishAndRemovesSources() {
 		String prompt = promptBuilderService.buildAnswerRepairPrompt(
 				"what is overloading",
-				"Overloading là việc cùng một tên phương thức có thể có các cách triển khai khác nhau. Source 2"
+				"Overloading là việc cùng một tên phương thức có thể có các cách triển khai khác nhau. Source 2",
+				List.of(),
+				18_000,
+				1_800
 		);
 
-		// The repair prompt must require English-only output.
-		assertTrue(prompt.contains("fully in English"));
+		// The repair prompt must flag non-English text as a reason for repair.
+		assertTrue(prompt.contains("non-English text"));
 
-		// The repair prompt must remove source, page, chunk, or citation references.
-		assertTrue(prompt.contains("Remove every mention of sources"));
+		// The repair prompt must tell the AI to exclude source labels and page labels.
+		assertTrue(prompt.contains("Do not include source labels, page labels, chunk IDs as text"));
 
-		// The repair step should clean the wording only, not invent extra facts.
-		assertTrue(prompt.contains("Do not add new facts"));
+		// The repair prompt must require valid JSON output.
+		assertTrue(prompt.contains("valid JSON"));
 	}
 }
