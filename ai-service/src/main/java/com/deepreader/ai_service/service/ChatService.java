@@ -106,7 +106,7 @@ public class ChatService {
 	 */
 	public Mono<ChatAskResponse> ask(String userId, String documentId, String query, Integer limit, String provider) {
 		Integer safeLimit = Math.max(normalizeLimit(limit), GROQ_CANDIDATE_MATCHES);
-		return retrievalService.searchLexical(userId, documentId, query, safeLimit)
+		return retrievalService.search(userId, documentId, query, safeLimit, provider)
 				.flatMap(searchResponse -> Mono.fromCallable(() -> toChatResponse(searchResponse, userId))
 						.subscribeOn(Schedulers.boundedElastic()));
 	}

@@ -1,7 +1,10 @@
+import logging
 import os
 from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException
+
+logger = logging.getLogger(__name__)
 from haystack import Document
 from haystack.utils import Secret
 from haystack_integrations.components.retrievers.qdrant import QdrantEmbeddingRetriever
@@ -87,7 +90,7 @@ def ingest(req: IngestRequest) -> dict[str, int]:
         store.write_documents(documents)
         return {"indexed": len(documents)}
     except Exception as ex:
-        # Hide internal stack traces from API callers, but keep the failure reason in the response.
+        logger.exception("Ingest failed for provider '%s'", req.provider)
         raise HTTPException(status_code=500, detail=f"haystack ingest failed: {ex}") from ex
 
 
@@ -125,5 +128,5 @@ def search(req: SearchRequest) -> SearchResponse:
 
         return SearchResponse(matches=matches)
     except Exception as ex:
-        # Return a consistent API error while preserving the original exception as context.
+        logger.exception("Search failed for provider '%s'", req.provider)
         raise HTTPException(status_code=500, detail=f"haystack search failed: {ex}") from ex
