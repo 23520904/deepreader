@@ -39,7 +39,7 @@ The project is a polyglot microservices system built with **Java** (Spring Boot)
 ### AI Capabilities
 | Feature | Description |
 |---|---|
-| RAG Chat | Ask questions about any uploaded book. AI retrieves relevant chunks from Qdrant and answers with source citations. Chat history is persisted per book. |
+| RAG Chat | Ask questions about any uploaded book. AI retrieves the most relevant chunks from Qdrant, builds a grounded answer with inline **[N]** citation buttons, and renders it as Markdown. Click any citation to jump to the exact passage in the PDF, which is highlighted on the canvas. Chat history is persisted per book. |
 | Summarization | Generate a full-book summary using Gemini or Groq. Multiple summaries can be stored and listed per book. |
 | Flashcards | Generate 1–50 study cards per request. Cards are stored and available in the deck library. |
 | Vision / OCR | PDF pages are rasterized and passed to Gemini Vision for image-level analysis. Embedded images are also extractable. |
@@ -156,7 +156,7 @@ The core service. Handles document parsing, chunking, embedding, vector storage,
 ```
 TextExtractionService  →  parse PDF (PDFBox) or EPUB (epublib) into sections
 ChunkingService        →  split into overlapping DocumentChunks
-EmbeddingService       →  batch embed with Gemini text-embedding-004 (rate-aware, retries)
+EmbeddingService       →  batch embed with Gemini gemini-embedding-001 / 768-dim (rate-aware, retries)
 haystack-service       →  POST /ingest → write vectors to Qdrant
 IngestionJobService    →  update job status to COMPLETED
 ```
@@ -165,7 +165,7 @@ IngestionJobService    →  update job status to COMPLETED
 |---|---|
 | `DocumentIngestionService` | Top-level pipeline coordinator |
 | `TextExtractionService` | PDF / EPUB → text sections |
-| `ChunkingService` | Sections → overlapping chunks |
+| `ChunkingService` | Sections → overlapping chunks (1,500 chars / 200 overlap) |
 | `EmbeddingService` | Gemini batch embedding with retry and delay |
 | `QdrantVectorStoreService` | gRPC upsert / search |
 | `RetrievalService` | Query embed → top-K chunk retrieval |
@@ -184,7 +184,7 @@ IngestionJobService    →  update job status to COMPLETED
 **Supported AI providers:**
 | Provider | Used for | Default model |
 |---|---|---|
-| Google Gemini | Embeddings | `text-embedding-004` |
+| Google Gemini | Embeddings | `gemini-embedding-001` (768-dim) |
 | Google Gemini | Vision analysis | Gemini Vision |
 | Google Gemini | Text generation | configurable |
 | Groq | Chat / generation | `llama-3.1-8b-instant` |
@@ -405,7 +405,7 @@ Collections: `books` · `chapters` · `chapter_summaries` · `flashcards` · `ch
 ### Redis 7 (`:6379`)
 Used by `web-module` (JWT sessions, rate-limit counters) and `ai-service` (guardrail counters). Persistence enabled with `appendonly yes`.
 ### Qdrant (`:6333` / `:6334`)
-Vector database used by `ai-service` (gRPC) and `haystack-service` (HTTP). Per-provider collections: `document_chunks_gemini`, `document_chunks_groq`, etc. Vectors are 768-dimensional with cosine similarity (Gemini `text-embedding-004`).
+Vector database used by `ai-service` (gRPC) and `haystack-service` (HTTP). Per-provider collections: `document_chunks_gemini`, `document_chunks_groq`, etc. Vectors are 768-dimensional with cosine similarity (Gemini `gemini-embedding-001`).
 ### Object Storage
 Optional. When `STORAGE_ENABLED=false`, files are stored locally. When enabled, uses AWS S3 SDK v2 against any S3-compatible endpoint (AWS, Backblaze B2, MinIO, etc.).
 ---
@@ -540,11 +540,3 @@ deepreader/
 | Apache Kafka | Aiven Cloud | Event streaming |
 | Prometheus | — | Metrics |
 | Grafana | — | Dashboards |
----
-## Docs
-| File | Description |
-|---|---|
-| [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md) | Full startup walkthrough and workflow guide |
-| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Complete request/response contracts for all services |
-| [`docs/PRODUCTION_DEPLOYMENT_RUNBOOK.md`](docs/PRODUCTION_DEPLOYMENT_RUNBOOK.md) | Production deployment checklist |
-| [`docs/GRANT_ADMIN_MANUAL.md`](docs/GRANT_ADMIN_MANUAL.md) | How to grant the ADMIN role |
