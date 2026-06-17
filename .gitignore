@@ -9,3 +9,6 @@ frontend/dist/
 target/
 *.log
 test-all-apis.js
+
+.idea/
+.env

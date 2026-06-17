@@ -144,7 +144,13 @@ public class LlmClientService {
 	}
 
 	private boolean isGeminiApiKey(String value) {
-		return StringUtils.hasText(value) && !isGroqApiKey(value);
+		if (!StringUtils.hasText(value)) {
+			return false;
+		}
+
+		String trimmed = value.trim();
+
+		return trimmed.startsWith("AIza") || trimmed.startsWith("AQ");
 	}
 
 	private String findUserLlmToken(String userId) {
