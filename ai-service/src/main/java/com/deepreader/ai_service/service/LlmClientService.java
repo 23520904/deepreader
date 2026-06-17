@@ -208,7 +208,13 @@ public class LlmClientService {
 	 * Checks whether a token should be treated as a Gemini API key.
 	 */
 	private boolean isGeminiApiKey(String value) {
-		return StringUtils.hasText(value) && !isGroqApiKey(value);
+		if (!StringUtils.hasText(value)) {
+			return false;
+		}
+
+		String trimmed = value.trim();
+
+		return trimmed.startsWith("AIza") || trimmed.startsWith("AQ");
 	}
 
 	/**
