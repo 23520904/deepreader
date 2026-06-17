@@ -21,28 +21,24 @@ export const AI_PROVIDERS = [
     label: "Groq",
     keyPrefix: "gsk_",
     keyPlaceholder: "gsk_................................................",
-    keyHint: "Key starts with gsk_ - create one at console.groq.com",
+    keyHint: 'Key starts with "gsk_" - create one at console.groq.com',
     link: "https://console.groq.com/keys",
     models: [
       { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant (default)" },
       { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B Versatile" },
-      { id: "llama-3.1-70b-versatile", label: "Llama 3.1 70B Versatile" },
-      { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B 32K" },
-      { id: "gemma2-9b-it", label: "Gemma 2 9B IT" },
     ],
   },
   {
     id: "gemini",
     label: "Google Gemini",
-    keyPrefix: "",
+    keyPrefix: "AIza",
     keyPlaceholder: "AIza....................................",
-    keyHint:
-      "Key does not start with gsk_ - create one at aistudio.google.com",
+    keyHint: 'Key starts with "AIza" - create one at aistudio.google.com',
     link: "https://aistudio.google.com/app/apikey",
     models: [
-      { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash (default)" },
-      { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
-      { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+      { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash (default)" },
+      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
     ],
   },
 ] as const;
@@ -61,13 +57,23 @@ type ConfigureModalProps = {
 };
 
 // Detects the provider based on the API key format.
-// Groq keys start with "gsk_", while other keys are treated as Gemini keys.
+// Groq keys start with "gsk_", Gemini keys usually start with "AIza".
 function detectProviderFromKey(key: string): ProviderId | null {
-  if (!key.trim()) {
+  const trimmed = key.trim();
+
+  if (!trimmed) {
     return null;
   }
 
-  return key.trim().startsWith("gsk_") ? "groq" : "gemini";
+  if (trimmed.startsWith("gsk_")) {
+    return "groq";
+  }
+
+  if (trimmed.startsWith("AIza")) {
+    return "gemini";
+  }
+
+  return null;
 }
 
 // Checks whether the API key looks valid for the selected provider.
@@ -83,8 +89,8 @@ function validateApiKey(key: string, providerId: ProviderId): string | null {
     return 'Groq API key must start with "gsk_".';
   }
 
-  if (providerId === "gemini" && trimmed.startsWith("gsk_")) {
-    return 'Gemini API key must not start with "gsk_". If this is a Groq key, choose Groq.';
+  if (providerId === "gemini" && !trimmed.startsWith("AIza")) {
+    return 'Gemini API key must start with "AIza".';
   }
 
   if (trimmed.length < 20) {
@@ -92,6 +98,71 @@ function validateApiKey(key: string, providerId: ProviderId): string | null {
   }
 
   return null;
+}
+
+// Extracts a useful message from nested backend error responses.
+function extractErrorMessage(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  let message = value.trim();
+
+  for (let i = 0; i < 3; i += 1) {
+    if (!message.startsWith("{")) {
+      break;
+    }
+
+    try {
+      const parsed = JSON.parse(message) as {
+        error?: unknown;
+        message?: unknown;
+      };
+
+      const next =
+        typeof parsed.error === "string"
+          ? parsed.error
+          : typeof parsed.message === "string"
+            ? parsed.message
+            : null;
+
+      if (!next || next === message) {
+        break;
+      }
+
+      message = next.trim();
+    } catch {
+      break;
+    }
+  }
+
+  return message || null;
+}
+
+// Converts provider/key errors into a clearer frontend message.
+function friendlySaveError(message: string): string {
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes("api_key_invalid") ||
+    lower.includes("invalid_api_key") ||
+    lower.includes("api key not found") ||
+    lower.includes("api key is invalid") ||
+    lower.includes("invalid or expired") ||
+    lower.includes("invalid api key")
+  ) {
+    return "AI key is invalid or expired. Please update your Groq/Gemini key and try again.";
+  }
+
+  if (
+    lower.includes("quota") ||
+    lower.includes("rate limit") ||
+    lower.includes("resource_exhausted")
+  ) {
+    return "AI provider quota or rate limit was exceeded. Please check your provider plan or try again later.";
+  }
+
+  return message;
 }
 
 // Sends the user's LLM API key to the backend server.
@@ -118,15 +189,19 @@ async function saveLlmToken(
 
     try {
       const data = (await response.json()) as {
-        error?: string;
-        message?: string;
+        error?: unknown;
+        message?: unknown;
       };
-      message = data.error ?? data.message ?? message;
+
+      message =
+        extractErrorMessage(data.error) ??
+        extractErrorMessage(data.message) ??
+        message;
     } catch {
       /* Keep the default user-facing message. */
     }
 
-    throw new Error(message);
+    throw new Error(friendlySaveError(message));
   }
 }
 

@@ -32,8 +32,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Map;
-
 /**
  * Internal controller for book-related business operations.
  *
@@ -164,19 +162,25 @@ public class LibraryBusinessController {
 	 * Lists saved summaries for a book.
 	 */
 	@GetMapping("/{bookId}/summaries")
-	public Flux<ChapterSummary> listSummaries(@PathVariable String bookId, @RequestParam String userId) { return libraryOrchestrationService.listSummaries(userId, bookId); }
+	public Flux<ChapterSummary> listSummaries(@PathVariable String bookId, @RequestParam String userId) {
+		return libraryOrchestrationService.listSummaries(userId, bookId);
+	}
 
 	/**
 	 * Lists saved flashcards for a book.
 	 */
 	@GetMapping("/{bookId}/flashcards")
-	public Flux<Flashcard> listFlashcards(@PathVariable String bookId, @RequestParam String userId) { return libraryOrchestrationService.listFlashcards(userId, bookId); }
+	public Flux<Flashcard> listFlashcards(@PathVariable String bookId, @RequestParam String userId) {
+		return libraryOrchestrationService.listFlashcards(userId, bookId);
+	}
 
 	/**
 	 * Lists saved chat history for a book.
 	 */
 	@GetMapping("/{bookId}/chats")
-	public Flux<ChatHistory> listChats(@PathVariable String bookId, @RequestParam String userId) { return libraryOrchestrationService.listChats(userId, bookId); }
+	public Flux<ChatHistory> listChats(@PathVariable String bookId, @RequestParam String userId) {
+		return libraryOrchestrationService.listChats(userId, bookId);
+	}
 
 	/**
 	 * Deletes a chat thread for a book.
@@ -245,18 +249,36 @@ public class LibraryBusinessController {
 	/**
 	 * Converts downstream WebClient errors into a consistent error response.
 	 *
-	 * <p>The upstream response body is preferred because it often contains a more
-	 * useful service-specific error message. If the upstream status is somehow
-	 * successful, it is treated as a bad gateway because this handler is only for errors.
+	 * <p>The upstream response body is returned directly when available to avoid
+	 * nested JSON strings such as {"error":"{\"error\":\"...\"}"}.
 	 */
 	@ExceptionHandler(WebClientResponseException.class)
-	public ResponseEntity<Map<String, String>> handleUpstreamWebClientError(WebClientResponseException ex) {
+	public ResponseEntity<String> handleUpstreamWebClientError(WebClientResponseException ex) {
 		String responseBody = ex.getResponseBodyAsString();
-		String message = StringUtils.hasText(responseBody) ? responseBody : ex.getMessage();
+
+		if (!StringUtils.hasText(responseBody)) {
+			responseBody = "{\"error\":\"" + escapeJson(ex.getMessage()) + "\"}";
+		}
+
 		HttpStatus status = ex.getStatusCode().is2xxSuccessful()
 				? HttpStatus.BAD_GATEWAY
 				: HttpStatus.valueOf(ex.getStatusCode().value());
 
-		return ResponseEntity.status(status).body(Map.of("error", message));
+		return ResponseEntity
+				.status(status)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(responseBody);
+	}
+
+	private String escapeJson(String value) {
+		if (value == null) {
+			return "";
+		}
+
+		return value
+				.replace("\\", "\\\\")
+				.replace("\"", "\\\"")
+				.replace("\n", "\\n")
+				.replace("\r", "\\r");
 	}
 }

@@ -33,8 +33,6 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Map;
-
 /**
  * Public gateway controller for book-related APIs.
  *
@@ -214,17 +212,36 @@ public class PublicGatewayController {
 	/**
 	 * Converts downstream business-service errors into a consistent API response.
 	 *
-	 * <p>The upstream response body is preferred when available because it often
-	 * contains the most useful error message.
+	 * <p>The upstream response body is returned directly when available to avoid
+	 * nested JSON strings such as {"error":"{\"error\":\"...\"}"}.
 	 */
 	@ExceptionHandler(WebClientResponseException.class)
-	public ResponseEntity<Map<String, String>> handleUpstreamWebClientError(WebClientResponseException ex) {
+	public ResponseEntity<String> handleUpstreamWebClientError(WebClientResponseException ex) {
 		String responseBody = ex.getResponseBodyAsString();
-		String message = StringUtils.hasText(responseBody) ? responseBody : ex.getMessage();
+
+		if (!StringUtils.hasText(responseBody)) {
+			responseBody = "{\"error\":\"" + escapeJson(ex.getMessage()) + "\"}";
+		}
+
 		HttpStatus status = ex.getStatusCode().is2xxSuccessful()
 				? HttpStatus.BAD_GATEWAY
 				: HttpStatus.valueOf(ex.getStatusCode().value());
 
-		return ResponseEntity.status(status).body(Map.of("error", message));
+		return ResponseEntity
+				.status(status)
+				.contentType(MediaType.APPLICATION_JSON)
+				.body(responseBody);
+	}
+
+	private String escapeJson(String value) {
+		if (value == null) {
+			return "";
+		}
+
+		return value
+				.replace("\\", "\\\\")
+				.replace("\"", "\\\"")
+				.replace("\n", "\\n")
+				.replace("\r", "\\r");
 	}
 }

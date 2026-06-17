@@ -41,6 +41,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.Map;
@@ -301,10 +302,29 @@ public class DocumentIngestionController {
 	 */
 	@ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
 	public ResponseEntity<Map<String, String>> handleBadRequest(RuntimeException ex) {
-		if (ex.getMessage() != null && ex.getMessage().contains("rate limit exceeded")) {
-			return ResponseEntity.status(429).body(Map.of("error", ex.getMessage()));
+		String message = ex.getMessage() == null ? "Request failed" : ex.getMessage();
+		String lower = message.toLowerCase();
+
+		if (lower.contains("rate limit exceeded")) {
+			return ResponseEntity.status(429).body(Map.of("error", message));
 		}
-		return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+
+		if (lower.contains("groq")
+				|| lower.contains("gemini")
+				|| lower.contains("api key")
+				|| lower.contains("llm")
+				|| lower.contains("generation failed")
+				|| lower.contains("quota")
+				|| lower.contains("model access")) {
+			return ResponseEntity
+					.status(HttpStatus.BAD_GATEWAY)
+					.body(Map.of(
+							"code", "AI_PROVIDER_ERROR",
+							"error", message
+					));
+		}
+
+		return ResponseEntity.badRequest().body(Map.of("error", message));
 	}
 
 	/**

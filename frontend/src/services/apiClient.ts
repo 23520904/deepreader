@@ -4,7 +4,19 @@ import type { UploadProgressSnapshot } from "@/types/library";
  * Common options used for JSON API requests.
  */
 type ApiRequestOptions = RequestInit & {
+  /**
+   * Pass this for APIs that require authentication.
+   * If token is provided but empty/undefined, the request will be rejected early.
+   */
   token?: string;
+
+  /**
+   * Optional override.
+   * - true: force this request to require a Bearer token.
+   * - false: allow request without token even if token is omitted.
+   */
+  requiresAuth?: boolean;
+
   fallbackError: string;
   transformErrorMessage?: (message: string) => string;
 };
@@ -83,14 +95,23 @@ export function unwrapErrorMessage(value: string, maxDepth = 4) {
  * Convert provider-specific AI errors into user-friendly messages.
  */
 export function friendlyProviderError(message: string) {
-  if (message.includes("invalid_api_key") || message.includes("Incorrect API key")) {
+  const lowerMessage = message.toLowerCase();
+
+  if (
+    message.includes("invalid_api_key") ||
+    message.includes("Incorrect API key") ||
+    lowerMessage.includes("api key is invalid") ||
+    lowerMessage.includes("invalid or expired") ||
+    lowerMessage.includes("unauthorized")
+  ) {
     return "The configured AI key was rejected. Update the Groq or Gemini key, then retry.";
   }
 
   if (
     message.includes("RESOURCE_EXHAUSTED") ||
-    message.toLowerCase().includes("quota") ||
-    message.includes("TOO_MANY_REQUESTS")
+    lowerMessage.includes("quota") ||
+    message.includes("TOO_MANY_REQUESTS") ||
+    lowerMessage.includes("rate limit")
   ) {
     return "AI quota or rate limit was exceeded. DeepReader tries Groq first and falls back to Gemini when available.";
   }
@@ -108,16 +129,40 @@ export async function parseErrorMessage(
   transformErrorMessage?: (message: string) => string,
 ) {
   try {
-    const payload = (await response.json()) as {
-      error?: string;
-      message?: string;
-    };
-    const message = unwrapErrorMessage(payload.error ?? payload.message ?? fallback);
+    const responseText = await response.text();
 
-    return transformErrorMessage ? transformErrorMessage(message) : message;
+    if (!responseText.trim()) {
+      return transformErrorMessage ? transformErrorMessage(fallback) : fallback;
+    }
+
+    let message = responseText;
+
+    try {
+      const payload = JSON.parse(responseText) as {
+        error?: string;
+        message?: string;
+      };
+
+      message = payload.error ?? payload.message ?? responseText;
+    } catch {
+      message = responseText;
+    }
+
+    const readableMessage = unwrapErrorMessage(message);
+
+    return transformErrorMessage
+      ? transformErrorMessage(readableMessage)
+      : readableMessage;
   } catch {
     return transformErrorMessage ? transformErrorMessage(fallback) : fallback;
   }
+}
+
+/**
+ * Normalize and validate an auth token.
+ */
+function cleanAuthToken(token: string | undefined) {
+  return typeof token === "string" ? token.trim() : "";
 }
 
 /**
@@ -130,20 +175,54 @@ export async function parseErrorMessage(
  */
 export async function apiRequestJson<T>(
   path: string,
-  { token, fallbackError, transformErrorMessage, ...options }: ApiRequestOptions,
+  options: ApiRequestOptions,
 ) {
-  const headers = new Headers(options.headers);
+  const {
+    token,
+    requiresAuth,
+    fallbackError,
+    transformErrorMessage,
+    ...requestOptions
+  } = options;
 
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+  const headers = new Headers(requestOptions.headers);
+
+  /**
+   * If the caller includes the `token` option, this usually means the endpoint
+   * requires auth. This catches cases where session.token is undefined/empty
+   * before the request reaches the backend as "Missing Bearer token".
+   */
+  const tokenOptionWasProvided = Object.prototype.hasOwnProperty.call(
+    options,
+    "token",
+  );
+
+  const shouldRequireAuth = requiresAuth ?? tokenOptionWasProvided;
+  const cleanedToken = cleanAuthToken(token);
+
+  if (cleanedToken) {
+    headers.set("Authorization", `Bearer ${cleanedToken}`);
+  } else if (shouldRequireAuth) {
+    throw new ApiError(
+      "Your login session is missing or expired. Please log in again.",
+      401,
+    );
   }
 
-  if (options.body && !headers.has("Content-Type") && !(options.body instanceof FormData)) {
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
+
+  if (
+    requestOptions.body &&
+    !headers.has("Content-Type") &&
+    !(requestOptions.body instanceof FormData)
+  ) {
     headers.set("Content-Type", "application/json");
   }
 
   const response = await fetch(resolveApiUrl(path), {
-    ...options,
+    ...requestOptions,
     headers,
   });
 
@@ -160,7 +239,7 @@ export async function apiRequestJson<T>(
 
   const responseText = await response.text();
 
-  if (!responseText) {
+  if (!responseText.trim()) {
     return undefined as T;
   }
 
@@ -175,9 +254,18 @@ export async function apiRequestBlob(
   path: string,
   { token, fallbackError, transformErrorMessage }: BlobRequestOptions,
 ) {
+  const cleanedToken = cleanAuthToken(token);
+
+  if (!cleanedToken) {
+    throw new ApiError(
+      "Your login session is missing or expired. Please log in again.",
+      401,
+    );
+  }
+
   const response = await fetch(resolveApiUrl(path), {
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${cleanedToken}`,
       Accept: "application/pdf,application/octet-stream,*/*",
     },
   });
@@ -262,6 +350,17 @@ export function requestUploadWithProgress<T>({
   fallbackError: string;
   onProgress: (snapshot: UploadProgressSnapshot) => void;
 }) {
+  const cleanedToken = cleanAuthToken(token);
+
+  if (!cleanedToken) {
+    return Promise.reject(
+      new ApiError(
+        "Your login session is missing or expired. Please log in again.",
+        401,
+      ),
+    );
+  }
+
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const startedAt = performance.now();
@@ -294,7 +393,7 @@ export function requestUploadWithProgress<T>({
     }
 
     xhr.open("POST", resolveApiUrl(path));
-    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.setRequestHeader("Authorization", `Bearer ${cleanedToken}`);
     xhr.responseType = "text";
 
     /**
